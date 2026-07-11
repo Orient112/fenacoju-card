@@ -1,0 +1,326 @@
+const TOKEN_KEY = 'fenacoju_token';
+const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+
+function apiUrl(path) {
+  return `${API_BASE}${path}`;
+}
+
+/** Préfixe les chemins /uploads/ avec l'URL du backend en production. */
+export function resolveMediaUrl(url) {
+  if (!url) return '';
+  if (url.startsWith('http') || url.startsWith('blob:') || url.startsWith('data:')) return url;
+  if (url.startsWith('/')) return apiUrl(url);
+  return url;
+}
+
+export function getToken() {
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+export function setToken(token) {
+  localStorage.setItem(TOKEN_KEY, token);
+}
+
+export function clearToken() {
+  localStorage.removeItem(TOKEN_KEY);
+}
+
+async function apiFetch(url, options = {}) {
+  const token = getToken();
+  const headers = { ...options.headers };
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  if (!(options.body instanceof FormData)) {
+    headers['Content-Type'] = headers['Content-Type'] || 'application/json';
+  }
+
+  const res = await fetch(apiUrl(url), { ...options, headers });
+
+  if (res.status === 401 && !url.includes('/auth/login')) {
+    clearToken();
+    window.dispatchEvent(new Event('auth:logout'));
+  }
+
+  return res;
+}
+
+export async function loginUser(identifier, password) {
+  const res = await fetch(apiUrl('/api/auth/login'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ identifier, password }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Erreur de connexion');
+  }
+
+  const data = await res.json();
+  setToken(data.token);
+  return data;
+}
+
+export async function logoutUser() {
+  const token = getToken();
+  if (token) {
+    await fetch(apiUrl('/api/auth/logout'), {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    }).catch(() => {});
+  }
+  clearToken();
+}
+
+export async function fetchCurrentUser() {
+  const token = getToken();
+  if (!token) return null;
+
+  const res = await fetch(apiUrl('/api/auth/me'), {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!res.ok) {
+    clearToken();
+    return null;
+  }
+
+  return res.json();
+}
+
+export async function createUser(data) {
+  const isFormData = data instanceof FormData;
+  const res = await apiFetch('/api/users', {
+    method: 'POST',
+    body: isFormData ? data : JSON.stringify(data),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Erreur lors de la création');
+  }
+
+  return res.json();
+}
+
+export async function updateUser(id, data) {
+  const isFormData = data instanceof FormData;
+  const res = await apiFetch(`/api/users/${id}`, {
+    method: 'PUT',
+    body: isFormData ? data : JSON.stringify(data),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Erreur lors de la mise à jour');
+  }
+
+  return res.json();
+}
+
+export async function deleteUser(id) {
+  const res = await apiFetch(`/api/users/${id}`, { method: 'DELETE' });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Erreur lors de la suppression');
+  }
+  return res.json();
+}
+
+export async function resetUserPassword(id, password) {
+  const res = await apiFetch(`/api/users/${id}/reset-password`, {
+    method: 'PUT',
+    body: JSON.stringify({ password }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Erreur lors de la réinitialisation');
+  }
+
+  return res.json();
+}
+
+export async function fetchUsers(search = '') {
+  const res = await apiFetch(`/api/users?search=${encodeURIComponent(search)}`);
+  if (!res.ok) throw new Error('Impossible de charger les utilisateurs');
+  return res.json();
+}
+
+export function getUserClub(user) {
+  if (!user) return null;
+  if (user.type === 'club') return user.nom_club;
+  if (user.type === 'entraineur') return user.club;
+  return null;
+}
+
+export async function fetchClubs() {
+  const res = await apiFetch('/api/clubs');
+  if (!res.ok) throw new Error('Impossible de charger les clubs');
+  return res.json();
+}
+
+export async function fetchStats() {
+  const res = await apiFetch('/api/stats');
+  if (!res.ok) throw new Error('Impossible de charger les statistiques');
+  return res.json();
+}
+
+export async function fetchJudokas(search = '') {
+  const res = await apiFetch(`/api/judokas?search=${encodeURIComponent(search)}`);
+  if (!res.ok) throw new Error('Impossible de charger les judokas');
+  return res.json();
+}
+
+export async function fetchJudoka(id) {
+  const res = await apiFetch(`/api/judokas/${id}`);
+  if (!res.ok) throw new Error('Judoka introuvable');
+  return res.json();
+}
+
+export async function createJudoka(formData) {
+  const res = await apiFetch('/api/judokas', { method: 'POST', body: formData });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Erreur lors de la création');
+  }
+  return res.json();
+}
+
+export async function updateJudoka(id, formData) {
+  const res = await apiFetch(`/api/judokas/${id}`, { method: 'PUT', body: formData });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Erreur lors de la mise à jour');
+  }
+  return res.json();
+}
+
+export async function deleteJudoka(id) {
+  const res = await apiFetch(`/api/judokas/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error('Erreur lors de la suppression');
+  return res.json();
+}
+
+export function formatDate(dateStr) {
+  if (!dateStr) return '';
+  const [y, m, d] = dateStr.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+export function calcAge(dateNaissance) {
+  const today = new Date();
+  const birth = new Date(dateNaissance);
+  let age = today.getFullYear() - birth.getFullYear();
+  const m = today.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+  return age;
+}
+
+export function getCardValidityYear(judoka) {
+  const base = judoka.date_inscription || judoka.created_at?.split('T')[0];
+  if (!base) return new Date().getFullYear() + 1;
+  const d = new Date(base);
+  if (Number.isNaN(d.getTime())) return new Date().getFullYear() + 1;
+  return d.getFullYear() + 1;
+}
+
+export async function uploadClubDocuments(userId, docs) {
+  const formData = new FormData();
+  Object.entries(docs).forEach(([key, file]) => {
+    if (file) formData.append(key, file);
+  });
+  const res = await apiFetch(`/api/users/${userId}/documents`, {
+    method: 'POST',
+    body: formData,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Erreur lors du téléversement des documents');
+  }
+  return res.json();
+}
+
+export async function fetchMessageContacts() {
+  const res = await apiFetch('/api/messages/contacts');
+  if (!res.ok) throw new Error('Impossible de charger les contacts');
+  return res.json();
+}
+
+export async function fetchConversation(userId) {
+  const res = await apiFetch(`/api/messages/conversation/${userId}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Impossible de charger la conversation');
+  }
+  return res.json();
+}
+
+export async function sendMessage(toId, subject, body) {
+  const res = await apiFetch('/api/messages', {
+    method: 'POST',
+    body: JSON.stringify({ to_id: toId, subject, body }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Erreur lors de l\'envoi');
+  }
+  return res.json();
+}
+
+export async function fetchUnreadMessages() {
+  const res = await apiFetch('/api/messages/unread');
+  if (!res.ok) return { count: 0 };
+  return res.json();
+}
+
+export const FENACOJU_BLUE = '#0072bb';
+
+export const FEDERATION_FONCTIONS = [
+  'Coordon',
+  'Coordon Adjoint',
+  'Secrétaire Général',
+  'Directeur Technique',
+  'Responsable Affiliation',
+  'Membre',
+  'Assistant (e)',
+];
+
+export const USER_TYPES = {
+  federation: { label: 'Membre de la Fédération', description: 'Personnel administratif de la fédération' },
+  club: { label: 'Club', description: 'Enregistrer un nouveau club affilié' },
+  entraineur: { label: 'Entraineur', description: 'Enregistrer un entraineur / coach' },
+};
+
+export const GRADES = [
+  'Blanche',
+  'Blanche-Jaune',
+  'Jaune',
+  'Jaune-Orange',
+  'Orange',
+  'Orange-Verte',
+  'Verte',
+  'Verte-Bleue',
+  'Bleue',
+  'Bleue-Marron',
+  'Marron',
+  'Noire 1er Dan',
+  'Noire 2ème Dan',
+  'Noire 3ème Dan',
+  'Noire 4ème Dan',
+  'Noire 5ème Dan',
+];
+
+export const CATEGORIES = [
+  'Mini-poussins',
+  'Poussins',
+  'Benjamins',
+  'Minimes',
+  'Cadets',
+  'Juniors',
+  'Seniors',
+  'Vétérans',
+];

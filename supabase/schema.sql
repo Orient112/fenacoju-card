@@ -1,0 +1,73 @@
+-- FENACOJU Card — Schéma Supabase
+-- Exécutez ce script dans Supabase → SQL Editor
+
+create extension if not exists "uuid-ossp";
+
+create table if not exists users (
+  id uuid primary key default gen_random_uuid(),
+  type text not null check (type in ('admin', 'federation', 'club', 'entraineur')),
+  username text,
+  email text unique not null,
+  password text not null,
+  nom text,
+  prenom text,
+  fonction text,
+  nom_club text,
+  ville text,
+  responsable text,
+  club text,
+  grade text,
+  telephone text default '',
+  documents jsonb default '{}'::jsonb,
+  created_at timestamptz default now()
+);
+
+create table if not exists sessions (
+  token text primary key,
+  user_id uuid not null references users(id) on delete cascade,
+  expires_at bigint not null
+);
+
+create index if not exists idx_sessions_user_id on sessions(user_id);
+
+create table if not exists judokas (
+  id uuid primary key default gen_random_uuid(),
+  numero_carte text unique not null,
+  nom text not null,
+  prenom text not null,
+  date_naissance date not null,
+  sexe text not null default 'M',
+  club text not null,
+  grade text not null,
+  categorie text default '',
+  numero_licence text default '',
+  telephone text default '',
+  email text default '',
+  photo text default '',
+  entraineur_id text default '',
+  entraineur_nom text default '',
+  date_inscription date default current_date,
+  statut text default 'actif',
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create index if not exists idx_judokas_club on judokas(club);
+create index if not exists idx_judokas_numero on judokas(numero_carte);
+
+create table if not exists messages (
+  id uuid primary key default gen_random_uuid(),
+  from_id uuid not null references users(id) on delete cascade,
+  to_id uuid not null references users(id) on delete cascade,
+  subject text default '',
+  body text not null,
+  read boolean default false,
+  created_at timestamptz default now()
+);
+
+create index if not exists idx_messages_to on messages(to_id);
+create index if not exists idx_messages_from on messages(from_id);
+
+insert into storage.buckets (id, name, public)
+values ('fenacoju-uploads', 'fenacoju-uploads', true)
+on conflict (id) do update set public = true;
