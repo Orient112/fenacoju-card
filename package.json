@@ -11,7 +11,8 @@
     "build": "vite build",
     "start": "node server/index.js",
     "preview": "vite preview",
-    "migrate:supabase": "node scripts/migrate-to-supabase.js"
+    "migrate:supabase": "node scripts/migrate-to-supabase.js",
+    "test:supabase": "node scripts/test-supabase.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.2",

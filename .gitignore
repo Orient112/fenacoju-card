@@ -6,3 +6,4 @@ uploads/
 sessions.json
 .DS_Store
 .env
+supabase/.env
