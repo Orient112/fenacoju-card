@@ -513,8 +513,8 @@ if (fs.existsSync(distPath)) {
 async function startServer() {
   try {
     await ensureAdminExists();
-    const server = app.listen(PORT, () => {
-      console.log(`Serveur FENACOJU Card démarré sur http://localhost:${PORT}`);
+    const server = app.listen(PORT, '0.0.0.0', () => {
+      console.log(`Serveur FENACOJU Card démarré sur le port ${PORT}`);
       console.log(`Stockage: ${isSupabaseEnabled() ? 'Supabase' : 'local (JSON)'}`);
     });
 

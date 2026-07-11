@@ -14,6 +14,9 @@
     "migrate:supabase": "node scripts/migrate-to-supabase.js",
     "test:supabase": "node scripts/test-supabase.js"
   },
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.2",
     "cors": "^2.8.5",
