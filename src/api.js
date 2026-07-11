@@ -277,7 +277,7 @@ export async function fetchUnreadMessages() {
   return res.json();
 }
 
-export const FENACOJU_BLUE = '#0072bb';
+export const FENACOJU_BLUE = '#1D4393';
 
 export const FEDERATION_FONCTIONS = [
   'Coordon',

@@ -247,31 +247,19 @@ export default function JudokaForm({ judoka, lockedClub, registeredClubs = [], e
 
 
             {photoPreview && (
-
               <div className="photo-preview-wrap">
-
                 <img src={resolveMediaUrl(photoPreview)} alt="Aperçu" className="photo-preview" />
-
                 <button
-
                   type="button"
-
                   className="btn btn-outline btn-sm photo-remove"
-
                   onClick={() => { setPhoto(null); setPhotoPreview(null); }}
-
                 >
-
                   Supprimer la photo
-
                 </button>
-
               </div>
-
             )}
 
-
-
+            {!photoPreview && (
             <div className="photo-options">
 
               <div className="photo-option">
@@ -339,6 +327,7 @@ export default function JudokaForm({ judoka, lockedClub, registeredClubs = [], e
               </div>
 
             </div>
+            )}
 
           </div>
 

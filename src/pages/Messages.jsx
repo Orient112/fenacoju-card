@@ -27,18 +27,39 @@ function formatMessageTime(dateStr) {
   });
 }
 
+function getContactSearchText(contact) {
+  return [
+    getContactName(contact),
+    contact.club,
+    contact.nom_club,
+    contact.prenom,
+    contact.nom,
+    contact.email,
+    getContactRole(contact),
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+}
+
 export default function Messages({ currentUser, onUnreadChange }) {
   const [contacts, setContacts] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState('');
   const [subject, setSubject] = useState('');
+  const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const threadRef = useRef(null);
 
   const selected = contacts.find((c) => c.id === selectedId);
+
+  const searchTerm = search.trim().toLowerCase();
+  const filteredContacts = searchTerm
+    ? contacts.filter((c) => getContactSearchText(c).includes(searchTerm))
+    : contacts;
 
   const loadContacts = async () => {
     const data = await fetchMessageContacts();
@@ -101,11 +122,20 @@ export default function Messages({ currentUser, onUnreadChange }) {
       <div className="messages-sidebar">
         <h2>Messages</h2>
         <p className="subtitle">Échangez avec les utilisateurs autorisés</p>
+        <input
+          type="search"
+          className="messages-search"
+          placeholder="Rechercher par nom ou club..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
         <ul className="messages-contacts">
           {contacts.length === 0 ? (
             <li className="messages-empty">Aucun contact disponible</li>
+          ) : filteredContacts.length === 0 ? (
+            <li className="messages-empty">Aucun résultat pour « {search} »</li>
           ) : (
-            contacts.map((c) => (
+            filteredContacts.map((c) => (
               <li key={c.id}>
                 <button
                   type="button"

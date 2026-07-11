@@ -824,22 +824,22 @@ tbody tr:last-child td {
 }
 
 .card-header-zone {
-  background: #0072bb;
+  background: #1D4393;
 }
 
 .card-top-accent {
   height: 5px;
-  background: linear-gradient(90deg, #0072bb 0%, #e30613 45%, #f5c518 100%);
+  background: linear-gradient(90deg, #1D4393 0%, #e30613 45%, #f5c518 100%);
 }
 
 .card-bottom-accent {
   height: 4px;
-  background: linear-gradient(90deg, #0072bb 0%, #005a96 100%);
+  background: linear-gradient(90deg, #1D4393 0%, #152d6b 100%);
 }
 
 .card-header-full {
   width: 100%;
-  background: #0072bb;
+  background: #1D4393;
   padding: 8px 14px;
   display: flex;
   align-items: center;
@@ -856,7 +856,7 @@ tbody tr:last-child td {
 
 .card-header-band {
   flex: 1;
-  background: #0072bb;
+  background: #1D4393;
   border-radius: 0;
   padding: 7px 10px;
 }
@@ -1593,6 +1593,21 @@ tbody tr:last-child td {
 .messages-sidebar h2 {
   margin: 0 0 0.25rem;
   color: var(--primary);
+}
+
+.messages-search {
+  width: 100%;
+  margin-top: 0.75rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 0.9rem;
+}
+
+.messages-search:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(29, 67, 147, 0.15);
 }
 
 .messages-contacts {
