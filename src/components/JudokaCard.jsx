@@ -1,5 +1,5 @@
 import QRCode from 'react-qr-code';
-import { resolveMediaUrl } from '../api';
+import { getCardValidityYear, resolveMediaUrl } from '../api';
 
 function getCardQrValue(judoka) {
   return JSON.stringify({
@@ -14,6 +14,7 @@ function getCardQrValue(judoka) {
 
 export default function JudokaCard({ judoka }) {
   const qrValue = getCardQrValue(judoka);
+  const validityYear = getCardValidityYear(judoka);
 
   return (
     <div className="judoka-card" id="printable-card">
@@ -85,7 +86,13 @@ export default function JudokaCard({ judoka }) {
           </div>
         </div>
 
-        <div className="card-bottom-accent" />
+        <div className="card-footer-zone">
+          <div className="card-footer-bar">
+            <span className="card-number">{judoka.numero_carte}</span>
+            <span className="card-inscription">Valide jusqu'à {validityYear}</span>
+          </div>
+          <div className="card-bottom-accent" />
+        </div>
       </div>
     </div>
   );

@@ -886,7 +886,7 @@ tbody tr:last-child td {
 }
 
 .card-org {
-  font-size: 2.03mm;
+  font-size: 2.64mm;
   font-weight: 700;
   color: #ffffff;
   text-transform: uppercase;
@@ -895,7 +895,7 @@ tbody tr:last-child td {
 }
 
 .card-year {
-  font-size: 1.82mm;
+  font-size: 2.37mm;
   font-weight: 600;
   color: #dbeafe;
   text-transform: uppercase;
@@ -1026,8 +1026,8 @@ tbody tr:last-child td {
 }
 
 .card-footer-bar {
-  background: linear-gradient(90deg, #1D4393 0%, #2a5298 100%);
-  padding: 1mm 2mm;
+  background: #ffffff;
+  padding: 0.8mm 2mm;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1035,17 +1035,17 @@ tbody tr:last-child td {
 }
 
 .card-number {
-  font-weight: 800;
+  font-weight: 700;
   font-size: 1.55mm;
   letter-spacing: 0.04em;
-  color: #ffffff;
+  color: #374151;
   white-space: nowrap;
 }
 
 .card-inscription {
   font-size: 1.35mm;
-  color: #dbeafe;
-  font-weight: 600;
+  color: #9ca3af;
+  font-weight: 400;
   white-space: nowrap;
   text-align: right;
 }
