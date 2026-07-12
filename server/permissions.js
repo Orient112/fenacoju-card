@@ -2,6 +2,8 @@ export const FENACOJU_BLUE = '#0072bb';
 
 const SENIOR_FEDERATION_TABS = ['judokas', 'entraineurs', 'clubs'];
 
+const CLUB_ONLY_TABS = ['clubs'];
+
 export const FEDERATION_ROLES = {
   'Coordon': {
     viewUsers: true, viewJudokas: true, viewStats: true, viewCards: false,
@@ -11,14 +13,16 @@ export const FEDERATION_ROLES = {
   },
   'Coordon Adjoint': {
     viewUsers: true, viewJudokas: true, viewStats: true, viewCards: false,
-    createUsers: true, createJudokas: true, export: true, deleteJudokas: true, manageUsers: true,
-    dashboardTabs: SENIOR_FEDERATION_TABS,
+    createUsers: false, createJudokas: false, export: false, deleteJudokas: false,
+    manageAll: true, manageUsers: false, refreshList: false,
+    dashboardTabs: CLUB_ONLY_TABS,
+    createTypes: [],
   },
   'Secrétaire Général': {
     viewUsers: true, viewJudokas: true, viewStats: true, viewCards: false,
     createUsers: false, createJudokas: false, export: false, deleteJudokas: false,
     manageAll: true, manageUsers: false, refreshList: false,
-    dashboardTabs: SENIOR_FEDERATION_TABS, scanQr: true,
+    dashboardTabs: CLUB_ONLY_TABS, scanQr: true,
     createTypes: [],
   },
   'Directeur Technique': {

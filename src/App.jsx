@@ -320,6 +320,8 @@ export default function App() {
     });
   }, [members, dashboardTab, searchTerm]);
   const showJudokasTab = perms.viewJudokas !== false && tabs.includes('judokas');
+  const showStatsJudokas = perms.viewStats && perms.viewJudokas !== false;
+  const showStatsEntraineurs = perms.viewStats && (user?.type === 'admin' || perms.viewJudokas !== false);
   const showUserTabs = ['entraineurs', 'clubs', 'federation'].includes(dashboardTab);
 
   const openNewJudoka = () => {
@@ -502,6 +504,15 @@ export default function App() {
               Messages{unreadMessages > 0 ? ` (${unreadMessages})` : ''}
             </button>
           )}
+          {canScanQr && (
+            <button
+              className="nav-btn"
+              onClick={() => setShowQrScan(true)}
+              disabled={!serverOnline}
+            >
+              Scan QR
+            </button>
+          )}
           {perms.export && (
             <button className="nav-btn" onClick={handleExport} disabled={!serverOnline}>
               Exporter
@@ -530,53 +541,86 @@ export default function App() {
           <>
             {perms.viewStats && (
               <div className="stats-grid">
-                {showJudokasTab && (
+                {showStatsJudokas && (
                   <>
-                    <button
-                      className={`stat-card stat-clickable ${activeFilter === 'all' ? 'stat-active' : ''}`}
-                      onClick={() => handleStatClick('all')}
-                    >
-                      <div className="stat-value">{stats.total}</div>
-                      <div className="stat-label">Judokas enregistrés</div>
-                    </button>
-                    <button
-                      className={`stat-card success stat-clickable ${activeFilter === 'actifs' ? 'stat-active' : ''}`}
-                      onClick={() => handleStatClick('actifs')}
-                    >
-                      <div className="stat-value">{stats.actifs}</div>
-                      <div className="stat-label">Actifs</div>
-                    </button>
-                    <button
-                      className={`stat-card accent stat-clickable ${activeFilter === 'inactifs' ? 'stat-active' : ''}`}
-                      onClick={() => handleStatClick('inactifs')}
-                    >
-                      <div className="stat-value">{stats.total - stats.actifs}</div>
-                      <div className="stat-label">Inactifs</div>
-                    </button>
+                    {showJudokasTab ? (
+                      <>
+                        <button
+                          className={`stat-card stat-clickable ${activeFilter === 'all' ? 'stat-active' : ''}`}
+                          onClick={() => handleStatClick('all')}
+                        >
+                          <div className="stat-value">{stats.total}</div>
+                          <div className="stat-label">Judokas enregistrés</div>
+                        </button>
+                        <button
+                          className={`stat-card success stat-clickable ${activeFilter === 'actifs' ? 'stat-active' : ''}`}
+                          onClick={() => handleStatClick('actifs')}
+                        >
+                          <div className="stat-value">{stats.actifs}</div>
+                          <div className="stat-label">Actifs</div>
+                        </button>
+                        <button
+                          className={`stat-card accent stat-clickable ${activeFilter === 'inactifs' ? 'stat-active' : ''}`}
+                          onClick={() => handleStatClick('inactifs')}
+                        >
+                          <div className="stat-value">{stats.total - stats.actifs}</div>
+                          <div className="stat-label">Inactifs</div>
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <div className="stat-card">
+                          <div className="stat-value">{stats.total}</div>
+                          <div className="stat-label">Judokas enregistrés</div>
+                        </div>
+                        <div className="stat-card success">
+                          <div className="stat-value">{stats.actifs}</div>
+                          <div className="stat-label">Actifs</div>
+                        </div>
+                        <div className="stat-card accent">
+                          <div className="stat-value">{stats.total - stats.actifs}</div>
+                          <div className="stat-label">Inactifs</div>
+                        </div>
+                      </>
+                    )}
                   </>
                 )}
-                {(user.type === 'admin' || tabs.includes('entraineurs')) && (
-                  <button
-                    className={`stat-card stat-label-entraineurs stat-clickable ${dashboardTab === 'entraineurs' ? 'stat-active' : ''}`}
-                    onClick={() => { setDashboardTab('entraineurs'); setView('list'); }}
-                  >
-                    <div className="stat-value">{stats.entraineurs}</div>
-                    <div className="stat-label">Entraineurs</div>
-                  </button>
+                {showStatsEntraineurs && (
+                  tabs.includes('entraineurs') ? (
+                    <button
+                      className={`stat-card stat-label-entraineurs stat-clickable ${dashboardTab === 'entraineurs' ? 'stat-active' : ''}`}
+                      onClick={() => { setDashboardTab('entraineurs'); setView('list'); }}
+                    >
+                      <div className="stat-value">{stats.entraineurs}</div>
+                      <div className="stat-label">Entraineurs</div>
+                    </button>
+                  ) : (
+                    <div className="stat-card stat-label-entraineurs">
+                      <div className="stat-value">{stats.entraineurs}</div>
+                      <div className="stat-label">Entraineurs</div>
+                    </div>
+                  )
                 )}
                 {user.type !== 'club' && user.type !== 'entraineur' && (
-                  <button
-                    className={`stat-card stat-clickable ${dashboardTab === 'clubs' ? 'stat-active' : ''}`}
-                    onClick={() => { setDashboardTab('clubs'); setView('list'); }}
-                  >
-                    <div className="stat-value">{stats.clubs}</div>
-                    <div className="stat-label">Clubs</div>
-                  </button>
+                  tabs.includes('clubs') ? (
+                    <button
+                      className={`stat-card stat-clickable ${dashboardTab === 'clubs' ? 'stat-active' : ''}`}
+                      onClick={() => { setDashboardTab('clubs'); setView('list'); }}
+                    >
+                      <div className="stat-value">{stats.clubs}</div>
+                      <div className="stat-label">Clubs</div>
+                    </button>
+                  ) : (
+                    <div className="stat-card">
+                      <div className="stat-value">{stats.clubs}</div>
+                      <div className="stat-label">Clubs</div>
+                    </div>
+                  )
                 )}
               </div>
             )}
 
-            {visibleTabs.length > 0 && (
+            {visibleTabs.length > 1 && (
               <div className="dashboard-tabs">
                 {visibleTabs.map((tab) => (
                   <button
