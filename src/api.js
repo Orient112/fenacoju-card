@@ -1,8 +1,25 @@
 const TOKEN_KEY = 'fenacoju_token';
 const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+const DEFAULT_TIMEOUT_MS = 15000;
+const AUTH_TIMEOUT_MS = 10000;
 
 function apiUrl(path) {
   return `${API_BASE}${path}`;
+}
+
+async function fetchWithTimeout(url, options = {}, timeoutMs = DEFAULT_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      throw new Error('Le serveur met trop de temps à répondre. Réessayez dans quelques secondes.');
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /** Préfixe les chemins /uploads/ avec l'URL du backend en production. */
@@ -37,7 +54,7 @@ async function apiFetch(url, options = {}) {
     headers['Content-Type'] = headers['Content-Type'] || 'application/json';
   }
 
-  const res = await fetch(apiUrl(url), { ...options, headers });
+  const res = await fetchWithTimeout(apiUrl(url), { ...options, headers });
 
   if (res.status === 401 && !url.includes('/auth/login')) {
     clearToken();
@@ -48,7 +65,7 @@ async function apiFetch(url, options = {}) {
 }
 
 export async function loginUser(identifier, password) {
-  const res = await fetch(apiUrl('/api/auth/login'), {
+  const res = await fetchWithTimeout(apiUrl('/api/auth/login'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ identifier, password }),
@@ -67,7 +84,7 @@ export async function loginUser(identifier, password) {
 export async function logoutUser() {
   const token = getToken();
   if (token) {
-    await fetch(apiUrl('/api/auth/logout'), {
+    await fetchWithTimeout(apiUrl('/api/auth/logout'), {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
     }).catch(() => {});
@@ -79,9 +96,9 @@ export async function fetchCurrentUser() {
   const token = getToken();
   if (!token) return null;
 
-  const res = await fetch(apiUrl('/api/auth/me'), {
+  const res = await fetchWithTimeout(apiUrl('/api/auth/me'), {
     headers: { Authorization: `Bearer ${token}` },
-  });
+  }, AUTH_TIMEOUT_MS);
 
   if (!res.ok) {
     clearToken();

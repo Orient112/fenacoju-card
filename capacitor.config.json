@@ -1,0 +1,21 @@
+{
+  "appId": "com.fenacoju.app",
+  "appName": "Fenacoju-App",
+  "webDir": "dist",
+  "server": {
+    "url": "https://fenacoju-card.vercel.app",
+    "cleartext": false,
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": false
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 2000,
+      "backgroundColor": "#1D4393",
+      "showSpinner": false,
+      "androidSplashResourceName": "splash"
+    }
+  }
+}

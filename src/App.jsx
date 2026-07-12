@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
 import {
   fetchStats,
   fetchJudokas,
@@ -11,17 +11,28 @@ import {
   logoutUser,
   fetchClubs,
   fetchUnreadMessages,
+  getToken,
   USER_TYPES,
 } from './api';
 import Login from './pages/Login';
-import Messages from './pages/Messages';
-import JudokaForm from './components/JudokaForm';
-import UserForm from './components/UserForm';
-import JudokaList from './components/JudokaList';
-import UserList from './components/UserList';
-import CardModal from './components/CardModal';
-import CreateTypeModal from './components/CreateTypeModal';
-import ClubDetailModal from './components/ClubDetailModal';
+
+const Messages = lazy(() => import('./pages/Messages'));
+const JudokaForm = lazy(() => import('./components/JudokaForm'));
+const UserForm = lazy(() => import('./components/UserForm'));
+const JudokaList = lazy(() => import('./components/JudokaList'));
+const UserList = lazy(() => import('./components/UserList'));
+const CardModal = lazy(() => import('./components/CardModal'));
+const CreateTypeModal = lazy(() => import('./components/CreateTypeModal'));
+const ClubDetailModal = lazy(() => import('./components/ClubDetailModal'));
+
+function PageLoader({ label = 'Chargement...' }) {
+  return (
+    <div className="page-loader">
+      <div className="spinner" />
+      <p>{label}</p>
+    </div>
+  );
+}
 
 const FILTERS = {
   all: { label: 'Tous', statut: null, period: null },
@@ -147,6 +158,10 @@ function getSectionTitle(tab, user) {
   return SECTION_TITLES[tab] || 'Liste';
 }
 
+function matchesSearch(value, term) {
+  return (value || '').toLowerCase().includes(term);
+}
+
 export default function App() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -156,7 +171,6 @@ export default function App() {
   const [judokas, setJudokas] = useState([]);
   const [members, setMembers] = useState([]);
   const [registeredClubs, setRegisteredClubs] = useState([]);
-  const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
   const [editing, setEditing] = useState(null);
@@ -186,28 +200,48 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    fetchCurrentUser().then((u) => {
-      if (u) {
-        setUser(u);
-        const first = getVisibleTabs(u, u.permissions?.dashboardTabs || ['judokas'])[0];
-        setDashboardTab(first?.key || 'judokas');
-      }
+    if (!getToken()) {
       setAuthLoading(false);
-    });
+      return undefined;
+    }
+
+    let cancelled = false;
+    const timeout = setTimeout(() => {
+      if (!cancelled) setAuthLoading(false);
+    }, 5000);
+
+    fetchCurrentUser()
+      .then((u) => {
+        if (cancelled) return;
+        if (u) {
+          setUser(u);
+          const first = getVisibleTabs(u, u.permissions?.dashboardTabs || ['judokas'])[0];
+          setDashboardTab(first?.key || 'judokas');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          clearTimeout(timeout);
+          setAuthLoading(false);
+        }
+      });
 
     const handleLogout = () => setUser(null);
     window.addEventListener('auth:logout', handleLogout);
-    return () => window.removeEventListener('auth:logout', handleLogout);
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+      window.removeEventListener('auth:logout', handleLogout);
+    };
   }, []);
 
   const loadData = useCallback(async () => {
     if (!user) return;
     setLoading(true);
     try {
-      const requests = [fetchStats(), fetchJudokas(search), fetchClubs()];
-      if (user.type === 'admin' || perms.viewUsers || user.type === 'club') {
-        requests.push(fetchUsers(search));
-      }
+      const needsUsers = user.type === 'admin' || perms.viewUsers || user.type === 'club';
+      const requests = [fetchStats(), fetchJudokas(), fetchClubs()];
+      if (needsUsers) requests.push(fetchUsers());
 
       const results = await Promise.allSettled(requests);
       const hasFailure = results.some((r) => r.status === 'rejected');
@@ -221,32 +255,55 @@ export default function App() {
 
       if (hasFailure) {
         setServerOnline(false);
-        showToast('Impossible de joindre le serveur. Relancez npm run dev puis ouvrez http://localhost:5173', 'error');
+        showToast('Connexion au serveur lente ou indisponible. Réessayez dans un instant.', 'error');
       } else {
         setServerOnline(true);
-        if (user) {
-          fetchUnreadMessages().then((r) => setUnreadMessages(r.count || 0)).catch(() => {});
-        }
+        fetchUnreadMessages()
+          .then((r) => setUnreadMessages(r.count || 0))
+          .catch(() => {});
       }
     } catch {
       setServerOnline(false);
-      showToast('Erreur de connexion au serveur. Relancez npm run dev.', 'error');
+      showToast('Erreur de connexion au serveur.', 'error');
     } finally {
       setLoading(false);
     }
-  }, [search, showToast, user, perms.viewUsers]);
+  }, [showToast, user, perms.viewUsers]);
 
   useEffect(() => {
     if (user) loadData();
   }, [loadData, user]);
 
-  useEffect(() => {
-    const timer = setTimeout(() => setSearch(searchInput), 300);
-    return () => clearTimeout(timer);
-  }, [searchInput]);
+  const searchTerm = searchInput.trim().toLowerCase();
 
-  const filteredJudokas = applyFilter(judokas, activeFilter);
-  const tabUsers = getUsersForTab(members, dashboardTab);
+  const filteredJudokas = useMemo(() => {
+    let result = applyFilter(judokas, activeFilter);
+    if (!searchTerm) return result;
+    return result.filter((j) =>
+      matchesSearch(j.nom, searchTerm) ||
+      matchesSearch(j.prenom, searchTerm) ||
+      matchesSearch(j.club, searchTerm) ||
+      matchesSearch(j.numero_carte, searchTerm) ||
+      matchesSearch(`${j.prenom} ${j.nom}`, searchTerm)
+    );
+  }, [judokas, activeFilter, searchTerm]);
+
+  const tabUsers = useMemo(() => {
+    let users = getUsersForTab(members, dashboardTab);
+    if (!searchTerm) return users;
+    return users.filter((u) => {
+      const name = u.type === 'club'
+        ? u.nom_club
+        : `${u.prenom || ''} ${u.nom || ''}`.trim();
+      return (
+        matchesSearch(name, searchTerm) ||
+        matchesSearch(u.email, searchTerm) ||
+        matchesSearch(u.club, searchTerm) ||
+        matchesSearch(u.telephone, searchTerm) ||
+        matchesSearch(u.fonction, searchTerm)
+      );
+    });
+  }, [members, dashboardTab, searchTerm]);
   const showJudokasTab = perms.viewJudokas !== false && tabs.includes('judokas');
   const showUserTabs = ['entraineurs', 'clubs', 'federation'].includes(dashboardTab);
 
@@ -376,7 +433,7 @@ export default function App() {
     <>
       <header className="header">
         <div className="header-brand">
-          <img src="/fenacoju-logo.png" alt="FENACOJU" className="header-logo-img" />
+          <img src="/fenacoju-logo.png" alt="FENACOJU" className="header-logo-img" width="52" height="52" decoding="async" />
           <div>
             <h1>FENACOJU Card</h1>
             <p>Gestion des Clubs et Judokas Congolais</p>
@@ -428,7 +485,7 @@ export default function App() {
         </div>
       )}
 
-      <main className="container">
+      <main className={`container ${loading ? 'is-loading' : ''}`}>
         {view === 'list' && (
           <>
             {perms.viewStats && (
@@ -534,19 +591,20 @@ export default function App() {
                   <div className="table-header">
                     <h2>{getSectionTitle('judokas', user)}</h2>
                   </div>
-                  {loading ? (
-                    <div className="loading-state">
-                      <div className="spinner" />
-                      <p>Chargement des données...</p>
+                  {loading && judokas.length === 0 ? (
+                    <div className="table-skeleton">
+                      {[1, 2, 3].map((i) => <div key={i} className="skeleton-row" />)}
                     </div>
                   ) : (
-                    <JudokaList
-                      judokas={filteredJudokas}
-                      onViewCard={canViewCards ? setCardJudoka : null}
-                      onEdit={perms.createJudokas ? openEditForm : null}
-                      onDelete={perms.deleteJudokas ? setDeleteTarget : null}
-                      onAddNew={perms.createJudokas ? openNewJudoka : null}
-                    />
+                    <Suspense fallback={<PageLoader label="Chargement de la liste..." />}>
+                      <JudokaList
+                        judokas={filteredJudokas}
+                        onViewCard={canViewCards ? setCardJudoka : null}
+                        onEdit={perms.createJudokas ? openEditForm : null}
+                        onDelete={perms.deleteJudokas ? setDeleteTarget : null}
+                        onAddNew={perms.createJudokas ? openNewJudoka : null}
+                      />
+                    </Suspense>
                   )}
                 </div>
               </>
@@ -571,24 +629,25 @@ export default function App() {
                   <div className="table-header">
                     <h2>{getSectionTitle(dashboardTab, user)}</h2>
                   </div>
-                  {loading ? (
-                    <div className="loading-state">
-                      <div className="spinner" />
-                      <p>Chargement...</p>
+                  {loading && members.length === 0 ? (
+                    <div className="table-skeleton">
+                      {[1, 2, 3].map((i) => <div key={i} className="skeleton-row" />)}
                     </div>
                   ) : (
-                    <UserList
-                      users={tabUsers}
-                      showClub={dashboardTab === 'entraineurs' && user.type === 'admin'}
-                      detailColumnLabel={dashboardTab === 'federation' ? 'Fonction' : 'Détails'}
-                      hideFonctionUnderName={dashboardTab === 'federation'}
-                      showViewAction={dashboardTab === 'clubs'}
-                      canManage={canManageUsers}
-                      onView={setViewClub}
-                      onEdit={canManageUsers ? openEditUser : null}
-                      onDelete={canManageUsers ? setDeleteUserTarget : null}
-                      onResetPassword={canManageUsers ? setResetPasswordTarget : null}
-                    />
+                    <Suspense fallback={<PageLoader label="Chargement de la liste..." />}>
+                      <UserList
+                        users={tabUsers}
+                        showClub={dashboardTab === 'entraineurs' && user.type === 'admin'}
+                        detailColumnLabel={dashboardTab === 'federation' ? 'Fonction' : 'Détails'}
+                        hideFonctionUnderName={dashboardTab === 'federation'}
+                        showViewAction={dashboardTab === 'clubs'}
+                        canManage={canManageUsers}
+                        onView={setViewClub}
+                        onEdit={canManageUsers ? openEditUser : null}
+                        onDelete={canManageUsers ? setDeleteUserTarget : null}
+                        onResetPassword={canManageUsers ? setResetPasswordTarget : null}
+                      />
+                    </Suspense>
                   )}
                 </div>
               </>
@@ -604,51 +663,63 @@ export default function App() {
         )}
 
         {view === 'messages' && (
-          <Messages
-            currentUser={user}
-            onUnreadChange={setUnreadMessages}
-          />
+          <Suspense fallback={<PageLoader label="Ouverture des messages..." />}>
+            <Messages
+              currentUser={user}
+              onUnreadChange={setUnreadMessages}
+            />
+          </Suspense>
         )}
 
         {view === 'judoka-form' && (
-          <JudokaForm
-            key={editing?.id || 'new'}
-            judoka={editing}
-            lockedClub={lockedClub}
-            registeredClubs={registeredClubs}
-            entraineurs={entraineurs}
-            onSubmit={editing ? handleUpdate : handleCreate}
-            onCancel={() => { setEditing(null); setView('list'); }}
-          />
+          <Suspense fallback={<PageLoader label="Chargement du formulaire..." />}>
+            <JudokaForm
+              key={editing?.id || 'new'}
+              judoka={editing}
+              lockedClub={lockedClub}
+              registeredClubs={registeredClubs}
+              entraineurs={entraineurs}
+              onSubmit={editing ? handleUpdate : handleCreate}
+              onCancel={() => { setEditing(null); setView('list'); }}
+            />
+          </Suspense>
         )}
 
         {view === 'user-form' && createType && (
-          <UserForm
-            key={editingUser?.id || createType}
-            type={createType}
-            editingUser={editingUser}
-            currentUser={user}
-            registeredClubs={registeredClubs}
-            onSubmit={handleUserSaved}
-            onCancel={() => { setCreateType(null); setEditingUser(null); setView('list'); }}
-          />
+          <Suspense fallback={<PageLoader label="Chargement du formulaire..." />}>
+            <UserForm
+              key={editingUser?.id || createType}
+              type={createType}
+              editingUser={editingUser}
+              currentUser={user}
+              registeredClubs={registeredClubs}
+              onSubmit={handleUserSaved}
+              onCancel={() => { setCreateType(null); setEditingUser(null); setView('list'); }}
+            />
+          </Suspense>
         )}
       </main>
 
       {showCreateModal && (
-        <CreateTypeModal
-          allowedTypes={perms.createTypes}
-          onSelect={handleCreateTypeSelect}
-          onClose={() => setShowCreateModal(false)}
-        />
+        <Suspense fallback={null}>
+          <CreateTypeModal
+            allowedTypes={perms.createTypes}
+            onSelect={handleCreateTypeSelect}
+            onClose={() => setShowCreateModal(false)}
+          />
+        </Suspense>
       )}
 
       {cardJudoka && (
-        <CardModal judoka={cardJudoka} onClose={() => setCardJudoka(null)} />
+        <Suspense fallback={null}>
+          <CardModal judoka={cardJudoka} onClose={() => setCardJudoka(null)} />
+        </Suspense>
       )}
 
       {viewClub && (
-        <ClubDetailModal club={viewClub} onClose={() => setViewClub(null)} />
+        <Suspense fallback={null}>
+          <ClubDetailModal club={viewClub} onClose={() => setViewClub(null)} />
+        </Suspense>
       )}
 
       {deleteTarget && (

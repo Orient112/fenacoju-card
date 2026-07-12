@@ -12,7 +12,12 @@
     "start": "node server/index.js",
     "preview": "vite preview",
     "migrate:supabase": "node scripts/migrate-to-supabase.js",
-    "test:supabase": "node scripts/test-supabase.js"
+    "test:supabase": "node scripts/test-supabase.js",
+    "mobile:icons": "node scripts/generate-android-icons.js",
+    "mobile:sync": "npx cap sync android",
+    "mobile:open": "npx cap open android",
+    "mobile:prepare": "npm run build && npm run mobile:icons && npm run mobile:sync",
+    "mobile:apk": "npm run mobile:sync && cd android && gradlew.bat assembleDebug"
   },
   "engines": {
     "node": ">=20"
@@ -29,8 +34,13 @@
     "uuid": "^11.0.5"
   },
   "devDependencies": {
+    "@capacitor/android": "^8.4.1",
+    "@capacitor/cli": "^8.4.1",
+    "@capacitor/core": "^8.4.1",
+    "@capacitor/splash-screen": "^8.0.1",
     "@vitejs/plugin-react": "^4.3.4",
     "concurrently": "^9.1.2",
+    "sharp": "^0.35.3",
     "vite": "^6.0.7"
   }
 }

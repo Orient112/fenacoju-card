@@ -17,7 +17,7 @@ export default function JudokaList({ judokas, onViewCard, onEdit, onDelete, onAd
   }
 
   return (
-    <table>
+    <table className="data-table">
       <thead>
         <tr>
           <th>N° Carte</th>
@@ -33,25 +33,25 @@ export default function JudokaList({ judokas, onViewCard, onEdit, onDelete, onAd
       <tbody>
         {judokas.map((j) => (
           <tr key={j.id}>
-            <td>
+            <td data-label="N° Carte">
               <span style={{ fontWeight: 700, color: 'var(--primary)', fontSize: '0.85rem' }}>
                 {j.numero_carte}
               </span>
             </td>
-            <td>
+            <td data-label="Nom">
               <div className="judoka-name">{j.nom} {j.prenom}</div>
               <div className="judoka-club">{j.sexe === 'M' ? '♂' : '♀'} — {formatDate(j.date_naissance)}</div>
             </td>
-            <td>{j.club}</td>
-            <td><span className="badge grade-badge">{j.grade}</span></td>
-            <td>{j.categorie || '—'}</td>
-            <td>{formatDate(j.date_inscription)}</td>
-            <td>
+            <td data-label="Club">{j.club}</td>
+            <td data-label="Grade"><span className="badge grade-badge">{j.grade}</span></td>
+            <td data-label="Catégorie">{j.categorie || '—'}</td>
+            <td data-label="Inscription">{formatDate(j.date_inscription)}</td>
+            <td data-label="Statut">
               <span className={`badge badge-${j.statut}`}>
                 {j.statut === 'actif' ? 'Actif' : 'Inactif'}
               </span>
             </td>
-            <td>
+            <td data-label="Actions">
               <div className="actions-cell">
                 {onViewCard && (
                   <button

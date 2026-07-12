@@ -23,7 +23,7 @@ export default function UserList({
   }
 
   return (
-    <table>
+    <table className="data-table">
       <thead>
         <tr>
           <th>Type</th>
@@ -38,12 +38,12 @@ export default function UserList({
       <tbody>
         {users.map((u) => (
           <tr key={u.id}>
-            <td>
+            <td data-label="Type">
               <span className="badge grade-badge">
                 {USER_TYPES[u.type]?.label || u.type}
               </span>
             </td>
-            <td>
+            <td data-label="Nom">
               <div className="judoka-name">
                 {u.type === 'club'
                   ? u.nom_club
@@ -53,10 +53,10 @@ export default function UserList({
                 <div className="judoka-club">{u.fonction}</div>
               )}
             </td>
-            {showClub && <td>{u.club || u.nom_club || '—'}</td>}
-            <td>{u.email}</td>
-            <td>{u.telephone || '—'}</td>
-            <td>
+            {showClub && <td data-label="Club">{u.club || u.nom_club || '—'}</td>}
+            <td data-label="Email">{u.email}</td>
+            <td data-label="Téléphone">{u.telephone || '—'}</td>
+            <td data-label={detailColumnLabel}>
               {u.type === 'entraineur' && u.grade && (
                 <span className="badge badge-actif">{u.grade}</span>
               )}
@@ -68,7 +68,7 @@ export default function UserList({
               )}
             </td>
             {(canManage || showViewAction) && (
-              <td>
+              <td data-label="Actions">
                 <div className="actions-cell">
                   {showViewAction && u.type === 'club' && onView && (
                     <button
