@@ -6,7 +6,7 @@ const CLUB_DOCUMENT_LABELS = {
   doc_agrement: 'Agrément / Autorisation',
 };
 
-export default function ClubDetailModal({ club, onClose }) {
+export default function ClubDetailModal({ club, judokas = [], entraineurs = [], onClose }) {
   if (!club) return null;
 
   const documents = club.documents || {};
@@ -59,6 +59,61 @@ export default function ClubDetailModal({ club, onClose }) {
                   </li>
                 ))}
               </ul>
+            )}
+          </div>
+
+          <div className="club-detail-section">
+            <h3>Entraîneurs ({entraineurs.length})</h3>
+            {entraineurs.length === 0 ? (
+              <p className="club-detail-empty">Aucun entraîneur enregistré pour ce club</p>
+            ) : (
+              <ul className="club-members-list">
+                {entraineurs.map((e) => (
+                  <li key={e.id} className="club-member-item">
+                    <div>
+                      <span className="club-member-name">{e.prenom} {e.nom}</span>
+                      {e.grade && <span className="club-member-meta">{e.grade}</span>}
+                    </div>
+                    <span className="club-member-contact">{e.telephone || e.email || '—'}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className="club-detail-section">
+            <h3>Judokas ({judokas.length})</h3>
+            {judokas.length === 0 ? (
+              <p className="club-detail-empty">Aucun judoka enregistré pour ce club</p>
+            ) : (
+              <div className="club-judokas-table-wrap">
+                <table className="club-judokas-table">
+                  <thead>
+                    <tr>
+                      <th>N° Carte</th>
+                      <th>Nom</th>
+                      <th>Grade</th>
+                      <th>Catégorie</th>
+                      <th>Statut</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {judokas.map((j) => (
+                      <tr key={j.id}>
+                        <td>{j.numero_carte}</td>
+                        <td>{j.prenom} {j.nom}</td>
+                        <td>{j.grade}</td>
+                        <td>{j.categorie || '—'}</td>
+                        <td>
+                          <span className={`badge badge-${j.statut}`}>
+                            {j.statut === 'actif' ? 'Actif' : 'Inactif'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         </div>

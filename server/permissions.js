@@ -5,8 +5,9 @@ const SENIOR_FEDERATION_TABS = ['judokas', 'entraineurs', 'clubs'];
 export const FEDERATION_ROLES = {
   'Coordon': {
     viewUsers: true, viewJudokas: true, viewStats: true, viewCards: false,
-    createUsers: true, createJudokas: true, export: true, deleteJudokas: true, manageAll: true, manageUsers: true,
+    createUsers: false, createJudokas: false, export: false, deleteJudokas: true, manageAll: true, manageUsers: true,
     dashboardTabs: SENIOR_FEDERATION_TABS,
+    createTypes: [],
   },
   'Coordon Adjoint': {
     viewUsers: true, viewJudokas: true, viewStats: true, viewCards: false,
@@ -65,7 +66,7 @@ export function getPermissions(user) {
       createUsers: true, createJudokas: true, export: true, deleteJudokas: true,
       manageAll: true, manageUsers: true, createTypes: ['federation', 'club', 'entraineur'],
       dashboardTabs: ['judokas', 'entraineurs', 'clubs', 'federation'],
-      canMessage: true, scanQr: true,
+      canMessage: true, scanQr: true, viewClubDetails: true,
     };
   }
 
@@ -93,12 +94,14 @@ export function getPermissions(user) {
 
   if (user.type === 'federation') {
     const role = FEDERATION_ROLES[user.fonction] || DEFAULT_FEDERATION;
+    const tabs = role.dashboardTabs || ['judokas'];
     return {
       ...role,
       createTypes: role.createTypes || (role.createUsers ? ['federation', 'club', 'entraineur'] : []),
-      dashboardTabs: role.dashboardTabs || ['judokas'],
+      dashboardTabs: tabs,
       federationRole: user.fonction,
       canMessage: true,
+      viewClubDetails: tabs.includes('clubs'),
     };
   }
 

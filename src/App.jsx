@@ -168,6 +168,10 @@ function matchesSearch(value, term) {
   return (value || '').toLowerCase().includes(term);
 }
 
+function matchClubName(a, b) {
+  return (a || '').trim().toLowerCase() === (b || '').trim().toLowerCase();
+}
+
 export default function App() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -200,6 +204,7 @@ export default function App() {
   const lockedClub = perms.clubScope || null;
   const canManageUsers = perms.manageUsers || perms.createUsers;
   const canResetPassword = perms.manageUsers || perms.createUsers;
+  const canViewClubDetails = perms.viewClubDetails === true;
   const canViewCards = perms.viewCards !== false;
   const canScanQr = canUseQrScan(user, perms);
   const visibleTabs = useMemo(() => (user ? getVisibleTabs(user, tabs) : []), [user, tabs]);
@@ -699,7 +704,7 @@ export default function App() {
                         showClub={dashboardTab === 'entraineurs' && user.type === 'admin'}
                         detailColumnLabel={dashboardTab === 'federation' ? 'Fonction' : 'Détails'}
                         hideFonctionUnderName={dashboardTab === 'federation'}
-                        showViewAction={dashboardTab === 'clubs' && canManageUsers}
+                        showViewAction={dashboardTab === 'clubs' && canViewClubDetails}
                         canManage={canManageUsers}
                         onView={setViewClub}
                         onEdit={canManageUsers ? openEditUser : null}
@@ -783,7 +788,14 @@ export default function App() {
 
       {viewClub && (
         <Suspense fallback={null}>
-          <ClubDetailModal club={viewClub} onClose={() => setViewClub(null)} />
+          <ClubDetailModal
+            club={viewClub}
+            judokas={judokas.filter((j) => matchClubName(j.club, viewClub.nom_club))}
+            entraineurs={members.filter(
+              (m) => m.type === 'entraineur' && matchClubName(m.club, viewClub.nom_club)
+            )}
+            onClose={() => setViewClub(null)}
+          />
         </Suspense>
       )}
 

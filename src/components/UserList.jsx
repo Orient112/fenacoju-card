@@ -73,11 +73,11 @@ export default function UserList({
                   {showViewAction && u.type === 'club' && onView && (
                     <button
                       type="button"
-                      className="btn btn-outline btn-sm"
+                      className="btn btn-outline btn-sm btn-icon"
                       onClick={() => onView(u)}
-                      title="Voir les détails"
+                      title="Voir les détails du club"
                     >
-                      Voir
+                      👁️
                     </button>
                   )}
                   {u.type !== 'admin' && onEdit && (
