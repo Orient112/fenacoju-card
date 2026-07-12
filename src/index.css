@@ -886,7 +886,7 @@ tbody tr:last-child td {
 }
 
 .card-org {
-  font-size: 1.45mm;
+  font-size: 2.03mm;
   font-weight: 700;
   color: #ffffff;
   text-transform: uppercase;
@@ -895,7 +895,7 @@ tbody tr:last-child td {
 }
 
 .card-year {
-  font-size: 1.3mm;
+  font-size: 1.82mm;
   font-weight: 600;
   color: #dbeafe;
   text-transform: uppercase;
@@ -919,8 +919,8 @@ tbody tr:last-child td {
 }
 
 .card-photo {
-  width: 13.5mm;
-  height: 16.5mm;
+  width: 20.25mm;
+  height: 24.75mm;
   border-radius: 1mm;
   object-fit: cover;
   border: 0.3mm solid #1D4393;
@@ -929,15 +929,15 @@ tbody tr:last-child td {
 }
 
 .card-photo-placeholder {
-  width: 13.5mm;
-  height: 16.5mm;
+  width: 20.25mm;
+  height: 24.75mm;
   border-radius: 1mm;
   border: 0.3mm dashed #cbd5e1;
   background: #f8fafc;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.3mm;
+  font-size: 1.95mm;
   font-weight: 600;
   color: var(--text-muted);
   text-transform: uppercase;
@@ -948,7 +948,7 @@ tbody tr:last-child td {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 0.8mm;
+  gap: 1.2mm;
   min-width: 0;
   overflow: hidden;
 }
@@ -957,12 +957,12 @@ tbody tr:last-child td {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 0.8mm;
+  gap: 1.2mm;
   line-height: 1.15;
 }
 
 .card-name {
-  font-size: 2.3mm;
+  font-size: 3.45mm;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.02em;
@@ -970,7 +970,7 @@ tbody tr:last-child td {
 }
 
 .card-firstname {
-  font-size: 2.3mm;
+  font-size: 3.45mm;
   font-weight: 700;
   color: #0d2b5e;
   text-transform: capitalize;
@@ -979,6 +979,7 @@ tbody tr:last-child td {
 .card-qr {
   flex-shrink: 0;
   align-self: center;
+  margin-left: 10%;
   padding: 0.5mm;
   background: #ffffff;
   border: 0.2mm solid #cbd5e1;
@@ -995,13 +996,13 @@ tbody tr:last-child td {
 .card-details-grid {
   display: flex;
   flex-direction: column;
-  gap: 0.4mm;
+  gap: 0.6mm;
 }
 
 .card-detail {
-  font-size: 1.45mm;
+  font-size: 2.18mm;
   display: flex;
-  gap: 1mm;
+  gap: 1.5mm;
   line-height: 1.25;
   color: var(--text);
   align-items: flex-start;
@@ -1010,7 +1011,7 @@ tbody tr:last-child td {
 .card-label {
   font-weight: 700;
   color: #1D4393;
-  min-width: 10mm;
+  min-width: 15mm;
   flex-shrink: 0;
 }
 
