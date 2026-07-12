@@ -15,6 +15,7 @@ import {
   USER_TYPES,
 } from './api';
 import Login from './pages/Login';
+import ResetPasswordModal from './components/ResetPasswordModal';
 
 const Messages = lazy(() => import('./pages/Messages'));
 const JudokaForm = lazy(() => import('./components/JudokaForm'));
@@ -198,6 +199,7 @@ export default function App() {
   const tabs = perms.dashboardTabs || ['judokas'];
   const lockedClub = perms.clubScope || null;
   const canManageUsers = perms.manageUsers || perms.createUsers;
+  const canResetPassword = perms.manageUsers || perms.createUsers;
   const canViewCards = perms.viewCards !== false;
   const canScanQr = canUseQrScan(user, perms);
   const visibleTabs = useMemo(() => (user ? getVisibleTabs(user, tabs) : []), [user, tabs]);
@@ -700,7 +702,7 @@ export default function App() {
                         onView={setViewClub}
                         onEdit={canManageUsers ? openEditUser : null}
                         onDelete={canManageUsers ? setDeleteUserTarget : null}
-                        onResetPassword={canManageUsers ? setResetPasswordTarget : null}
+                        onResetPassword={canResetPassword ? setResetPasswordTarget : null}
                       />
                     </Suspense>
                   )}

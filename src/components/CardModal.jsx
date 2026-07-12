@@ -1,21 +1,5 @@
 import { useState } from 'react';
-import { toJpeg } from 'html-to-image';
 import JudokaCard from './JudokaCard';
-
-async function waitForImages(container) {
-  const images = container.querySelectorAll('img');
-  await Promise.all(
-    [...images].map(
-      (img) =>
-        img.complete
-          ? Promise.resolve()
-          : new Promise((resolve) => {
-              img.onload = resolve;
-              img.onerror = resolve;
-            })
-    )
-  );
-}
 
 export default function CardModal({ judoka, onClose }) {
   const [exporting, setExporting] = useState(false);
@@ -31,20 +15,10 @@ export default function CardModal({ judoka, onClose }) {
   };
 
   const handleExport = async () => {
-    const node = document.getElementById('printable-card');
-    if (!node) return;
-
     setExporting(true);
     try {
-      await waitForImages(node);
-      const dataUrl = await toJpeg(node, {
-        quality: 0.95,
-        pixelRatio: 3,
-        backgroundColor: '#ffffff',
-        width: node.offsetWidth,
-        height: node.offsetHeight,
-        cacheBust: true,
-      });
+      const { captureCardImage } = await import('../utils/captureCardImage.jsx');
+      const dataUrl = await captureCardImage(judoka);
 
       const link = document.createElement('a');
       link.download = `carte-${judoka.numero_carte}.jpg`;
