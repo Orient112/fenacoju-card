@@ -244,43 +244,6 @@ body {
   background: #f0f7ff;
 }
 
-/* Filter bar */
-.filter-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-bottom: 1.25rem;
-}
-
-.filter-chip {
-  padding: 0.4rem 1rem;
-  border: 2px solid var(--border);
-  border-radius: 20px;
-  background: var(--surface);
-  font-size: 0.8rem;
-  font-weight: 600;
-  cursor: pointer;
-  font-family: inherit;
-  color: var(--text-muted);
-  transition: all 0.2s;
-}
-
-.filter-chip:hover {
-  border-color: var(--primary-light);
-  color: var(--primary);
-}
-
-.filter-chip.active {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: white;
-}
-
-.filter-chip.clear {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
 .clubs-count {
   font-size: 0.85rem;
   color: var(--text-muted);
@@ -1315,24 +1278,6 @@ tbody tr:last-child td {
     background: var(--primary);
     color: white;
     border-color: var(--primary);
-  }
-
-  .filter-bar {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.4rem;
-    margin-bottom: 1rem;
-  }
-
-  .filter-chip {
-    width: 100%;
-    text-align: center;
-    padding: 0.45rem 0.35rem;
-    font-size: 0.72rem;
-  }
-
-  .filter-chip.clear {
-    grid-column: 1 / -1;
   }
 
   .search-bar {

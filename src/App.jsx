@@ -37,12 +37,6 @@ function PageLoader({ label = 'Chargement...' }) {
   );
 }
 
-const FILTERS = {
-  all: { label: 'Tous', statut: null, period: null },
-  actifs: { label: 'Actifs', statut: 'actif', period: null },
-  inactifs: { label: 'Inactifs', statut: 'inactif', period: null },
-};
-
 const SECTION_TITLES = {
   judokas: 'Liste des Judokas',
   entraineurs: 'Liste des Entraineurs',
@@ -89,25 +83,6 @@ function exportToCsv(judokas) {
   a.download = `fenacoju-judokas-${new Date().toISOString().split('T')[0]}.csv`;
   a.click();
   URL.revokeObjectURL(url);
-}
-
-function applyFilter(judokas, filterKey) {
-  const filter = FILTERS[filterKey];
-  if (!filter) return judokas;
-
-  let result = [...judokas];
-
-  if (filter.statut) {
-    result = result.filter((j) => j.statut === filter.statut);
-  }
-
-  if (filter.period === 'month') {
-    const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    result = result.filter((j) => new Date(j.date_inscription) >= monthStart);
-  }
-
-  return result;
 }
 
 function getUserDisplayName(user) {
@@ -183,7 +158,6 @@ export default function App() {
   const [members, setMembers] = useState([]);
   const [registeredClubs, setRegisteredClubs] = useState([]);
   const [searchInput, setSearchInput] = useState('');
-  const [activeFilter, setActiveFilter] = useState('all');
   const [editing, setEditing] = useState(null);
   const [editingUser, setEditingUser] = useState(null);
   const [createType, setCreateType] = useState(null);
@@ -298,16 +272,15 @@ export default function App() {
   const searchTerm = searchInput.trim().toLowerCase();
 
   const filteredJudokas = useMemo(() => {
-    let result = applyFilter(judokas, activeFilter);
-    if (!searchTerm) return result;
-    return result.filter((j) =>
+    if (!searchTerm) return judokas;
+    return judokas.filter((j) =>
       matchesSearch(j.nom, searchTerm) ||
       matchesSearch(j.prenom, searchTerm) ||
       matchesSearch(j.club, searchTerm) ||
       matchesSearch(j.numero_carte, searchTerm) ||
       matchesSearch(`${j.prenom} ${j.nom}`, searchTerm)
     );
-  }, [judokas, activeFilter, searchTerm]);
+  }, [judokas, searchTerm]);
 
   const tabUsers = useMemo(() => {
     let users = getUsersForTab(members, dashboardTab);
@@ -448,12 +421,6 @@ export default function App() {
     setView('list');
   };
 
-  const handleStatClick = (filterKey) => {
-    setActiveFilter(filterKey);
-    setDashboardTab('judokas');
-    setView('list');
-  };
-
   const openCreateModal = () => {
     if (!perms.createUsers && !perms.createTypes?.length) {
       showToast('Vous n\'êtes pas autorisé à créer des utilisateurs', 'error');
@@ -549,46 +516,18 @@ export default function App() {
               <div className="stats-grid">
                 {showStatsJudokas && (
                   <>
-                    {showJudokasTab ? (
-                      <>
-                        <button
-                          className={`stat-card stat-clickable ${activeFilter === 'all' ? 'stat-active' : ''}`}
-                          onClick={() => handleStatClick('all')}
-                        >
-                          <div className="stat-value">{stats.total}</div>
-                          <div className="stat-label">Judokas enregistrés</div>
-                        </button>
-                        <button
-                          className={`stat-card success stat-clickable ${activeFilter === 'actifs' ? 'stat-active' : ''}`}
-                          onClick={() => handleStatClick('actifs')}
-                        >
-                          <div className="stat-value">{stats.actifs}</div>
-                          <div className="stat-label">Actifs</div>
-                        </button>
-                        <button
-                          className={`stat-card accent stat-clickable ${activeFilter === 'inactifs' ? 'stat-active' : ''}`}
-                          onClick={() => handleStatClick('inactifs')}
-                        >
-                          <div className="stat-value">{stats.total - stats.actifs}</div>
-                          <div className="stat-label">Inactifs</div>
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <div className="stat-card">
-                          <div className="stat-value">{stats.total}</div>
-                          <div className="stat-label">Judokas enregistrés</div>
-                        </div>
-                        <div className="stat-card success">
-                          <div className="stat-value">{stats.actifs}</div>
-                          <div className="stat-label">Actifs</div>
-                        </div>
-                        <div className="stat-card accent">
-                          <div className="stat-value">{stats.total - stats.actifs}</div>
-                          <div className="stat-label">Inactifs</div>
-                        </div>
-                      </>
-                    )}
+                    <div className="stat-card">
+                      <div className="stat-value">{stats.total}</div>
+                      <div className="stat-label">Judokas enregistrés</div>
+                    </div>
+                    <div className="stat-card success">
+                      <div className="stat-value">{stats.actifs}</div>
+                      <div className="stat-label">Actifs</div>
+                    </div>
+                    <div className="stat-card accent">
+                      <div className="stat-value">{stats.total - stats.actifs}</div>
+                      <div className="stat-label">Inactifs</div>
+                    </div>
                   </>
                 )}
                 {showStatsEntraineurs && (
@@ -656,25 +595,6 @@ export default function App() {
                     responsable={entraineurClub?.responsable}
                     ville={entraineurClub?.ville}
                   />
-                )}
-
-                {user.type !== 'entraineur' && (
-                  <div className="filter-bar">
-                    {Object.entries(FILTERS).map(([key, f]) => (
-                      <button
-                        key={key}
-                        className={`filter-chip ${activeFilter === key ? 'active' : ''}`}
-                        onClick={() => setActiveFilter(key)}
-                      >
-                        {f.label}
-                      </button>
-                    ))}
-                    {activeFilter !== 'all' && (
-                      <button className="filter-chip clear" onClick={() => setActiveFilter('all')}>
-                        Effacer filtre
-                      </button>
-                    )}
-                  </div>
                 )}
 
                 <div className="search-bar">
