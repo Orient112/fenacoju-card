@@ -825,29 +825,34 @@ tbody tr:last-child td {
   display: flex;
   flex-direction: column;
   position: relative;
+  overflow: hidden;
 }
 
 .card-header-zone {
   background: #1D4393;
+  flex-shrink: 0;
 }
 
 .card-top-accent {
-  height: 5px;
+  height: 1.2mm;
+  flex-shrink: 0;
   background: linear-gradient(90deg, #1D4393 0%, #e30613 45%, #f5c518 100%);
 }
 
 .card-bottom-accent {
-  height: 4px;
-  background: linear-gradient(90deg, #1D4393 0%, #152d6b 100%);
+  height: 1.2mm;
+  flex-shrink: 0;
+  background: linear-gradient(90deg, #1D4393 0%, #e30613 45%, #f5c518 100%);
 }
 
 .card-header-full {
   width: 100%;
   background: #1D4393;
-  padding: 8px 14px;
+  padding: 1.2mm 2mm;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 1.5mm;
+  flex-shrink: 0;
 }
 
 .card-header-bar {
@@ -866,75 +871,73 @@ tbody tr:last-child td {
 }
 
 .card-brand-logo {
-  width: 40px;
-  height: 40px;
+  width: 7mm;
+  height: 7mm;
   object-fit: cover;
   flex-shrink: 0;
-  border-radius: 4px;
+  border-radius: 0.8mm;
 }
 
 .card-header-text {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0.3mm;
+  min-width: 0;
 }
 
 .card-org {
-  font-size: 0.5rem;
+  font-size: 1.45mm;
   font-weight: 700;
   color: #ffffff;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  line-height: 1.25;
+  letter-spacing: 0.03em;
+  line-height: 1.2;
 }
 
 .card-year {
-  font-size: 0.52rem;
+  font-size: 1.3mm;
   font-weight: 600;
   color: #dbeafe;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
 }
 
 .card-body {
   flex: 1;
   display: flex;
-  padding: 8px 14px 6px;
-  gap: 10px;
-}
-
-.card-main {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
+  align-items: stretch;
+  padding: 1.2mm 2mm;
+  gap: 1.5mm;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .card-photo-frame {
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
 }
 
 .card-photo {
-  width: 78px;
-  height: 96px;
-  border-radius: 6px;
+  width: 13.5mm;
+  height: 16.5mm;
+  border-radius: 1mm;
   object-fit: cover;
-  border: 2px solid var(--primary);
+  border: 0.3mm solid #1D4393;
   background: #f1f5f9;
   display: block;
 }
 
 .card-photo-placeholder {
-  width: 78px;
-  height: 96px;
-  border-radius: 6px;
-  border: 2px dashed #cbd5e1;
+  width: 13.5mm;
+  height: 16.5mm;
+  border-radius: 1mm;
+  border: 0.3mm dashed #cbd5e1;
   background: #f8fafc;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.65rem;
+  font-size: 1.3mm;
   font-weight: 600;
   color: var(--text-muted);
   text-transform: uppercase;
@@ -945,29 +948,29 @@ tbody tr:last-child td {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 4px;
+  gap: 0.8mm;
   min-width: 0;
+  overflow: hidden;
 }
 
 .card-fullname {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 0.35rem;
-  margin-bottom: 4px;
-  line-height: 1.2;
+  gap: 0.8mm;
+  line-height: 1.15;
 }
 
 .card-name {
-  font-size: 0.95rem;
+  font-size: 2.3mm;
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.02em;
   color: #0d2b5e;
 }
 
 .card-firstname {
-  font-size: 0.95rem;
+  font-size: 2.3mm;
   font-weight: 700;
   color: #0d2b5e;
   text-transform: capitalize;
@@ -975,54 +978,75 @@ tbody tr:last-child td {
 
 .card-qr {
   flex-shrink: 0;
-  padding: 3px;
+  align-self: center;
+  padding: 0.5mm;
   background: #ffffff;
-  border: 1px solid #cbd5e1;
-  border-radius: 4px;
+  border: 0.2mm solid #cbd5e1;
+  border-radius: 0.6mm;
   line-height: 0;
+}
+
+.card-qr svg {
+  width: 10.5mm !important;
+  height: 10.5mm !important;
+  display: block;
 }
 
 .card-details-grid {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0.4mm;
 }
 
 .card-detail {
-  font-size: 0.58rem;
+  font-size: 1.45mm;
   display: flex;
-  gap: 6px;
-  line-height: 1.35;
+  gap: 1mm;
+  line-height: 1.25;
   color: var(--text);
+  align-items: flex-start;
 }
 
 .card-label {
   font-weight: 700;
-  color: var(--primary);
-  min-width: 52px;
+  color: #1D4393;
+  min-width: 10mm;
+  flex-shrink: 0;
+}
+
+.card-value {
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+}
+
+.card-footer-zone {
   flex-shrink: 0;
 }
 
 .card-footer-bar {
-  background: #f8fafc;
-  border-top: 1px solid #eef2f7;
-  padding: 6px 14px;
+  background: linear-gradient(90deg, #1D4393 0%, #2a5298 100%);
+  padding: 1mm 2mm;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 1mm;
 }
 
 .card-number {
   font-weight: 800;
-  font-size: 0.68rem;
-  letter-spacing: 0.06em;
-  color: var(--accent);
+  font-size: 1.55mm;
+  letter-spacing: 0.04em;
+  color: #ffffff;
+  white-space: nowrap;
 }
 
 .card-inscription {
-  font-size: 0.55rem;
-  color: var(--text-muted);
-  font-weight: 500;
+  font-size: 1.35mm;
+  color: #dbeafe;
+  font-weight: 600;
+  white-space: nowrap;
+  text-align: right;
 }
 
 /* Print styles — carte 85mm × 55mm */
