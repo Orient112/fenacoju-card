@@ -206,9 +206,14 @@ export default function App() {
   const canResetPassword = perms.manageUsers || perms.createUsers;
   const canViewClubDetails = perms.viewClubDetails === true;
   const canViewCards = perms.viewCards !== false;
+  const readOnlyJudokas = perms.readOnlyJudokas === true;
   const canScanQr = canUseQrScan(user, perms);
   const visibleTabs = useMemo(() => (user ? getVisibleTabs(user, tabs) : []), [user, tabs]);
   const entraineurs = useMemo(() => members.filter((m) => m.type === 'entraineur'), [members]);
+  const entraineurClub = useMemo(() => {
+    if (user?.type !== 'entraineur') return null;
+    return members.find((m) => m.type === 'club' && matchClubName(m.nom_club, user.club)) || null;
+  }, [members, user]);
 
   const showToast = useCallback((message, type = 'success') => {
     setToast({ message, type });
@@ -254,7 +259,7 @@ export default function App() {
     if (!user) return;
     setLoading(true);
     try {
-      const needsUsers = user.type === 'admin' || perms.viewUsers || user.type === 'club';
+      const needsUsers = user.type === 'admin' || perms.viewUsers || user.type === 'club' || perms.viewClubInfo;
       const requests = [fetchStats(), fetchJudokas(), fetchClubs()];
       if (needsUsers) requests.push(fetchUsers());
 
@@ -636,22 +641,40 @@ export default function App() {
 
             {dashboardTab === 'judokas' && showJudokasTab && (
               <>
-                <div className="filter-bar">
-                  {Object.entries(FILTERS).map(([key, f]) => (
-                    <button
-                      key={key}
-                      className={`filter-chip ${activeFilter === key ? 'active' : ''}`}
-                      onClick={() => setActiveFilter(key)}
-                    >
-                      {f.label}
-                    </button>
-                  ))}
-                  {activeFilter !== 'all' && (
-                    <button className="filter-chip clear" onClick={() => setActiveFilter('all')}>
-                      Effacer filtre
-                    </button>
-                  )}
-                </div>
+                {user.type === 'entraineur' && (
+                  <div className="entraineur-club-panel">
+                    <h2>{user.club}</h2>
+                    <div className="entraineur-club-grid">
+                      <div className="entraineur-club-item">
+                        <span className="entraineur-club-label">Responsable du club</span>
+                        <span className="entraineur-club-value">{entraineurClub?.responsable || '—'}</span>
+                      </div>
+                      <div className="entraineur-club-item">
+                        <span className="entraineur-club-label">Province / Ville</span>
+                        <span className="entraineur-club-value">{entraineurClub?.ville || '—'}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {user.type !== 'entraineur' && (
+                  <div className="filter-bar">
+                    {Object.entries(FILTERS).map(([key, f]) => (
+                      <button
+                        key={key}
+                        className={`filter-chip ${activeFilter === key ? 'active' : ''}`}
+                        onClick={() => setActiveFilter(key)}
+                      >
+                        {f.label}
+                      </button>
+                    ))}
+                    {activeFilter !== 'all' && (
+                      <button className="filter-chip clear" onClick={() => setActiveFilter('all')}>
+                        Effacer filtre
+                      </button>
+                    )}
+                  </div>
+                )}
 
                 <div className="search-bar">
                   <input
@@ -661,7 +684,7 @@ export default function App() {
                     value={searchInput}
                     onChange={(e) => setSearchInput(e.target.value)}
                   />
-                  {perms.refreshList !== false && (
+                  {perms.refreshList !== false && user.type !== 'entraineur' && (
                     <button className="btn btn-outline" onClick={loadData} disabled={loading}>
                       {loading ? 'Chargement...' : 'Actualiser'}
                     </button>
@@ -675,7 +698,7 @@ export default function App() {
 
                 <div className="table-card">
                   <div className="table-header">
-                    <h2>{getSectionTitle('judokas', user)}</h2>
+                    <h2>{user.type === 'entraineur' ? 'Judokas du club' : getSectionTitle('judokas', user)}</h2>
                     <div className="table-header-actions">
                       {canScanQr && (
                         <button
@@ -707,7 +730,8 @@ export default function App() {
                     <Suspense fallback={<PageLoader label="Chargement de la liste..." />}>
                       <JudokaList
                         judokas={filteredJudokas}
-                        onViewCard={canViewCards ? setCardJudoka : null}
+                        showActions={!readOnlyJudokas}
+                        onViewCard={!readOnlyJudokas && canViewCards ? setCardJudoka : null}
                         onEdit={perms.createJudokas ? openEditForm : null}
                         onDelete={perms.deleteJudokas ? setDeleteTarget : null}
                         onAddNew={perms.createJudokas ? openNewJudoka : null}

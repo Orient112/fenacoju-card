@@ -1,6 +1,8 @@
 import { formatDate } from '../api';
 
-export default function JudokaList({ judokas, onViewCard, onEdit, onDelete, onAddNew }) {
+export default function JudokaList({ judokas, onViewCard, onEdit, onDelete, onAddNew, showActions = true }) {
+  const hasActions = showActions && (onViewCard || onEdit || onDelete);
+
   if (judokas.length === 0) {
     return (
       <div className="empty-state">
@@ -27,7 +29,7 @@ export default function JudokaList({ judokas, onViewCard, onEdit, onDelete, onAd
           <th>Catégorie</th>
           <th>Inscription</th>
           <th>Statut</th>
-          <th>Actions</th>
+          {hasActions && <th>Actions</th>}
         </tr>
       </thead>
       <tbody>
@@ -51,40 +53,42 @@ export default function JudokaList({ judokas, onViewCard, onEdit, onDelete, onAd
                 {j.statut === 'actif' ? 'Actif' : 'Inactif'}
               </span>
             </td>
-            <td data-label="Actions">
-              <div className="actions-cell">
-                {onViewCard && (
-                  <button
-                    type="button"
-                    className="btn btn-primary btn-sm btn-icon"
-                    onClick={() => onViewCard(j)}
-                    title="Voir la carte"
-                  >
-                    🪪
-                  </button>
-                )}
-                {onEdit && (
-                  <button
-                    type="button"
-                    className="btn btn-outline btn-sm btn-icon"
-                    onClick={() => onEdit(j)}
-                    title="Modifier"
-                  >
-                    ✏️
-                  </button>
-                )}
-                {onDelete && (
-                  <button
-                    type="button"
-                    className="btn btn-danger btn-sm btn-icon"
-                    onClick={() => onDelete(j)}
-                    title="Supprimer"
-                  >
-                    🗑️
-                  </button>
-                )}
-              </div>
-            </td>
+            {hasActions && (
+              <td data-label="Actions">
+                <div className="actions-cell">
+                  {onViewCard && (
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm btn-icon"
+                      onClick={() => onViewCard(j)}
+                      title="Voir la carte"
+                    >
+                      🪪
+                    </button>
+                  )}
+                  {onEdit && (
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm btn-icon"
+                      onClick={() => onEdit(j)}
+                      title="Modifier"
+                    >
+                      ✏️
+                    </button>
+                  )}
+                  {onDelete && (
+                    <button
+                      type="button"
+                      className="btn btn-danger btn-sm btn-icon"
+                      onClick={() => onDelete(j)}
+                      title="Supprimer"
+                    >
+                      🗑️
+                    </button>
+                  )}
+                </div>
+              </td>
+            )}
           </tr>
         ))}
       </tbody>

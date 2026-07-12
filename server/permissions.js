@@ -76,9 +76,10 @@ export function getPermissions(user) {
 
   if (user.type === 'club') {
     return {
-      viewUsers: true, viewJudokas: true, viewStats: true, viewCards: true,
-      createUsers: true, createJudokas: true, export: true, deleteJudokas: true,
-      createTypes: ['entraineur'],
+      viewUsers: true, viewJudokas: true, viewStats: true, viewCards: false,
+      createUsers: false, createJudokas: false, export: false, deleteJudokas: false,
+      readOnlyJudokas: true,
+      createTypes: [],
       dashboardTabs: ['judokas', 'entraineurs'],
       clubScope: user.nom_club,
       canMessage: true,
@@ -87,8 +88,9 @@ export function getPermissions(user) {
 
   if (user.type === 'entraineur') {
     return {
-      viewUsers: false, viewJudokas: true, viewStats: true, viewCards: true,
-      createUsers: false, createJudokas: true, export: true, deleteJudokas: true,
+      viewUsers: false, viewClubInfo: true, viewJudokas: true, viewStats: false, viewCards: false,
+      createUsers: false, createJudokas: false, export: false, deleteJudokas: false,
+      readOnlyJudokas: true,
       createTypes: [],
       dashboardTabs: ['judokas'],
       clubScope: user.club,
@@ -135,6 +137,10 @@ export function filterUsers(users, user) {
     if (user.type === 'club') {
       const club = user.nom_club;
       return users.filter((u) => u.type === 'entraineur' && matchClub(u.club, club));
+    }
+    if (user.type === 'entraineur' && perms.viewClubInfo) {
+      const club = user.club;
+      return users.filter((u) => u.type === 'club' && matchClub(u.nom_club, club));
     }
     return [];
   }

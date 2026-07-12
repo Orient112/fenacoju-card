@@ -2100,6 +2100,47 @@ tbody tr:last-child td {
   border-bottom: none;
 }
 
+.entraineur-club-panel {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.25rem;
+  box-shadow: var(--shadow);
+}
+
+.entraineur-club-panel h2 {
+  margin: 0 0 1rem;
+  color: var(--primary);
+  font-size: 1.2rem;
+}
+
+.entraineur-club-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.entraineur-club-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.entraineur-club-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.entraineur-club-value {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
 /* QR Scan modal */
 .qr-scan-modal {
   background: white;
