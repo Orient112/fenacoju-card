@@ -22,9 +22,9 @@ export default function JudokaCard({ judoka }) {
         <div className="card-header-zone">
           <div className="card-top-accent" />
           <div className="card-header-full">
-            <img src="/fenacoju-icon.png" alt="FENACOJU" className="card-brand-logo" />
+            <img src="/fenacoju-icon.png" alt="FENACOJU" className="card-brand-logo" crossOrigin="anonymous" />
             <div className="card-header-text">
-              <span className="card-org">Fédération Nationale de Judo</span>
+              <span className="card-org">Fédération Nationale Congolaise de Judo</span>
               <span className="card-year">Carte Judoka {new Date().getFullYear()}</span>
             </div>
           </div>
@@ -33,7 +33,12 @@ export default function JudokaCard({ judoka }) {
         <div className="card-body">
           <div className="card-photo-frame">
             {judoka.photo ? (
-              <img src={resolveMediaUrl(judoka.photo)} alt="" className="card-photo" />
+              <img
+                src={resolveMediaUrl(judoka.photo)}
+                alt=""
+                className="card-photo"
+                crossOrigin="anonymous"
+              />
             ) : (
               <div className="card-photo-placeholder">
                 <span>Photo</span>

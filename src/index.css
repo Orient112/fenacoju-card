@@ -787,30 +787,34 @@ tbody tr:last-child td {
   background: white;
   border-radius: var(--radius);
   padding: 2rem;
-  max-width: 500px;
+  max-width: 520px;
   width: 100%;
   box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
 }
 
 .card-modal-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.75rem;
   justify-content: center;
   margin-top: 1.5rem;
 }
 
-/* Judoka Card Design */
+/* Judoka Card Design — format carte bancaire 85 × 55 mm */
 .judoka-card {
-  width: 360px;
-  height: 226px;
+  width: 85mm;
+  height: 55mm;
+  max-width: 100%;
   margin: 0 auto;
-  border-radius: 14px;
+  border-radius: 3mm;
   overflow: hidden;
   box-shadow: 0 4px 20px rgba(26, 58, 107, 0.15);
   border: 1px solid #e2e8f0;
   position: relative;
   font-family: 'Inter', sans-serif;
   background: white;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
 }
 
 .card-front {
@@ -876,11 +880,12 @@ tbody tr:last-child td {
 }
 
 .card-org {
-  font-size: 0.58rem;
+  font-size: 0.5rem;
   font-weight: 700;
   color: #ffffff;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
+  line-height: 1.25;
 }
 
 .card-year {
@@ -1020,33 +1025,72 @@ tbody tr:last-child td {
   font-weight: 500;
 }
 
-/* Print styles */
+/* Print styles — carte 85mm × 55mm */
 @media print {
-  body * {
-    visibility: hidden;
+  @page {
+    size: 85mm 55mm landscape;
+    margin: 0;
   }
 
-  .judoka-card,
-  .judoka-card * {
-    visibility: visible;
+  html,
+  body {
+    width: 85mm !important;
+    height: 55mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    background: white !important;
   }
 
-  .judoka-card {
-    position: fixed;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    box-shadow: none;
+  body.printing-card #root > header,
+  body.printing-card #root > main,
+  body.printing-card .server-banner,
+  body.printing-card .toast,
+  body.printing-card .card-modal-actions {
+    display: none !important;
   }
 
-  .card-overlay {
-    background: none;
-    position: static;
+  body.printing-card .card-overlay {
+    position: fixed !important;
+    inset: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: white !important;
+    backdrop-filter: none !important;
+    display: block !important;
+    z-index: 99999 !important;
   }
 
-  .card-modal,
-  .card-modal-actions {
-    display: none;
+  body.printing-card .card-modal {
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    max-width: none !important;
+    width: 85mm !important;
+    height: 55mm !important;
+    background: white !important;
+  }
+
+  body.printing-card #printable-card {
+    position: fixed !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 85mm !important;
+    height: 55mm !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    transform: none !important;
+    page-break-inside: avoid !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  body.printing-card #printable-card,
+  body.printing-card #printable-card * {
+    visibility: visible !important;
   }
 }
 
@@ -1379,6 +1423,21 @@ tbody tr:last-child td {
 
   .card-modal {
     padding: 0.75rem;
+  }
+
+  .judoka-card {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 85 / 55;
+  }
+
+  .card-modal-actions {
+    flex-direction: column;
+  }
+
+  .card-modal-actions .btn {
+    width: 100%;
+    justify-content: center;
   }
 }
 
