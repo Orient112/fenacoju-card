@@ -405,11 +405,6 @@ body {
   color: #ffffff;
 }
 
-.btn-reset-password {
-  font-size: 0.75rem;
-  white-space: nowrap;
-}
-
 .btn-outline {
   background: transparent;
   border: 2px solid var(--border);

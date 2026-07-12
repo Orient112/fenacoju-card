@@ -93,11 +93,11 @@ export default function UserList({
                   {u.type !== 'admin' && onResetPassword && (
                     <button
                       type="button"
-                      className="btn btn-outline btn-sm btn-reset-password"
+                      className="btn btn-outline btn-sm btn-icon"
                       onClick={() => onResetPassword(u)}
                       title="Réinitialiser mot de passe"
                     >
-                      Réinitialiser mot de passe
+                      🔑
                     </button>
                   )}
                   {u.type !== 'admin' && onDelete && (

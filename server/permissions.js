@@ -15,8 +15,10 @@ export const FEDERATION_ROLES = {
   },
   'Secrétaire Général': {
     viewUsers: true, viewJudokas: true, viewStats: true, viewCards: false,
-    createUsers: true, createJudokas: true, export: true, deleteJudokas: true, manageAll: true, manageUsers: true,
+    createUsers: false, createJudokas: false, export: false, deleteJudokas: false,
+    manageAll: true, manageUsers: false, refreshList: false,
     dashboardTabs: SENIOR_FEDERATION_TABS, scanQr: true,
+    createTypes: [],
   },
   'Directeur Technique': {
     viewUsers: true, viewJudokas: true, viewStats: true, viewCards: false,

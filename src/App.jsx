@@ -612,9 +612,11 @@ export default function App() {
                     value={searchInput}
                     onChange={(e) => setSearchInput(e.target.value)}
                   />
-                  <button className="btn btn-outline" onClick={loadData} disabled={loading}>
-                    {loading ? 'Chargement...' : 'Actualiser'}
-                  </button>
+                  {perms.refreshList !== false && (
+                    <button className="btn btn-outline" onClick={loadData} disabled={loading}>
+                      {loading ? 'Chargement...' : 'Actualiser'}
+                    </button>
+                  )}
                   {perms.createJudokas && (
                     <button className="btn btn-accent" onClick={openNewJudoka}>
                       Nouveau judoka
@@ -697,7 +699,7 @@ export default function App() {
                         showClub={dashboardTab === 'entraineurs' && user.type === 'admin'}
                         detailColumnLabel={dashboardTab === 'federation' ? 'Fonction' : 'Détails'}
                         hideFonctionUnderName={dashboardTab === 'federation'}
-                        showViewAction={dashboardTab === 'clubs'}
+                        showViewAction={dashboardTab === 'clubs' && canManageUsers}
                         canManage={canManageUsers}
                         onView={setViewClub}
                         onEdit={canManageUsers ? openEditUser : null}
