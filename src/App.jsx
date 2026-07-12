@@ -22,6 +22,7 @@ const UserForm = lazy(() => import('./components/UserForm'));
 const JudokaList = lazy(() => import('./components/JudokaList'));
 const UserList = lazy(() => import('./components/UserList'));
 const CardModal = lazy(() => import('./components/CardModal'));
+const QrScanModal = lazy(() => import('./components/QrScanModal'));
 const CreateTypeModal = lazy(() => import('./components/CreateTypeModal'));
 const ClubDetailModal = lazy(() => import('./components/ClubDetailModal'));
 
@@ -121,6 +122,10 @@ function getRoleLabel(user) {
   return USER_TYPES[user.type]?.label || user.type;
 }
 
+function canUseQrScan(user, perms) {
+  return perms.scanQr === true;
+}
+
 function getVisibleTabs(user, tabs) {
   if (user.type === 'admin') {
     return [
@@ -178,6 +183,8 @@ export default function App() {
   const [createType, setCreateType] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [cardJudoka, setCardJudoka] = useState(null);
+  const [showQrScan, setShowQrScan] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleteUserTarget, setDeleteUserTarget] = useState(null);
   const [resetPasswordTarget, setResetPasswordTarget] = useState(null);
@@ -192,6 +199,7 @@ export default function App() {
   const lockedClub = perms.clubScope || null;
   const canManageUsers = perms.manageUsers || perms.createUsers;
   const canViewCards = perms.viewCards !== false;
+  const canScanQr = canUseQrScan(user, perms);
   const visibleTabs = useMemo(() => (user ? getVisibleTabs(user, tabs) : []), [user, tabs]);
   const entraineurs = useMemo(() => members.filter((m) => m.type === 'entraineur'), [members]);
 
@@ -394,6 +402,31 @@ export default function App() {
     showToast(`${filteredJudokas.length} judoka(s) exporté(s) en CSV`);
   };
 
+  const handleExportCardsPdf = async () => {
+    if (!perms.export) {
+      showToast('Export non autorisé pour votre rôle', 'error');
+      return;
+    }
+    if (filteredJudokas.length === 0) {
+      showToast('Aucune carte à exporter', 'error');
+      return;
+    }
+
+    setExportingPdf(true);
+    try {
+      const { exportCardsToPdf } = await import('./utils/exportCardsPdf.jsx');
+      await exportCardsToPdf(filteredJudokas, (current, total) => {
+        if (current === total) {
+          showToast(`${total} carte(s) exportée(s) en PDF`);
+        }
+      });
+    } catch {
+      showToast('Impossible de générer le PDF des cartes', 'error');
+    } finally {
+      setExportingPdf(false);
+    }
+  };
+
   const handleLogout = async () => {
     await logoutUser();
     setUser(null);
@@ -590,6 +623,28 @@ export default function App() {
                 <div className="table-card">
                   <div className="table-header">
                     <h2>{getSectionTitle('judokas', user)}</h2>
+                    <div className="table-header-actions">
+                      {canScanQr && (
+                        <button
+                          type="button"
+                          className="btn btn-scan-qr"
+                          onClick={() => setShowQrScan(true)}
+                          disabled={!serverOnline}
+                        >
+                          Scan QR
+                        </button>
+                      )}
+                      {perms.export && (
+                        <button
+                          type="button"
+                          className="btn btn-export-green"
+                          onClick={handleExportCardsPdf}
+                          disabled={exportingPdf || !serverOnline || filteredJudokas.length === 0}
+                        >
+                          {exportingPdf ? 'Export...' : 'Exporter'}
+                        </button>
+                      )}
+                    </div>
                   </div>
                   {loading && judokas.length === 0 ? (
                     <div className="table-skeleton">
@@ -713,6 +768,12 @@ export default function App() {
       {cardJudoka && (
         <Suspense fallback={null}>
           <CardModal judoka={cardJudoka} onClose={() => setCardJudoka(null)} />
+        </Suspense>
+      )}
+
+      {showQrScan && (
+        <Suspense fallback={null}>
+          <QrScanModal onClose={() => setShowQrScan(false)} />
         </Suspense>
       )}
 

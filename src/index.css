@@ -376,6 +376,35 @@ body {
   background: var(--accent-light);
 }
 
+.btn-export-green {
+  background: #16a34a;
+  color: #ffffff;
+  border: 2px solid #16a34a;
+}
+
+.btn-export-green:hover:not(:disabled) {
+  background: #15803d;
+  border-color: #15803d;
+  color: #ffffff;
+}
+
+.btn-export-green:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-scan-qr {
+  background: var(--primary);
+  color: #ffffff;
+  border: 2px solid var(--primary);
+}
+
+.btn-scan-qr:hover:not(:disabled) {
+  background: var(--primary-light);
+  border-color: var(--primary-light);
+  color: #ffffff;
+}
+
 .btn-outline {
   background: transparent;
   border: 2px solid var(--border);
@@ -684,6 +713,13 @@ body {
   color: var(--primary);
 }
 
+.table-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
@@ -886,7 +922,7 @@ tbody tr:last-child td {
 }
 
 .card-org {
-  font-size: 2.64mm;
+  font-size: 2.11mm;
   font-weight: 700;
   color: #ffffff;
   text-transform: uppercase;
@@ -895,7 +931,7 @@ tbody tr:last-child td {
 }
 
 .card-year {
-  font-size: 2.37mm;
+  font-size: 1.9mm;
   font-weight: 600;
   color: #dbeafe;
   text-transform: uppercase;
@@ -1310,6 +1346,24 @@ tbody tr:last-child td {
 
   .table-header h2 {
     font-size: 1.05rem;
+  }
+
+  .table-header-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .qr-scan-result {
+    flex-direction: column;
+  }
+
+  .qr-scan-result-card .judoka-card {
+    transform: none;
+    margin: 0 auto;
+  }
+
+  .qr-scan-details-grid {
+    grid-template-columns: 1fr;
   }
 
   .data-table {
@@ -1976,6 +2030,131 @@ tbody tr:last-child td {
   background: #f8fafc;
   border-radius: var(--radius);
   font-size: 0.9rem;
+}
+
+/* QR Scan modal */
+.qr-scan-modal {
+  background: white;
+  border-radius: var(--radius);
+  width: min(960px, 96vw);
+  max-height: 92vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+}
+
+.qr-scan-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.qr-scan-header h2 {
+  margin: 0;
+  color: var(--primary);
+  font-size: 1.2rem;
+}
+
+.qr-scan-body {
+  padding: 1.25rem 1.5rem 1.5rem;
+}
+
+.qr-scan-hint {
+  margin: 0 0 1rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.qr-scan-reader {
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.qr-scan-status {
+  margin: 1rem 0 0;
+  color: var(--primary);
+  font-weight: 600;
+  text-align: center;
+}
+
+.qr-scan-error {
+  margin: 1rem 0 0;
+  color: #dc2626;
+  text-align: center;
+}
+
+.qr-scan-result {
+  display: flex;
+  gap: 1.5rem;
+  padding: 1.25rem 1.5rem 1.5rem;
+  align-items: flex-start;
+}
+
+.qr-scan-result-card {
+  flex-shrink: 0;
+}
+
+.qr-scan-result-card .judoka-card {
+  transform: scale(1.15);
+  transform-origin: top left;
+}
+
+.qr-scan-result-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.qr-scan-details {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.qr-scan-photo-large img {
+  width: 120px;
+  height: 150px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 2px solid var(--primary);
+}
+
+.qr-scan-details-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.qr-scan-detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.qr-scan-detail-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.qr-scan-detail-value {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text);
+  word-break: break-word;
+}
+
+.qr-scan-result-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
 }
 
 .document-preview-wrap {
