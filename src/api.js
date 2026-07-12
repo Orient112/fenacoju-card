@@ -198,6 +198,21 @@ export async function fetchJudoka(id) {
   return res.json();
 }
 
+export async function resolveJudokaFromQrPayload(payload) {
+  if (payload?.id) {
+    return fetchJudoka(payload.id);
+  }
+
+  if (payload?.carte) {
+    const judokas = await fetchJudokas(payload.carte);
+    const exact = judokas.find((j) => j.numero_carte === payload.carte);
+    if (exact) return exact.id ? fetchJudoka(exact.id) : exact;
+    if (judokas.length === 1) return judokas[0];
+  }
+
+  throw new Error('Judoka introuvable');
+}
+
 export async function createJudoka(formData) {
   const res = await apiFetch('/api/judokas', { method: 'POST', body: formData });
   if (!res.ok) {

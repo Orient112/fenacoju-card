@@ -209,12 +209,23 @@ export function canViewJudokaCard(user) {
 
 export function canMessageUser(sender, recipient) {
   if (!sender || !recipient || sender.id === recipient.id) return false;
-  if (sender.type === 'admin') return recipient.type !== 'admin';
-  if (recipient.type === 'admin') return true;
-  if (sender.type === 'federation') return true;
+
+  if (recipient.type === 'admin') {
+    return sender.type === 'federation' && sender.fonction === 'Coordon';
+  }
+
+  if (sender.type === 'admin') {
+    return recipient.type !== 'admin';
+  }
+
+  if (sender.type === 'federation') {
+    return recipient.type !== 'admin';
+  }
+
   if (sender.type === 'club' || sender.type === 'entraineur') {
     return recipient.type === 'federation';
   }
+
   return false;
 }
 

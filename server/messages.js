@@ -110,7 +110,11 @@ export async function getMessageContacts(sender, allUsers) {
   const contactIds = new Set();
 
   messages.forEach((m) => {
-    contactIds.add(m.from_id === sender.id ? m.to_id : m.from_id);
+    const otherId = m.from_id === sender.id ? m.to_id : m.from_id;
+    const other = allUsers.find((u) => u.id === otherId);
+    if (other && canMessageUser(sender, other)) {
+      contactIds.add(otherId);
+    }
   });
 
   allUsers.forEach((u) => {
@@ -120,7 +124,7 @@ export async function getMessageContacts(sender, allUsers) {
   });
 
   return allUsers
-    .filter((u) => contactIds.has(u.id))
+    .filter((u) => contactIds.has(u.id) && canMessageUser(sender, u))
     .sort((a, b) => {
       const nameA = (a.nom_club || `${a.prenom || ''} ${a.nom || ''}`).trim().toLowerCase();
       const nameB = (b.nom_club || `${b.prenom || ''} ${b.nom || ''}`).trim().toLowerCase();

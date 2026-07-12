@@ -16,6 +16,7 @@ import {
 } from './api';
 import Login from './pages/Login';
 import ResetPasswordModal from './components/ResetPasswordModal';
+import ClubInfoPanel from './components/ClubInfoPanel';
 
 const Messages = lazy(() => import('./pages/Messages'));
 const JudokaForm = lazy(() => import('./components/JudokaForm'));
@@ -625,6 +626,14 @@ export default function App() {
               </div>
             )}
 
+            {user.type === 'club' && perms.viewStats && (
+              <ClubInfoPanel
+                title={user.nom_club}
+                responsable={user.responsable}
+                ville={user.ville}
+              />
+            )}
+
             {visibleTabs.length > 1 && (
               <div className="dashboard-tabs">
                 {visibleTabs.map((tab) => (
@@ -642,19 +651,11 @@ export default function App() {
             {dashboardTab === 'judokas' && showJudokasTab && (
               <>
                 {user.type === 'entraineur' && (
-                  <div className="entraineur-club-panel">
-                    <h2>{user.club}</h2>
-                    <div className="entraineur-club-grid">
-                      <div className="entraineur-club-item">
-                        <span className="entraineur-club-label">Responsable du club</span>
-                        <span className="entraineur-club-value">{entraineurClub?.responsable || '—'}</span>
-                      </div>
-                      <div className="entraineur-club-item">
-                        <span className="entraineur-club-label">Province / Ville</span>
-                        <span className="entraineur-club-value">{entraineurClub?.ville || '—'}</span>
-                      </div>
-                    </div>
-                  </div>
+                  <ClubInfoPanel
+                    title={user.club}
+                    responsable={entraineurClub?.responsable}
+                    ville={entraineurClub?.ville}
+                  />
                 )}
 
                 {user.type !== 'entraineur' && (

@@ -1,19 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
-import { calcAge, fetchJudoka, formatDate, getCardValidityYear, resolveMediaUrl } from '../api';
+import { calcAge, formatDate, getCardValidityYear, resolveJudokaFromQrPayload, resolveMediaUrl } from '../api';
+import { parseCardQr } from '../utils/parseCardQr';
 import JudokaCard from './JudokaCard';
 
 const SCANNER_ID = 'fenacoju-qr-reader';
-
-function parseCardQr(text) {
-  try {
-    const data = JSON.parse(text);
-    if (data?.org !== 'FENACOJU' || !data?.id) return null;
-    return data;
-  } catch {
-    return null;
-  }
-}
 
 function JudokaDetails({ judoka }) {
   const fields = [
@@ -90,7 +81,7 @@ export default function QrScanModal({ onClose }) {
     await stopScanner();
 
     try {
-      const data = await fetchJudoka(payload.id);
+      const data = await resolveJudokaFromQrPayload(payload);
       setJudoka(data);
       setPhase('result');
     } catch {
