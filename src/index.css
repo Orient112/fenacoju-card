@@ -1321,11 +1321,6 @@ tbody tr:last-child td {
     flex-direction: column;
   }
 
-  .qr-scan-result-card .judoka-card {
-    transform: none;
-    margin: 0 auto;
-  }
-
   .qr-scan-details-grid {
     grid-template-columns: 1fr;
   }
@@ -2240,18 +2235,13 @@ tbody tr:last-child td {
   align-items: flex-start;
 }
 
-.qr-scan-result-card {
-  flex-shrink: 0;
+.qr-scan-result-only-info {
+  flex-direction: column;
+  gap: 0;
 }
 
-.qr-scan-result-card .judoka-card {
-  transform: scale(1.15);
-  transform-origin: top left;
-}
-
-.qr-scan-result-info {
-  flex: 1;
-  min-width: 0;
+.qr-scan-result-only-info .qr-scan-success-banner {
+  margin-bottom: 1rem;
 }
 
 .qr-scan-details {

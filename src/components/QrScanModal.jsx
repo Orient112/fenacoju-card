@@ -8,7 +8,6 @@ import {
   pickDesktopCamera,
 } from '../utils/cameraDevices';
 import { hasResolvableQrPayload, parseCardQr } from '../utils/parseCardQr';
-import JudokaCard from './JudokaCard';
 
 const SCANNER_ID = 'fenacoju-qr-reader';
 const SCAN_DEBOUNCE_MS = 1200;
@@ -328,21 +327,16 @@ export default function QrScanModal({ onClose }) {
         )}
 
         {phase === 'result' && judoka && (
-          <div className="qr-scan-result">
-            <div className="qr-scan-result-card">
-              <JudokaCard judoka={judoka} />
-            </div>
-            <div className="qr-scan-result-info">
-              <p className="qr-scan-success-banner">Ce judoka est enregistré dans FENACOJU Base.</p>
-              <JudokaDetails judoka={judoka} />
-              <div className="qr-scan-result-actions">
-                <button type="button" className="btn btn-primary" onClick={handleScanAgain}>
-                  Scanner une autre carte
-                </button>
-                <button type="button" className="btn btn-outline" onClick={onClose}>
-                  Fermer
-                </button>
-              </div>
+          <div className="qr-scan-result qr-scan-result-only-info">
+            <p className="qr-scan-success-banner">Ce judoka est enregistré dans FENACOJU Base.</p>
+            <JudokaDetails judoka={judoka} />
+            <div className="qr-scan-result-actions">
+              <button type="button" className="btn btn-primary" onClick={handleScanAgain}>
+                Scanner une autre carte
+              </button>
+              <button type="button" className="btn btn-outline" onClick={onClose}>
+                Fermer
+              </button>
             </div>
           </div>
         )}
