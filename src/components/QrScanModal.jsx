@@ -310,7 +310,7 @@ export default function QrScanModal({ onClose }) {
 
   return (
     <div className="card-overlay" onClick={onClose}>
-      <div className="qr-scan-modal" onClick={(e) => e.stopPropagation()}>
+      <div className={`qr-scan-modal ${phase === 'result' ? 'qr-scan-modal-found' : ''}`} onClick={(e) => e.stopPropagation()}>
         <div className={headerClass}>
           <h2>{title}</h2>
           <button type="button" className="btn btn-outline btn-sm" onClick={onClose}>

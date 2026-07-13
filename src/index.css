@@ -1325,6 +1325,11 @@ tbody tr:last-child td {
     flex-direction: column;
     text-align: center;
     align-items: center;
+    max-width: 100%;
+  }
+
+  .qr-found-hero-content {
+    align-items: center;
   }
 
   .qr-found-hero-badges {
@@ -1332,7 +1337,36 @@ tbody tr:last-child td {
   }
 
   .qr-found-sections {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.5rem;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .qr-found-section {
+    min-width: 0;
+    padding: 0.75rem 0.5rem;
+  }
+
+  .qr-found-field-label {
+    font-size: 0.62rem;
+  }
+
+  .qr-found-field-value {
+    font-size: 0.78rem;
+  }
+
+  .qr-found-hero-name {
+    font-size: 1.65rem;
+  }
+
+  .qr-found-hero-club {
+    font-size: 1.05rem;
+  }
+
+  .qr-found-badge {
+    font-size: 0.82rem;
+    padding: 0.35rem 0.7rem;
   }
 
   .qr-scan-result-actions-footer {
@@ -2122,6 +2156,14 @@ tbody tr:last-child td {
 .qr-scan-header-success {
   background: linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%);
   border-bottom-color: #bbf7d0;
+  justify-content: center;
+  text-align: center;
+  position: relative;
+}
+
+.qr-scan-header-success .btn {
+  position: absolute;
+  right: 1.5rem;
 }
 
 .qr-scan-header-success h2 {
@@ -2272,16 +2314,24 @@ tbody tr:last-child td {
   gap: 0;
 }
 
+.qr-scan-modal-found {
+  width: min(1120px, 98vw);
+}
+
 .qr-scan-result-found {
   flex-direction: column;
   gap: 0;
   padding: 0;
+  align-items: center;
+  text-align: center;
 }
 
 .qr-found-success-strip {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.75rem;
+  width: 100%;
   padding: 1rem 1.5rem;
   background: linear-gradient(135deg, #ecfdf3 0%, #dcfce7 100%);
   border-bottom: 1px solid #bbf7d0;
@@ -2309,15 +2359,23 @@ tbody tr:last-child td {
 }
 
 .qr-found-view {
-  padding: 1.25rem 1.5rem 0.5rem;
+  width: 100%;
+  padding: 1.5rem 1.5rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
 }
 
 .qr-found-hero {
   display: flex;
-  gap: 1.25rem;
+  gap: 1.875rem;
   align-items: center;
-  padding: 1.25rem;
-  margin-bottom: 1.25rem;
+  justify-content: center;
+  padding: 1.875rem;
+  margin-bottom: 1.5rem;
+  width: 100%;
+  max-width: 720px;
   border-radius: var(--radius);
   background: linear-gradient(135deg, #f8fbff 0%, #eef4fc 100%);
   border: 1px solid var(--border);
@@ -2326,9 +2384,9 @@ tbody tr:last-child td {
 
 .qr-found-hero-photo img,
 .qr-found-photo-placeholder {
-  width: 108px;
-  height: 132px;
-  border-radius: 12px;
+  width: 162px;
+  height: 198px;
+  border-radius: 14px;
   object-fit: cover;
   border: 3px solid var(--primary);
   background: #e2e8f0;
@@ -2339,7 +2397,7 @@ tbody tr:last-child td {
 }
 
 .qr-found-photo-placeholder span {
-  font-size: 2rem;
+  font-size: 3rem;
   font-weight: 800;
   color: var(--primary);
   text-transform: uppercase;
@@ -2348,11 +2406,15 @@ tbody tr:last-child td {
 .qr-found-hero-content {
   min-width: 0;
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
 }
 
 .qr-found-hero-kicker {
-  margin: 0 0 0.35rem;
-  font-size: 0.72rem;
+  margin: 0 0 0.5rem;
+  font-size: 1.08rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -2360,8 +2422,8 @@ tbody tr:last-child td {
 }
 
 .qr-found-hero-name {
-  margin: 0 0 0.35rem;
-  font-size: 1.45rem;
+  margin: 0 0 0.5rem;
+  font-size: 2.18rem;
   font-weight: 800;
   color: var(--text);
   line-height: 1.2;
@@ -2369,8 +2431,8 @@ tbody tr:last-child td {
 }
 
 .qr-found-hero-club {
-  margin: 0 0 0.85rem;
-  font-size: 0.95rem;
+  margin: 0 0 1.1rem;
+  font-size: 1.43rem;
   font-weight: 600;
   color: var(--text-muted);
 }
@@ -2378,15 +2440,16 @@ tbody tr:last-child td {
 .qr-found-hero-badges {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.45rem;
+  gap: 0.6rem;
+  justify-content: center;
 }
 
 .qr-found-badge {
   display: inline-flex;
   align-items: center;
-  padding: 0.3rem 0.7rem;
+  padding: 0.45rem 1rem;
   border-radius: 999px;
-  font-size: 0.75rem;
+  font-size: 1.125rem;
   font-weight: 700;
   letter-spacing: 0.02em;
 }
@@ -2414,15 +2477,17 @@ tbody tr:last-child td {
 
 .qr-found-sections {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.85rem;
+  width: 100%;
 }
 
 .qr-found-section {
-  padding: 1rem 1.1rem;
+  padding: 1rem 0.85rem;
   border-radius: var(--radius-sm);
   background: var(--surface);
   border: 1px solid var(--border);
+  text-align: center;
 }
 
 .qr-found-section-title {
@@ -2434,18 +2499,23 @@ tbody tr:last-child td {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--primary);
+  text-align: center;
 }
 
 .qr-found-fields {
   display: flex;
   flex-direction: column;
   gap: 0.7rem;
+  align-items: center;
 }
 
 .qr-found-field {
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
+  align-items: center;
+  text-align: center;
+  width: 100%;
 }
 
 .qr-found-field-label {
@@ -2476,6 +2546,8 @@ tbody tr:last-child td {
   padding: 1.25rem 1.5rem 1.5rem;
   border-top: 1px solid var(--border);
   background: #f8fafc;
+  width: 100%;
+  justify-content: center;
 }
 
 .qr-scan-details {
