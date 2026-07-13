@@ -2113,6 +2113,59 @@ tbody tr:last-child td {
   margin: 0 auto;
   border-radius: var(--radius);
   overflow: hidden;
+  background: #0f172a;
+  min-height: 280px;
+}
+
+.qr-scan-reader video {
+  border-radius: var(--radius);
+}
+
+.qr-scan-file-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+.qr-scan-file-input {
+  display: none;
+}
+
+.qr-scan-success-banner {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-sm);
+  background: #dcfce7;
+  color: #166534;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.qr-scan-not-found {
+  padding: 1.25rem 1.5rem 1.5rem;
+}
+
+.qr-scan-not-found-message {
+  margin: 0 0 1rem;
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius-sm);
+  background: #fef3c7;
+  color: #92400e;
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.qr-scan-payload-preview {
+  margin-bottom: 1.25rem;
+}
+
+.qr-scan-payload-title {
+  margin: 0 0 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .qr-scan-status {

@@ -54,6 +54,27 @@ export async function getJudokaById(id) {
   return readAllJson().find((j) => j.id === id) || null;
 }
 
+export async function getJudokaByCardNumber(numero_carte) {
+  const raw = String(numero_carte || '').trim().toUpperCase();
+  if (!raw) return null;
+
+  const variants = [raw];
+  if (raw.startsWith('FJC-')) variants.push(`FCJ-${raw.slice(4)}`);
+  if (raw.startsWith('FCJ-')) variants.push(`FJC-${raw.slice(4)}`);
+
+  if (isSupabaseEnabled()) {
+    const { data, error } = await getSupabase()
+      .from('judokas')
+      .select('*')
+      .in('numero_carte', variants);
+    if (error) throw new Error(error.message);
+    return data?.[0] || null;
+  }
+
+  const judokas = readAllJson();
+  return judokas.find((j) => variants.includes(j.numero_carte?.toUpperCase())) || null;
+}
+
 export async function generateCardNumber() {
   const year = new Date().getFullYear();
   const judokas = await readAll();

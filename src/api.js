@@ -199,18 +199,24 @@ export async function fetchJudoka(id) {
 }
 
 export async function resolveJudokaFromQrPayload(payload) {
-  if (payload?.id) {
-    return fetchJudoka(payload.id);
+  const params = new URLSearchParams();
+  if (payload?.id) params.set('id', payload.id);
+  if (payload?.carte) params.set('carte', payload.carte);
+
+  if (!params.toString()) {
+    throw new Error('QR Code non reconnu');
   }
 
-  if (payload?.carte) {
-    const judokas = await fetchJudokas(payload.carte);
-    const exact = judokas.find((j) => j.numero_carte === payload.carte);
-    if (exact) return exact.id ? fetchJudoka(exact.id) : exact;
-    if (judokas.length === 1) return judokas[0];
+  const res = await apiFetch(`/api/judokas/resolve/qr?${params.toString()}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const message = err.error || (res.status === 404 ? 'Judoka introuvable dans le système' : 'Impossible de vérifier le QR Code');
+    const error = new Error(message);
+    error.status = res.status;
+    throw error;
   }
 
-  throw new Error('Judoka introuvable');
+  return res.json();
 }
 
 export async function createJudoka(formData) {

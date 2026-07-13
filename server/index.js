@@ -9,6 +9,7 @@ import { v4 as uuidv4 } from 'uuid';
 import {
   getAllJudokas,
   getJudokaById,
+  getJudokaByCardNumber,
   createJudoka,
   updateJudoka,
   deleteJudoka,
@@ -372,6 +373,38 @@ app.get('/api/judokas', async (req, res) => {
     let judokas = await getAllJudokas(search);
     judokas = filterJudokas(judokas, req.user);
     res.json(judokas);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/judokas/resolve/qr', async (req, res) => {
+  try {
+    const perms = getPermissions(req.user);
+    if (!perms.scanQr) {
+      return res.status(403).json({ error: 'Scan QR non autorisé pour votre rôle' });
+    }
+
+    const id = (req.query.id || '').trim();
+    const carte = (req.query.carte || '').trim();
+
+    if (!id && !carte) {
+      return res.status(400).json({ error: 'Identifiant QR invalide' });
+    }
+
+    let judoka = null;
+    if (id) judoka = await getJudokaById(id);
+    if (!judoka && carte) judoka = await getJudokaByCardNumber(carte);
+
+    if (!judoka) {
+      return res.status(404).json({ error: 'Judoka introuvable dans le système', found: false });
+    }
+
+    if (!canAccessJudoka(req.user, judoka)) {
+      return res.status(403).json({ error: 'Accès non autorisé à ce judoka', found: false });
+    }
+
+    res.json(judoka);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
