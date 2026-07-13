@@ -450,7 +450,7 @@ export default function App() {
         <div className="header-brand">
           <img src="/fenacoju-logo.png" alt="FENACOJU" className="header-logo-img" width="52" height="52" decoding="async" />
           <div>
-            <h1>FENACOJU Card</h1>
+            <h1>FENACOJU Base</h1>
             <p>Gestion des Clubs et Judokas Congolais</p>
           </div>
         </div>

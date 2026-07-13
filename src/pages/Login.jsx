@@ -28,7 +28,7 @@ export default function Login({ onLogin }) {
       <div className="login-card">
         <div className="login-header">
           <img src="/fenacoju-logo.png" alt="FENACOJU" className="login-logo" />
-          <h1>FENACOJU Card</h1>
+          <h1>FENACOJU Base</h1>
           <p>Connectez-vous pour accéder au système</p>
         </div>
 
