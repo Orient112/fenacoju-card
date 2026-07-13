@@ -18,38 +18,90 @@ function getQrBoxSize(viewfinderWidth, viewfinderHeight) {
   return { width: size, height: size };
 }
 
-function JudokaDetails({ judoka }) {
-  const fields = [
-    { label: 'N° Carte', value: judoka.numero_carte },
-    { label: 'Nom', value: judoka.nom },
-    { label: 'Prénom', value: judoka.prenom },
-    { label: 'Date de naissance', value: `${formatDate(judoka.date_naissance)} (${calcAge(judoka.date_naissance)} ans)` },
-    { label: 'Sexe', value: judoka.sexe === 'M' ? 'Masculin' : 'Féminin' },
-    { label: 'Club', value: judoka.club },
-    { label: 'Grade', value: judoka.grade },
-    { label: 'Catégorie', value: judoka.categorie || '—' },
-    { label: 'N° Licence', value: judoka.numero_licence || '—' },
-    { label: 'Téléphone', value: judoka.telephone || '—' },
-    { label: 'Email', value: judoka.email || '—' },
-    { label: 'Entraîneur', value: judoka.entraineur_nom || '—' },
-    { label: 'Date inscription', value: formatDate(judoka.date_inscription) },
-    { label: 'Validité carte', value: `Jusqu'à ${getCardValidityYear(judoka)}` },
-    { label: 'Statut', value: judoka.statut === 'actif' ? 'Actif' : 'Inactif' },
+function JudokaFoundView({ judoka }) {
+  const isActif = judoka.statut === 'actif';
+  const fullName = `${judoka.prenom} ${judoka.nom}`.trim();
+
+  const sections = [
+    {
+      title: 'Identité',
+      fields: [
+        { label: 'Prénom', value: judoka.prenom },
+        { label: 'Nom', value: judoka.nom },
+        { label: 'Date de naissance', value: `${formatDate(judoka.date_naissance)} · ${calcAge(judoka.date_naissance)} ans` },
+        { label: 'Sexe', value: judoka.sexe === 'M' ? 'Masculin' : 'Féminin' },
+      ],
+    },
+    {
+      title: 'Club & judo',
+      fields: [
+        { label: 'Club', value: judoka.club },
+        { label: 'Grade', value: judoka.grade },
+        { label: 'Catégorie', value: judoka.categorie || '—' },
+        { label: 'Entraîneur', value: judoka.entraineur_nom || '—' },
+      ],
+    },
+    {
+      title: 'Contact',
+      fields: [
+        { label: 'Téléphone', value: judoka.telephone || '—' },
+        { label: 'Email', value: judoka.email || '—' },
+      ],
+    },
+    {
+      title: 'Carte & licence',
+      fields: [
+        { label: 'N° Carte', value: judoka.numero_carte, highlight: true },
+        { label: 'N° Licence', value: judoka.numero_licence || '—' },
+        { label: 'Date inscription', value: formatDate(judoka.date_inscription) },
+        { label: 'Validité carte', value: `Jusqu'à ${getCardValidityYear(judoka)}` },
+      ],
+    },
   ];
 
   return (
-    <div className="qr-scan-details">
-      {judoka.photo && (
-        <div className="qr-scan-photo-large">
-          <img src={resolveMediaUrl(judoka.photo)} alt="" crossOrigin="anonymous" />
+    <div className="qr-found-view">
+      <div className="qr-found-hero">
+        <div className="qr-found-hero-photo">
+          {judoka.photo ? (
+            <img src={resolveMediaUrl(judoka.photo)} alt="" crossOrigin="anonymous" />
+          ) : (
+            <div className="qr-found-photo-placeholder" aria-hidden="true">
+              <span>{judoka.prenom?.[0]}{judoka.nom?.[0]}</span>
+            </div>
+          )}
         </div>
-      )}
-      <div className="qr-scan-details-grid">
-        {fields.map((field) => (
-          <div key={field.label} className="qr-scan-detail-item">
-            <span className="qr-scan-detail-label">{field.label}</span>
-            <span className="qr-scan-detail-value">{field.value}</span>
+        <div className="qr-found-hero-content">
+          <p className="qr-found-hero-kicker">Judoka enregistré</p>
+          <h3 className="qr-found-hero-name">{fullName}</h3>
+          <p className="qr-found-hero-club">{judoka.club}</p>
+          <div className="qr-found-hero-badges">
+            <span className={`qr-found-badge ${isActif ? 'qr-found-badge-success' : 'qr-found-badge-muted'}`}>
+              {isActif ? 'Actif' : 'Inactif'}
+            </span>
+            <span className="qr-found-badge qr-found-badge-grade">{judoka.grade}</span>
+            {judoka.categorie && (
+              <span className="qr-found-badge qr-found-badge-outline">{judoka.categorie}</span>
+            )}
           </div>
+        </div>
+      </div>
+
+      <div className="qr-found-sections">
+        {sections.map((section) => (
+          <section key={section.title} className="qr-found-section">
+            <h4 className="qr-found-section-title">{section.title}</h4>
+            <div className="qr-found-fields">
+              {section.fields.map((field) => (
+                <div key={field.label} className="qr-found-field">
+                  <span className="qr-found-field-label">{field.label}</span>
+                  <span className={`qr-found-field-value ${field.highlight ? 'highlight' : ''}`}>
+                    {field.value}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </section>
         ))}
       </div>
     </div>
@@ -254,10 +306,12 @@ export default function QrScanModal({ onClose }) {
       ? 'Carte non enregistrée'
       : 'Scanner une carte';
 
+  const headerClass = phase === 'result' ? 'qr-scan-header qr-scan-header-success' : 'qr-scan-header';
+
   return (
     <div className="card-overlay" onClick={onClose}>
       <div className="qr-scan-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="qr-scan-header">
+        <div className={headerClass}>
           <h2>{title}</h2>
           <button type="button" className="btn btn-outline btn-sm" onClick={onClose}>
             Fermer
@@ -327,10 +381,13 @@ export default function QrScanModal({ onClose }) {
         )}
 
         {phase === 'result' && judoka && (
-          <div className="qr-scan-result qr-scan-result-only-info">
-            <p className="qr-scan-success-banner">Ce judoka est enregistré dans FENACOJU Base.</p>
-            <JudokaDetails judoka={judoka} />
-            <div className="qr-scan-result-actions">
+          <div className="qr-scan-result qr-scan-result-found">
+            <div className="qr-found-success-strip">
+              <span className="qr-found-success-icon" aria-hidden="true">✓</span>
+              <p>Ce judoka est enregistré dans FENACOJU Base.</p>
+            </div>
+            <JudokaFoundView judoka={judoka} />
+            <div className="qr-scan-result-actions qr-scan-result-actions-footer">
               <button type="button" className="btn btn-primary" onClick={handleScanAgain}>
                 Scanner une autre carte
               </button>
