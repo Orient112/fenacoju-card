@@ -6,9 +6,6 @@ function getCardQrValue(judoka) {
     org: 'FENACOJU',
     id: judoka.id,
     carte: judoka.numero_carte,
-    nom: judoka.nom,
-    prenom: judoka.prenom,
-    club: judoka.club,
   });
 }
 
@@ -78,8 +75,8 @@ export default function JudokaCard({ judoka }) {
           <div className="card-qr" aria-label={`QR Code carte ${judoka.numero_carte}`}>
             <QRCode
               value={qrValue}
-              size={40}
-              level="M"
+              size={200}
+              level="L"
               bgColor="#ffffff"
               fgColor="#000000"
             />

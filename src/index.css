@@ -926,9 +926,9 @@ tbody tr:last-child td {
 .card-body {
   flex: 1;
   display: flex;
-  align-items: stretch;
-  padding: 1.2mm 2mm;
-  gap: 1.5mm;
+  align-items: center;
+  padding: 1mm 1.8mm;
+  gap: 1.2mm;
   min-height: 0;
   overflow: hidden;
 }
@@ -1000,17 +1000,21 @@ tbody tr:last-child td {
 .card-qr {
   flex-shrink: 0;
   align-self: center;
-  margin-left: 10%;
-  padding: 0.5mm;
+  margin-left: auto;
+  padding: 1.4mm;
   background: #ffffff;
-  border: 0.2mm solid #cbd5e1;
-  border-radius: 0.6mm;
+  border: 0.25mm solid #94a3b8;
+  border-radius: 0.8mm;
   line-height: 0;
+  box-sizing: border-box;
+  box-shadow: 0 0 0 0.3mm #ffffff;
 }
 
 .card-qr svg {
-  width: 10.5mm !important;
-  height: 10.5mm !important;
+  width: 13mm !important;
+  height: 13mm !important;
+  max-width: none !important;
+  max-height: none !important;
   display: block;
 }
 
