@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { calcAge, formatDate, getCardValidityYear, resolveJudokaFromQrPayload, resolveMediaUrl } from '../api';
+import {
+  getCameraDisplayName,
+  getCameraStartTarget,
+  isMobileDevice,
+  pickDesktopCamera,
+} from '../utils/cameraDevices';
 import { hasResolvableQrPayload, parseCardQr } from '../utils/parseCardQr';
 import JudokaCard from './JudokaCard';
 
@@ -89,6 +95,10 @@ export default function QrScanModal({ onClose }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
+  const [isMobile] = useState(() => isMobileDevice());
+  const [preferredFacing, setPreferredFacing] = useState('environment');
+  const [activeCameraLabel, setActiveCameraLabel] = useState('');
+  const [mobileCameraSwitchEnabled, setMobileCameraSwitchEnabled] = useState(false);
 
   const stopScanner = useCallback(async () => {
     const scanner = scannerRef.current;
@@ -179,16 +189,18 @@ export default function QrScanModal({ onClose }) {
         const cameras = await Html5Qrcode.getCameras();
         if (cancelled) return;
 
-        const backCamera = cameras.find((camera) =>
-          /back|rear|environment|arrière/i.test(camera.label)
-        );
-        const cameraId = backCamera?.id || cameras[cameras.length - 1]?.id;
+        setMobileCameraSwitchEnabled(isMobile);
 
-        if (cameraId) {
-          await scanner.start(cameraId, config, onScan, () => {});
+        let startTarget;
+        if (isMobile) {
+          startTarget = getCameraStartTarget(cameras, preferredFacing);
         } else {
-          await scanner.start({ facingMode: 'environment' }, config, onScan, () => {});
+          const desktopCamera = pickDesktopCamera(cameras);
+          startTarget = desktopCamera?.id || { facingMode: 'user' };
         }
+
+        setActiveCameraLabel(getCameraDisplayName(cameras, startTarget));
+        await scanner.start(startTarget, config, onScan, () => {});
 
         if (!cancelled) setCameraReady(true);
       } catch {
@@ -204,7 +216,7 @@ export default function QrScanModal({ onClose }) {
       cancelled = true;
       stopScanner();
     };
-  }, [phase, scanSession, processQrText, stopScanner]);
+  }, [phase, scanSession, preferredFacing, isMobile, processQrText, stopScanner]);
 
   const handleScanAgain = () => {
     processingRef.current = false;
@@ -214,6 +226,12 @@ export default function QrScanModal({ onClose }) {
     setNotFoundMessage('');
     setError('');
     setPhase('scanning');
+    setScanSession((value) => value + 1);
+  };
+
+  const handleFacingChange = (facing) => {
+    if (facing === preferredFacing) return;
+    setPreferredFacing(facing);
     setScanSession((value) => value + 1);
   };
 
@@ -250,8 +268,38 @@ export default function QrScanModal({ onClose }) {
         {phase === 'scanning' && (
           <div className="qr-scan-body">
             <p className="qr-scan-hint">
-              Placez le QR Code devant la caméra. La détection est automatique et rapide.
+              {isMobile
+                ? 'Placez le QR Code devant la caméra. Choisissez la caméra avant ou arrière ci-dessous.'
+                : 'Placez le QR Code devant votre webcam. La caméra est détectée automatiquement.'}
             </p>
+
+            {mobileCameraSwitchEnabled && (
+              <div className="qr-scan-camera-switch" role="group" aria-label="Choisir la caméra">
+                <button
+                  type="button"
+                  className={`qr-scan-camera-btn ${preferredFacing === 'environment' ? 'active' : ''}`}
+                  onClick={() => handleFacingChange('environment')}
+                  disabled={loading}
+                >
+                  Caméra arrière
+                </button>
+                <button
+                  type="button"
+                  className={`qr-scan-camera-btn ${preferredFacing === 'user' ? 'active' : ''}`}
+                  onClick={() => handleFacingChange('user')}
+                  disabled={loading}
+                >
+                  Caméra avant
+                </button>
+              </div>
+            )}
+
+            {!isMobile && activeCameraLabel && cameraReady && (
+              <p className="qr-scan-camera-info">
+                Caméra active : {activeCameraLabel}
+              </p>
+            )}
+
             <div id={SCANNER_ID} className="qr-scan-reader" />
             {!cameraReady && !error && (
               <p className="qr-scan-status">Initialisation de la caméra...</p>
@@ -263,7 +311,7 @@ export default function QrScanModal({ onClose }) {
                 ref={fileInputRef}
                 type="file"
                 accept="image/*"
-                capture="environment"
+                capture={isMobile ? 'environment' : undefined}
                 className="qr-scan-file-input"
                 onChange={handleFileSelect}
               />

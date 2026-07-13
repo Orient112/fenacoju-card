@@ -2107,6 +2107,54 @@ tbody tr:last-child td {
   font-size: 0.9rem;
 }
 
+.qr-scan-camera-switch {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.qr-scan-camera-btn {
+  flex: 1;
+  padding: 0.6rem 0.75rem;
+  border: 2px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.qr-scan-camera-btn:hover:not(:disabled) {
+  border-color: var(--primary-light);
+  color: var(--primary);
+}
+
+.qr-scan-camera-btn.active {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+  border-color: var(--primary);
+  color: white;
+  box-shadow: 0 6px 16px rgba(29, 67, 147, 0.22);
+}
+
+.qr-scan-camera-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.qr-scan-camera-info {
+  margin: 0 0 0.85rem;
+  padding: 0.55rem 0.85rem;
+  border-radius: var(--radius-sm);
+  background: #eff6ff;
+  color: var(--primary);
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-align: center;
+}
+
 .qr-scan-reader {
   width: 100%;
   max-width: 420px;
