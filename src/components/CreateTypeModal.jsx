@@ -13,7 +13,7 @@ export default function CreateTypeModal({ allowedTypes, onSelect, onClose }) {
 
         <div className="create-type-options">
           {types.map((key) => {
-            const { label, description } = USER_TYPES[key];
+            const info = USER_TYPES[key] || { label: key, description: '' };
             return (
               <button
                 key={key}
@@ -21,8 +21,8 @@ export default function CreateTypeModal({ allowedTypes, onSelect, onClose }) {
                 className={`create-type-option create-type-${key}`}
                 onClick={() => onSelect(key)}
               >
-                <span className="create-type-label">{label}</span>
-                <span className="create-type-desc">{description}</span>
+                <span className="create-type-label">{info.label}</span>
+                <span className="create-type-desc">{info.description}</span>
               </button>
             );
           })}

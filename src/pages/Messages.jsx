@@ -9,6 +9,9 @@ import {
 function getContactName(contact) {
   if (contact.type === 'club') return contact.nom_club;
   if (contact.type === 'admin') return 'Administrateur';
+  if (contact.type === 'ligue' || contact.type === 'entente') {
+    return contact.nom_organisation || contact.nom || contact.email;
+  }
   return `${contact.prenom || ''} ${contact.nom || ''}`.trim() || contact.email;
 }
 
@@ -16,6 +19,8 @@ function getContactRole(contact) {
   if (contact.type === 'admin') return 'Admin';
   if (contact.type === 'club') return 'Club';
   if (contact.type === 'entraineur') return 'Entraineur';
+  if (contact.type === 'ligue') return 'Ligue';
+  if (contact.type === 'entente') return 'Entente';
   return contact.fonction || USER_TYPES.federation?.label || 'Fédération';
 }
 

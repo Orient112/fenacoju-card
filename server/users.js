@@ -3,7 +3,12 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { v4 as uuidv4 } from 'uuid';
-import { enforceCreateUser } from './permissions.js';
+import {
+  enforceCreateUser,
+  canValidateAccounts,
+  getAccountStatut,
+  isAccountActive,
+} from './permissions.js';
 import { getSupabase, isSupabaseEnabled } from './supabase.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -27,8 +32,13 @@ function createAdminUser() {
     password: hashPassword('@Fenacoju'),
     nom: 'Administrateur',
     prenom: 'FENACOJU',
+    statut: 'actif',
     created_at: new Date().toISOString(),
   };
+}
+
+function needsValidation(type) {
+  return ['ligue', 'entente', 'club'].includes(type);
 }
 
 export function sanitizeUser(user) {
@@ -87,6 +97,7 @@ export async function ensureAdminExists() {
     password: admin.password,
     nom: admin.nom,
     prenom: admin.prenom,
+    statut: 'actif',
     created_at: admin.created_at,
   });
   if (error) console.error('Erreur création admin Supabase:', error.message);
@@ -144,7 +155,7 @@ async function findByLogin(login) {
 export async function getRegisteredClubs() {
   const users = await readUsers();
   return users
-    .filter((u) => u.type === 'club' && u.nom_club)
+    .filter((u) => u.type === 'club' && u.nom_club && getAccountStatut(u) === 'actif')
     .map((u) => u.nom_club.trim())
     .sort((a, b) => a.localeCompare(b, 'fr'));
 }
@@ -159,6 +170,20 @@ export async function isClubRegistered(clubName) {
 export async function login(identifier, password) {
   const user = await findByLogin(identifier);
   if (!user || user.password !== hashPassword(password)) return null;
+
+  if (!isAccountActive(user)) {
+    const statut = getAccountStatut(user);
+    if (statut === 'pending') {
+      const err = new Error('Votre compte est en attente de validation par le Coordon');
+      err.code = 'PENDING_ACCOUNT';
+      throw err;
+    }
+    if (statut === 'rejete') {
+      const err = new Error('Votre compte a été rejeté. Contactez le Coordon');
+      err.code = 'REJECTED_ACCOUNT';
+      throw err;
+    }
+  }
 
   const token = crypto.randomBytes(32).toString('hex');
   await writeSession(token, user.id);
@@ -189,19 +214,35 @@ export async function createUser(data, creator) {
     throw new Error('Cet identifiant est déjà utilisé');
   }
 
+  const autoActif = creator.type === 'admin' || enforced.type === 'federation' || enforced.type === 'entraineur';
   const user = {
     id: uuidv4(),
     type: enforced.type,
     email: emailOrUsername,
     password: hashPassword(enforced.password),
     telephone: enforced.telephone?.trim() || '',
+    parent_id: enforced.parent_id || creator.id,
+    statut: 'pending',
     created_at: new Date().toISOString(),
   };
+
+  // Comptes sans validation requise, ou créés par Admin → actifs immédiatement
+  if (autoActif || creator.type === 'admin' || !needsValidation(enforced.type)) {
+    user.statut = 'actif';
+  }
 
   if (enforced.type === 'federation') {
     user.nom = enforced.nom?.trim();
     user.prenom = enforced.prenom?.trim();
     user.fonction = enforced.fonction?.trim() || '';
+  } else if (enforced.type === 'ligue' || enforced.type === 'entente') {
+    const orgName = enforced.nom_organisation?.trim() || enforced.nom?.trim();
+    if (!orgName) throw new Error('Le nom de l\'organisation est obligatoire');
+    user.nom_organisation = orgName;
+    user.nom = orgName;
+    user.ville = enforced.ville?.trim() || '';
+    user.responsable = enforced.responsable?.trim() || '';
+    if (enforced.prenom) user.prenom = enforced.prenom.trim();
   } else if (enforced.type === 'club') {
     user.nom_club = enforced.nom_club?.trim();
     user.ville = enforced.ville?.trim() || '';
@@ -264,6 +305,14 @@ export async function updateUser(id, data, editor) {
     if (data.nom) updated.nom = data.nom.trim();
     if (data.prenom) updated.prenom = data.prenom.trim();
     if (data.fonction) updated.fonction = data.fonction.trim();
+  } else if (existing.type === 'ligue' || existing.type === 'entente') {
+    if (data.nom_organisation || data.nom) {
+      const orgName = (data.nom_organisation || data.nom).trim();
+      updated.nom_organisation = orgName;
+      updated.nom = orgName;
+    }
+    if (data.ville !== undefined) updated.ville = data.ville?.trim() || '';
+    if (data.responsable !== undefined) updated.responsable = data.responsable?.trim() || '';
   } else if (existing.type === 'club') {
     if (data.nom_club) updated.nom_club = data.nom_club.trim();
     if (data.ville !== undefined) updated.ville = data.ville?.trim() || '';
@@ -284,6 +333,36 @@ export async function updateUser(id, data, editor) {
   if (isSupabaseEnabled()) {
     const { password, ...row } = updated;
     const { error } = await getSupabase().from('users').update({ ...row, password: updated.password }).eq('id', id);
+    if (error) throw new Error(error.message);
+  } else {
+    users[index] = updated;
+    writeUsersJson(users);
+  }
+
+  return sanitizeUser(updated);
+}
+
+export async function setUserAccountStatut(id, statut, editor) {
+  if (!['pending', 'actif', 'rejete'].includes(statut)) {
+    throw new Error('Statut invalide');
+  }
+  if (!canValidateAccounts(editor) && editor.type !== 'admin') {
+    throw new Error('Vous n\'êtes pas autorisé à valider les comptes');
+  }
+
+  const users = await readUsers();
+  const index = users.findIndex((u) => u.id === id);
+  if (index === -1) throw new Error('Utilisateur introuvable');
+
+  const target = users[index];
+  if (!needsValidation(target.type)) {
+    throw new Error('Ce type de compte ne nécessite pas de validation');
+  }
+
+  const updated = { ...target, statut };
+
+  if (isSupabaseEnabled()) {
+    const { error } = await getSupabase().from('users').update({ statut }).eq('id', id);
     if (error) throw new Error(error.message);
   } else {
     users[index] = updated;

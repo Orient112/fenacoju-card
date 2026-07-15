@@ -7,6 +7,8 @@ import {
   updateJudoka,
   deleteJudoka,
   deleteUser,
+  validateUser,
+  rejectUser,
   fetchCurrentUser,
   logoutUser,
   fetchClubs,
@@ -41,6 +43,8 @@ const SECTION_TITLES = {
   judokas: 'Liste des Judokas',
   entraineurs: 'Liste des Entraineurs',
   clubs: 'Liste des Clubs',
+  ententes: 'Liste des Ententes',
+  ligues: 'Liste des Ligues',
   federation: 'Membres de la Fédération',
 };
 
@@ -89,6 +93,9 @@ function getUserDisplayName(user) {
   if (!user) return '';
   if (user.type === 'admin') return 'Administrateur';
   if (user.type === 'club') return user.nom_club;
+  if (user.type === 'ligue' || user.type === 'entente') {
+    return user.nom_organisation || user.nom || '';
+  }
   return `${user.prenom || ''} ${user.nom || ''}`.trim();
 }
 
@@ -107,8 +114,10 @@ function getVisibleTabs(user, tabs) {
   if (user.type === 'admin') {
     return [
       { key: 'judokas', label: 'Judokas' },
+      { key: 'ligues', label: 'Ligues' },
+      { key: 'ententes', label: 'Ententes' },
+      { key: 'clubs', label: 'Clubs' },
       { key: 'entraineurs', label: 'Entraineurs' },
-      { key: 'clubs', label: 'Club' },
       { key: 'federation', label: 'Membres' },
     ];
   }
@@ -120,10 +129,27 @@ function getVisibleTabs(user, tabs) {
     ];
   }
 
+  if (user.type === 'ligue') {
+    return [
+      { key: 'judokas', label: 'Judokas' },
+      { key: 'ententes', label: 'Ententes' },
+      { key: 'clubs', label: 'Clubs' },
+    ];
+  }
+
+  if (user.type === 'entente') {
+    return [
+      { key: 'judokas', label: 'Judokas' },
+      { key: 'clubs', label: 'Clubs' },
+    ];
+  }
+
   const visible = [];
   if (tabs.includes('judokas')) visible.push({ key: 'judokas', label: 'Judokas' });
+  if (tabs.includes('ligues')) visible.push({ key: 'ligues', label: 'Ligues' });
+  if (tabs.includes('ententes')) visible.push({ key: 'ententes', label: 'Ententes' });
+  if (tabs.includes('clubs')) visible.push({ key: 'clubs', label: 'Clubs' });
   if (tabs.includes('entraineurs')) visible.push({ key: 'entraineurs', label: 'Entraineurs' });
-  if (tabs.includes('clubs')) visible.push({ key: 'clubs', label: 'Club' });
   if (tabs.includes('federation')) visible.push({ key: 'federation', label: 'Membres' });
   return visible;
 }
@@ -131,6 +157,8 @@ function getVisibleTabs(user, tabs) {
 function getUsersForTab(members, tab) {
   if (tab === 'entraineurs') return members.filter((u) => u.type === 'entraineur');
   if (tab === 'clubs') return members.filter((u) => u.type === 'club');
+  if (tab === 'ententes') return members.filter((u) => u.type === 'entente');
+  if (tab === 'ligues') return members.filter((u) => u.type === 'ligue');
   if (tab === 'federation') return members.filter((u) => u.type === 'federation');
   return members;
 }
@@ -153,7 +181,7 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [view, setView] = useState('list');
   const [dashboardTab, setDashboardTab] = useState('judokas');
-  const [stats, setStats] = useState({ total: 0, actifs: 0, clubs: 0, entraineurs: 0 });
+  const [stats, setStats] = useState({ total: 0, actifs: 0, clubs: 0, entraineurs: 0, pendingAccounts: 0 });
   const [judokas, setJudokas] = useState([]);
   const [members, setMembers] = useState([]);
   const [registeredClubs, setRegisteredClubs] = useState([]);
@@ -179,6 +207,7 @@ export default function App() {
   const lockedClub = perms.clubScope || null;
   const canManageUsers = perms.manageUsers || perms.createUsers;
   const canResetPassword = perms.manageUsers || perms.createUsers;
+  const canValidateAccounts = perms.validateAccounts === true;
   const canViewClubDetails = perms.viewClubDetails === true;
   const canViewCards = perms.viewCards !== false;
   const readOnlyJudokas = perms.readOnlyJudokas === true;
@@ -189,6 +218,8 @@ export default function App() {
     if (user?.type !== 'entraineur') return null;
     return members.find((m) => m.type === 'club' && matchClubName(m.nom_club, user.club)) || null;
   }, [members, user]);
+
+  const showUserTabs = ['entraineurs', 'clubs', 'ententes', 'ligues', 'federation'].includes(dashboardTab);
 
   const showToast = useCallback((message, type = 'success') => {
     setToast({ message, type });
@@ -288,20 +319,22 @@ export default function App() {
     return users.filter((u) => {
       const name = u.type === 'club'
         ? u.nom_club
-        : `${u.prenom || ''} ${u.nom || ''}`.trim();
+        : (u.type === 'ligue' || u.type === 'entente')
+          ? (u.nom_organisation || u.nom)
+          : `${u.prenom || ''} ${u.nom || ''}`.trim();
       return (
         matchesSearch(name, searchTerm) ||
         matchesSearch(u.email, searchTerm) ||
         matchesSearch(u.club, searchTerm) ||
         matchesSearch(u.telephone, searchTerm) ||
-        matchesSearch(u.fonction, searchTerm)
+        matchesSearch(u.fonction, searchTerm) ||
+        matchesSearch(u.nom_organisation, searchTerm)
       );
     });
   }, [members, dashboardTab, searchTerm]);
   const showJudokasTab = perms.viewJudokas !== false && tabs.includes('judokas');
   const showStatsJudokas = perms.viewStats && perms.viewJudokas !== false;
   const showStatsEntraineurs = perms.viewStats && (user?.type === 'admin' || perms.viewJudokas !== false);
-  const showUserTabs = ['entraineurs', 'clubs', 'federation'].includes(dashboardTab);
 
   const openNewJudoka = () => {
     if (!perms.createJudokas) {
@@ -355,11 +388,37 @@ export default function App() {
 
   const handleUserSaved = async (savedUser) => {
     const label = USER_TYPES[savedUser.type]?.label || 'Utilisateur';
-    showToast(editingUser ? `${label} mis à jour` : `${label} créé — ${savedUser.email}`);
+    if (editingUser) {
+      showToast(`${label} mis à jour`);
+    } else if (savedUser.statut === 'pending') {
+      showToast(`${label} créé — en attente de validation Coordon`);
+    } else {
+      showToast(`${label} créé — ${savedUser.email}`);
+    }
     setCreateType(null);
     setEditingUser(null);
     setView('list');
     await loadData();
+  };
+
+  const handleValidateUser = async (u) => {
+    try {
+      await validateUser(u.id);
+      showToast(`${USER_TYPES[u.type]?.label || 'Compte'} validé — compte actif`);
+      await loadData();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  };
+
+  const handleRejectUser = async (u) => {
+    try {
+      await rejectUser(u.id);
+      showToast(`${USER_TYPES[u.type]?.label || 'Compte'} rejeté`);
+      await loadData();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
   };
 
   const handleDelete = async () => {
@@ -562,6 +621,16 @@ export default function App() {
                     </div>
                   )
                 )}
+                {canValidateAccounts && (stats.pendingAccounts > 0) && (
+                  <button
+                    className="stat-card accent pending-stat"
+                    onClick={() => { setDashboardTab('clubs'); setView('list'); }}
+                    type="button"
+                  >
+                    <div className="stat-value">{stats.pendingAccounts}</div>
+                    <div className="stat-label">À valider</div>
+                  </button>
+                )}
               </div>
             )}
 
@@ -695,10 +764,13 @@ export default function App() {
                         hideFonctionUnderName={dashboardTab === 'federation'}
                         showViewAction={dashboardTab === 'clubs' && canViewClubDetails}
                         canManage={canManageUsers}
+                        canValidate={canValidateAccounts && ['ligues', 'ententes', 'clubs'].includes(dashboardTab)}
                         onView={setViewClub}
                         onEdit={canManageUsers ? openEditUser : null}
                         onDelete={canManageUsers ? setDeleteUserTarget : null}
                         onResetPassword={canResetPassword ? setResetPasswordTarget : null}
+                        onValidate={canValidateAccounts ? handleValidateUser : null}
+                        onReject={canValidateAccounts ? handleRejectUser : null}
                       />
                     </Suspense>
                   )}

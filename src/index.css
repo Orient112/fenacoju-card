@@ -759,9 +759,18 @@ tbody tr:last-child td {
   color: #166534;
 }
 
+.badge-pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
 .badge-inactif {
   background: #fee2e2;
   color: #991b1b;
+}
+
+.row-pending {
+  background: rgba(254, 243, 199, 0.35);
 }
 
 .grade-badge {

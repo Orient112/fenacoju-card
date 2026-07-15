@@ -25,6 +25,7 @@ import {
   updateUser,
   deleteUser,
   resetUserPassword,
+  setUserAccountStatut,
   getRegisteredClubs,
   isClubRegistered,
   ensureAdminExists,
@@ -46,6 +47,8 @@ import {
   canAccessJudoka,
   enforceJudokaClub,
   canMessageUser,
+  canValidateAccounts,
+  getScopedClubNames,
 } from './permissions.js';
 import { saveUploadedFile, deleteStoredFile } from './storage.js';
 import { isSupabaseEnabled } from './supabase.js';
@@ -142,6 +145,9 @@ app.post('/api/auth/login', async (req, res) => {
 
     res.json({ ...result, permissions: getPermissions(result.user) });
   } catch (err) {
+    if (err.code === 'PENDING_ACCOUNT' || err.code === 'REJECTED_ACCOUNT') {
+      return res.status(403).json({ error: err.message, code: err.code });
+    }
     res.status(500).json({ error: err.message });
   }
 });
@@ -208,6 +214,7 @@ app.get('/api/users', async (req, res) => {
           u.nom?.toLowerCase().includes(term) ||
           u.prenom?.toLowerCase().includes(term) ||
           u.nom_club?.toLowerCase().includes(term) ||
+          u.nom_organisation?.toLowerCase().includes(term) ||
           u.email?.toLowerCase().includes(term) ||
           u.club?.toLowerCase().includes(term)
       );
@@ -301,6 +308,30 @@ app.delete('/api/users/:id', async (req, res) => {
   }
 });
 
+app.post('/api/users/:id/validate', async (req, res) => {
+  try {
+    if (!canValidateAccounts(req.user)) {
+      return res.status(403).json({ error: 'Validation non autorisée' });
+    }
+    const user = await setUserAccountStatut(req.params.id, 'actif', req.user);
+    res.json(user);
+  } catch (err) {
+    res.status(403).json({ error: err.message });
+  }
+});
+
+app.post('/api/users/:id/reject', async (req, res) => {
+  try {
+    if (!canValidateAccounts(req.user)) {
+      return res.status(403).json({ error: 'Rejet non autorisé' });
+    }
+    const user = await setUserAccountStatut(req.params.id, 'rejete', req.user);
+    res.json(user);
+  } catch (err) {
+    res.status(403).json({ error: err.message });
+  }
+});
+
 app.get('/api/messages/unread', async (req, res) => {
   try {
     res.json({ count: await getUnreadCount(req.user.id) });
@@ -370,8 +401,9 @@ app.get('/api/stats', async (req, res) => {
 app.get('/api/judokas', async (req, res) => {
   try {
     const search = req.query.search || '';
+    const users = await getAllUsers();
     let judokas = await getAllJudokas(search);
-    judokas = filterJudokas(judokas, req.user);
+    judokas = filterJudokas(judokas, req.user, users);
     res.json(judokas);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -400,7 +432,8 @@ app.get('/api/judokas/resolve/qr', async (req, res) => {
       return res.status(404).json({ error: 'Judoka introuvable dans le système', found: false });
     }
 
-    if (!canAccessJudoka(req.user, judoka)) {
+    const users = await getAllUsers();
+    if (!canAccessJudoka(req.user, judoka, users)) {
       return res.status(403).json({ error: 'Accès non autorisé à ce judoka', found: false });
     }
 
@@ -414,7 +447,8 @@ app.get('/api/judokas/:id', async (req, res) => {
   try {
     const judoka = await getJudokaById(req.params.id);
     if (!judoka) return res.status(404).json({ error: 'Judoka introuvable' });
-    if (!canAccessJudoka(req.user, judoka)) {
+    const users = await getAllUsers();
+    if (!canAccessJudoka(req.user, judoka, users)) {
       return res.status(403).json({ error: 'Accès non autorisé' });
     }
     res.json(judoka);
@@ -435,7 +469,14 @@ app.post('/api/judokas', upload.single('photo'), async (req, res) => {
       return res.status(400).json({ error: 'Champs obligatoires manquants' });
     }
 
+    const users = await getAllUsers();
     const club = enforceJudokaClub(req.user, body.club?.trim());
+    if (req.user.type === 'ligue' || req.user.type === 'entente') {
+      const allowed = getScopedClubNames(users, req.user);
+      if (!allowed.some((c) => c.trim().toLowerCase() === club.trim().toLowerCase())) {
+        return res.status(403).json({ error: 'Club hors de votre périmètre' });
+      }
+    }
     if (!(await isClubRegistered(club))) {
       return res.status(400).json({ error: 'Ce club n\'est pas enregistré dans le système. Créez d\'abord le club.' });
     }
@@ -472,9 +513,15 @@ app.post('/api/judokas', upload.single('photo'), async (req, res) => {
 
 app.put('/api/judokas/:id', upload.single('photo'), async (req, res) => {
   try {
+    const perms = getPermissions(req.user);
+    if (perms.readOnlyJudokas || (!perms.createJudokas && !perms.manageUsers && req.user.type !== 'admin')) {
+      return res.status(403).json({ error: 'Modification non autorisée' });
+    }
+
+    const users = await getAllUsers();
     const existing = await getJudokaById(req.params.id);
     if (!existing) return res.status(404).json({ error: 'Judoka introuvable' });
-    if (!canAccessJudoka(req.user, existing)) {
+    if (!canAccessJudoka(req.user, existing, users)) {
       return res.status(403).json({ error: 'Accès non autorisé' });
     }
 
@@ -523,9 +570,10 @@ app.delete('/api/judokas/:id', async (req, res) => {
     const perms = getPermissions(req.user);
     if (!perms.deleteJudokas) return res.status(403).json({ error: 'Suppression non autorisée' });
 
+    const users = await getAllUsers();
     const existing = await getJudokaById(req.params.id);
     if (!existing) return res.status(404).json({ error: 'Judoka introuvable' });
-    if (!canAccessJudoka(req.user, existing)) {
+    if (!canAccessJudoka(req.user, existing, users)) {
       return res.status(403).json({ error: 'Accès non autorisé' });
     }
 

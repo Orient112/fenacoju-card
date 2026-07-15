@@ -10,12 +10,14 @@ const CLUB_DOC_FIELDS = [
 
 const emptyForms = {
   federation: { nom: '', prenom: '', email: '', telephone: '', fonction: '', password: '', confirmPassword: '' },
+  ligue: { nom_organisation: '', ville: '', responsable: '', email: '', telephone: '', password: '', confirmPassword: '' },
+  entente: { nom_organisation: '', ville: '', responsable: '', email: '', telephone: '', password: '', confirmPassword: '' },
   club: { nom_club: '', ville: '', responsable: '', email: '', telephone: '', password: '', confirmPassword: '' },
   entraineur: { nom: '', prenom: '', club: '', grade: 'Noire 1er Dan', email: '', telephone: '', password: '', confirmPassword: '' },
 };
 
 function userToForm(user, type) {
-  const base = { ...emptyForms[type], password: '', confirmPassword: '' };
+  const base = { ...(emptyForms[type] || emptyForms.federation), password: '', confirmPassword: '' };
   if (!user) return base;
   return {
     ...base,
@@ -24,6 +26,7 @@ function userToForm(user, type) {
     email: user.email || '',
     telephone: user.telephone || '',
     fonction: user.fonction || '',
+    nom_organisation: user.nom_organisation || user.nom || '',
     nom_club: user.nom_club || '',
     ville: user.ville || '',
     responsable: user.responsable || '',
@@ -50,7 +53,7 @@ const FORM_COPY = {
     editTitle: 'Modifier - Club',
     newTitle: 'Nouveau - Club',
     editSubtitle: 'Modifiez les informations de ce Club',
-    newSubtitle: 'Enregistrez un nouvel utilisateur dans le système FENACOJU',
+    newSubtitle: 'Le compte sera actif après validation du Coordon',
   },
   entraineur: {
     editTitle: 'Modifier - Entraineur',
@@ -63,6 +66,18 @@ const FORM_COPY = {
     newTitle: 'Nouveau - Membre de la Fédération',
     editSubtitle: 'Modifiez les informations de ce membre',
     newSubtitle: 'Enregistrez un nouveau membre de la Fédération',
+  },
+  ligue: {
+    editTitle: 'Modifier - Ligue',
+    newTitle: 'Nouveau - Ligue',
+    editSubtitle: 'Modifiez les informations de cette Ligue',
+    newSubtitle: 'Le compte Ligue sera actif après validation du Coordon',
+  },
+  entente: {
+    editTitle: 'Modifier - Entente',
+    newTitle: 'Nouveau - Entente',
+    editSubtitle: 'Modifiez les informations de cette Entente',
+    newSubtitle: 'Le compte Entente sera actif après validation du Coordon',
   },
 };
 
@@ -103,6 +118,31 @@ function TelephoneField({ form, onChange }) {
       <label>Téléphone</label>
       <input name="telephone" value={form.telephone} onChange={onChange} placeholder="+243 123456789" />
     </div>
+  );
+}
+
+function OrgFields({ form, onChange, nameLabel }) {
+  return (
+    <>
+      <div className="form-group">
+        <label>{nameLabel} <span className="required">*</span></label>
+        <input
+          name="nom_organisation"
+          value={form.nom_organisation}
+          onChange={onChange}
+          required
+          placeholder={nameLabel}
+        />
+      </div>
+      <div className="form-group">
+        <label>Province / Ville</label>
+        <input name="ville" value={form.ville} onChange={onChange} placeholder="" />
+      </div>
+      <div className="form-group">
+        <label>Responsable</label>
+        <input name="responsable" value={form.responsable} onChange={onChange} placeholder="Nom du responsable" />
+      </div>
+    </>
   );
 }
 
@@ -232,6 +272,9 @@ export default function UserForm({ type, editingUser, currentUser, registeredClu
               </div>
             </>
           )}
+
+          {type === 'ligue' && <OrgFields form={form} onChange={handleChange} nameLabel="Nom de la Ligue" />}
+          {type === 'entente' && <OrgFields form={form} onChange={handleChange} nameLabel="Nom de l'Entente" />}
 
           {type === 'club' && (
             <>

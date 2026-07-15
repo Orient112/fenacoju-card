@@ -5,7 +5,7 @@ create extension if not exists "uuid-ossp";
 
 create table if not exists users (
   id uuid primary key default gen_random_uuid(),
-  type text not null check (type in ('admin', 'federation', 'club', 'entraineur')),
+  type text not null check (type in ('admin', 'federation', 'ligue', 'entente', 'club', 'entraineur')),
   username text,
   email text unique not null,
   password text not null,
@@ -13,14 +13,21 @@ create table if not exists users (
   prenom text,
   fonction text,
   nom_club text,
+  nom_organisation text,
   ville text,
   responsable text,
   club text,
   grade text,
   telephone text default '',
   documents jsonb default '{}'::jsonb,
+  statut text not null default 'actif' check (statut in ('pending', 'actif', 'rejete')),
+  parent_id uuid references users(id) on delete set null,
   created_at timestamptz default now()
 );
+
+create index if not exists idx_users_parent_id on users(parent_id);
+create index if not exists idx_users_statut on users(statut);
+create index if not exists idx_users_type on users(type);
 
 create table if not exists sessions (
   token text primary key,

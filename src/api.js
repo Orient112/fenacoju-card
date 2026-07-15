@@ -147,6 +147,24 @@ export async function deleteUser(id) {
   return res.json();
 }
 
+export async function validateUser(id) {
+  const res = await apiFetch(`/api/users/${id}/validate`, { method: 'POST' });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Erreur lors de la validation');
+  }
+  return res.json();
+}
+
+export async function rejectUser(id) {
+  const res = await apiFetch(`/api/users/${id}/reject`, { method: 'POST' });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Erreur lors du rejet');
+  }
+  return res.json();
+}
+
 export async function resetUserPassword(id, password) {
   const res = await apiFetch(`/api/users/${id}/reset-password`, {
     method: 'PUT',
@@ -329,8 +347,16 @@ export const FEDERATION_FONCTIONS = [
 
 export const USER_TYPES = {
   federation: { label: 'Membre de la Fédération', description: 'Personnel administratif de la fédération' },
-  club: { label: 'Club', description: 'Enregistrer un nouveau club affilié' },
+  ligue: { label: 'Ligue', description: 'Créer un compte Ligue (validé par le Coordon)' },
+  entente: { label: 'Entente', description: 'Créer un compte Entente sous une Ligue' },
+  club: { label: 'Club', description: 'Enregistrer un club affilié (validé par le Coordon)' },
   entraineur: { label: 'Entraineur', description: 'Enregistrer un entraineur / coach' },
+};
+
+export const ACCOUNT_STATUT_LABELS = {
+  pending: 'En attente',
+  actif: 'Actif',
+  rejete: 'Rejeté',
 };
 
 export const GRADES = [
