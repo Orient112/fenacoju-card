@@ -21,6 +21,7 @@ function getContactRole(contact) {
   if (contact.type === 'entraineur') return 'Entraineur';
   if (contact.type === 'ligue') return 'Ligue';
   if (contact.type === 'entente') return 'Entente';
+  if (contact.type === 'membre') return contact.fonction || 'Membre';
   return contact.fonction || USER_TYPES.federation?.label || 'Fédération';
 }
 

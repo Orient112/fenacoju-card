@@ -132,16 +132,16 @@ export default function UserList({
                         ✏️
                       </button>
                     )}
-                    {canManage && u.type !== 'admin' && onResetPassword && (
-                      <button
-                        type="button"
-                        className="btn btn-outline btn-sm btn-icon"
-                        onClick={() => onResetPassword(u)}
-                        title="Réinitialiser mot de passe"
-                      >
-                        🔑
-                      </button>
-                    )}
+                  {u.type !== 'admin' && u.acces_systeme !== false && u.type !== 'entraineur' && u.type !== 'membre' && onResetPassword && (
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm btn-icon"
+                      onClick={() => onResetPassword(u)}
+                      title="Réinitialiser mot de passe"
+                    >
+                      🔑
+                    </button>
+                  )}
                     {canManage && u.type !== 'admin' && onDelete && (
                       <button
                         type="button"

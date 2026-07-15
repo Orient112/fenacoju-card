@@ -5,7 +5,7 @@ create extension if not exists "uuid-ossp";
 
 create table if not exists users (
   id uuid primary key default gen_random_uuid(),
-  type text not null check (type in ('admin', 'federation', 'ligue', 'entente', 'club', 'entraineur')),
+  type text not null check (type in ('admin', 'federation', 'ligue', 'entente', 'club', 'entraineur', 'membre')),
   username text,
   email text unique not null,
   password text not null,
@@ -21,6 +21,7 @@ create table if not exists users (
   telephone text default '',
   documents jsonb default '{}'::jsonb,
   statut text not null default 'actif' check (statut in ('pending', 'actif', 'rejete')),
+  acces_systeme boolean default true,
   parent_id uuid references users(id) on delete set null,
   created_at timestamptz default now()
 );
@@ -61,6 +62,24 @@ create table if not exists judokas (
 
 create index if not exists idx_judokas_club on judokas(club);
 create index if not exists idx_judokas_numero on judokas(numero_carte);
+
+create table if not exists arbitres (
+  id uuid primary key default gen_random_uuid(),
+  nom text not null,
+  prenom text not null,
+  niveau text not null check (niveau in ('National', 'Intercontinental', 'International')),
+  telephone text default '',
+  email text default '',
+  club text default '',
+  grade text default '',
+  parent_id uuid references users(id) on delete set null,
+  statut text default 'actif',
+  created_at timestamptz default now()
+);
+
+create index if not exists idx_arbitres_club on arbitres(club);
+create index if not exists idx_arbitres_parent on arbitres(parent_id);
+create index if not exists idx_arbitres_niveau on arbitres(niveau);
 
 create table if not exists messages (
   id uuid primary key default gen_random_uuid(),

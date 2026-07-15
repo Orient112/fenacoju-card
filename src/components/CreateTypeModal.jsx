@@ -1,19 +1,31 @@
 import { USER_TYPES } from '../api';
 
-export default function CreateTypeModal({ allowedTypes, onSelect, onClose }) {
+export default function CreateTypeModal({ allowedTypes, includeArbitre = false, onSelect, onClose }) {
   const types = allowedTypes?.length
-    ? allowedTypes
+    ? [...allowedTypes]
     : Object.keys(USER_TYPES);
+
+  if (includeArbitre && !types.includes('arbitre')) {
+    types.push('arbitre');
+  }
+
+  const labels = {
+    ...USER_TYPES,
+    arbitre: {
+      label: 'Arbitre',
+      description: 'Fiche arbitre (National, Intercontinental, International) — sans connexion',
+    },
+  };
 
   return (
     <div className="confirm-overlay" onClick={onClose}>
       <div className="create-type-modal" onClick={(e) => e.stopPropagation()}>
         <h3>Créer un utilisateur</h3>
-        <p className="create-type-subtitle">Choisissez le type d'utilisateur à enregistrer</p>
+        <p className="create-type-subtitle">Choisissez le type à enregistrer</p>
 
         <div className="create-type-options">
           {types.map((key) => {
-            const info = USER_TYPES[key] || { label: key, description: '' };
+            const info = labels[key] || { label: key, description: '' };
             return (
               <button
                 key={key}

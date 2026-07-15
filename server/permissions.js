@@ -1,26 +1,31 @@
 export const FENACOJU_BLUE = '#0072bb';
 
-const SENIOR_FEDERATION_TABS = ['judokas', 'entraineurs', 'clubs', 'ententes', 'ligues'];
+const SENIOR_FEDERATION_TABS = ['judokas', 'entraineurs', 'arbitres', 'clubs', 'ententes', 'ligues'];
 
 const CLUB_ONLY_TABS = ['clubs'];
 
 export const ACCOUNT_STATUTS = ['pending', 'actif', 'rejete'];
+
+export const NO_LOGIN_TYPES = ['entraineur', 'membre'];
 
 export const FEDERATION_ROLES = {
   Coordon: {
     viewUsers: true,
     viewJudokas: true,
     viewStats: true,
-    viewCards: true,
+    viewCards: false,
     createUsers: true,
     createJudokas: false,
+    createArbitres: true,
     export: true,
-    deleteJudokas: true,
+    deleteJudokas: false,
     manageAll: true,
     manageUsers: true,
     validateAccounts: true,
+    hideJudokaActions: true,
+    liveRefresh: true,
     dashboardTabs: [...SENIOR_FEDERATION_TABS, 'federation'],
-    createTypes: ['ligue'],
+    createTypes: ['ligue', 'membre'],
     scanQr: true,
     viewClubDetails: true,
   },
@@ -118,6 +123,13 @@ export function isCoordon(user) {
   return user?.type === 'federation' && user?.fonction === 'Coordon';
 }
 
+export function canLoginAs(user) {
+  if (!user) return false;
+  if (NO_LOGIN_TYPES.includes(user.type)) return false;
+  if (user.acces_systeme === false) return false;
+  return true;
+}
+
 export function getAccountStatut(user) {
   return user?.statut || 'actif';
 }
@@ -149,7 +161,6 @@ function matchClub(a, b) {
   return a.trim().toLowerCase() === b.trim().toLowerCase();
 }
 
-/** Descendants (enfants, petits-enfants…) d’un compte via parent_id */
 export function getDescendantUsers(allUsers, rootId) {
   const byParent = new Map();
   for (const u of allUsers) {
@@ -200,16 +211,18 @@ export function getPermissions(user) {
       viewCards: true,
       createUsers: true,
       createJudokas: true,
+      createArbitres: true,
       export: true,
       deleteJudokas: true,
       manageAll: true,
       manageUsers: true,
       validateAccounts: true,
-      createTypes: ['federation', 'ligue', 'entente', 'club', 'entraineur'],
-      dashboardTabs: ['judokas', 'entraineurs', 'clubs', 'ententes', 'ligues', 'federation'],
+      createTypes: ['federation', 'ligue', 'entente', 'club', 'entraineur', 'membre'],
+      dashboardTabs: ['judokas', 'ligues', 'ententes', 'clubs', 'entraineurs', 'arbitres', 'federation'],
       canMessage: true,
       scanQr: true,
       viewClubDetails: true,
+      showHeaderCreate: true,
     };
   }
 
@@ -221,14 +234,16 @@ export function getPermissions(user) {
       viewCards: false,
       createUsers: true,
       createJudokas: false,
-      export: true,
+      createArbitres: false,
+      export: false,
       deleteJudokas: false,
       manageUsers: false,
       createTypes: ['entente'],
-      dashboardTabs: ['judokas', 'clubs', 'ententes'],
+      dashboardTabs: ['judokas', 'ententes', 'clubs', 'entraineurs'],
       canMessage: true,
       viewClubDetails: true,
       orgScope: true,
+      showHeaderCreate: true,
     };
   }
 
@@ -240,14 +255,16 @@ export function getPermissions(user) {
       viewCards: false,
       createUsers: true,
       createJudokas: false,
-      export: true,
+      createArbitres: true,
+      export: false,
       deleteJudokas: false,
       manageUsers: false,
       createTypes: ['club'],
-      dashboardTabs: ['judokas', 'clubs'],
+      dashboardTabs: ['judokas', 'clubs', 'entraineurs', 'arbitres'],
       canMessage: true,
       viewClubDetails: true,
       orgScope: true,
+      showHeaderCreate: true,
     };
   }
 
@@ -259,6 +276,7 @@ export function getPermissions(user) {
       viewCards: false,
       createUsers: true,
       createJudokas: true,
+      createArbitres: false,
       export: false,
       deleteJudokas: false,
       readOnlyJudokas: false,
@@ -266,25 +284,23 @@ export function getPermissions(user) {
       dashboardTabs: ['judokas', 'entraineurs'],
       clubScope: user.nom_club,
       canMessage: true,
+      showHeaderCreate: false,
     };
   }
 
-  if (user.type === 'entraineur') {
+  if (user.type === 'entraineur' || user.type === 'membre') {
     return {
       viewUsers: false,
-      viewClubInfo: true,
-      viewJudokas: true,
+      viewJudokas: false,
       viewStats: false,
       viewCards: false,
       createUsers: false,
       createJudokas: false,
       export: false,
       deleteJudokas: false,
-      readOnlyJudokas: true,
       createTypes: [],
-      dashboardTabs: ['judokas'],
-      clubScope: user.club,
-      canMessage: true,
+      dashboardTabs: [],
+      canMessage: false,
     };
   }
 
@@ -298,6 +314,7 @@ export function getPermissions(user) {
       federationRole: user.fonction,
       canMessage: true,
       viewClubDetails: tabs.includes('clubs') || role.viewClubDetails === true,
+      showHeaderCreate: (role.createTypes || []).length > 0 || role.createUsers === true,
     };
   }
 
@@ -325,16 +342,40 @@ export function filterJudokas(judokas, user, allUsers = []) {
   return judokas.filter((j) => matchClub(j.club, club));
 }
 
+export function filterArbitres(arbitres, user, allUsers = []) {
+  const perms = getPermissions(user);
+  if (!perms.dashboardTabs?.includes('arbitres') && !perms.createArbitres && user.type !== 'admin') {
+    if (!perms.viewUsers) return [];
+  }
+
+  if (user.type === 'admin' || isCoordon(user) || (user.type === 'federation' && perms.manageAll)) {
+    return arbitres;
+  }
+
+  if (user.type === 'entente' || user.type === 'ligue') {
+    const clubs = getScopedClubNames(allUsers, user).map((c) => c.toLowerCase());
+    const descendantIds = new Set(getDescendantUsers(allUsers, user.id).map((u) => u.id));
+    descendantIds.add(user.id);
+    return arbitres.filter(
+      (a) =>
+        descendantIds.has(a.parent_id) ||
+        (a.club && clubs.includes(a.club.trim().toLowerCase()))
+    );
+  }
+
+  if (user.type === 'club') {
+    return arbitres.filter((a) => matchClub(a.club, user.nom_club));
+  }
+
+  return [];
+}
+
 export function filterUsers(users, user) {
   const perms = getPermissions(user);
   if (!perms.viewUsers && user.type !== 'admin') {
     if (user.type === 'club') {
       const club = user.nom_club;
       return users.filter((u) => u.type === 'entraineur' && matchClub(u.club, club));
-    }
-    if (user.type === 'entraineur' && perms.viewClubInfo) {
-      const club = user.club;
-      return users.filter((u) => u.type === 'club' && matchClub(u.nom_club, club));
     }
     return [];
   }
@@ -346,12 +387,13 @@ export function filterUsers(users, user) {
   if (user.type === 'ligue' || user.type === 'entente') {
     const descendants = getDescendantUsers(users, user.id);
     const ids = new Set(descendants.map((u) => u.id));
-    return users.filter(
-      (u) =>
-        ids.has(u.id) ||
-        (user.type === 'ligue' && u.type === 'entente' && u.parent_id === user.id) ||
-        (user.type === 'entente' && u.type === 'club' && u.parent_id === user.id)
-    );
+    const clubNames = getScopedClubNames(users, user).map((c) => c.toLowerCase());
+
+    return users.filter((u) => {
+      if (ids.has(u.id)) return true;
+      if (u.type === 'entraineur' && u.club && clubNames.includes(u.club.trim().toLowerCase())) return true;
+      return false;
+    });
   }
 
   if (user.type === 'federation') {
@@ -361,7 +403,7 @@ export function filterUsers(users, user) {
       if (tabs.includes('clubs') && u.type === 'club') return true;
       if (tabs.includes('ententes') && u.type === 'entente') return true;
       if (tabs.includes('ligues') && u.type === 'ligue') return true;
-      if (tabs.includes('federation') && u.type === 'federation') return true;
+      if (tabs.includes('federation') && (u.type === 'federation' || u.type === 'membre')) return true;
       return false;
     });
   }
@@ -374,9 +416,10 @@ export function filterUsers(users, user) {
   return [];
 }
 
-export function computeStats(judokas, users, user) {
+export function computeStats(judokas, users, user, arbitres = []) {
   const perms = getPermissions(user);
   const filteredJudokas = filterJudokas(judokas, user, users);
+  const filteredArbitres = filterArbitres(arbitres, user, users);
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
@@ -401,6 +444,7 @@ export function computeStats(judokas, users, user) {
     ligues: filteredUsers.filter((u) => u.type === 'ligue').length,
     ententes: filteredUsers.filter((u) => u.type === 'entente').length,
     pendingAccounts,
+    arbitres: filteredArbitres.length,
     thisMonth: filteredJudokas.filter((j) => new Date(j.date_inscription) >= monthStart).length,
     entraineurs,
   };
@@ -427,6 +471,7 @@ export function canValidateAccounts(user) {
 
 export function canMessageUser(sender, recipient) {
   if (!sender || !recipient || sender.id === recipient.id) return false;
+  if (NO_LOGIN_TYPES.includes(sender.type) || NO_LOGIN_TYPES.includes(recipient.type)) return false;
 
   if (recipient.type === 'admin') {
     return isCoordon(sender);
@@ -440,7 +485,7 @@ export function canMessageUser(sender, recipient) {
     return recipient.type !== 'admin' || isCoordon(sender);
   }
 
-  if (sender.type === 'club' || sender.type === 'entraineur') {
+  if (sender.type === 'club') {
     return ['federation', 'ligue', 'entente'].includes(recipient.type);
   }
 
@@ -450,7 +495,6 @@ export function canMessageUser(sender, recipient) {
 export function enforceJudokaClub(user, club) {
   if (user.type === 'admin' || user.type === 'federation') return club;
   if (user.type === 'ligue' || user.type === 'entente') {
-    // scoped further in route with allUsers when needed
     return club;
   }
   const userClub = getUserClub(user);
@@ -476,11 +520,11 @@ export function enforceCreateUser(user, data) {
     data.parent_id = user.id;
   }
 
-  if (isCoordon(user) && data.type === 'ligue') {
+  if (isCoordon(user) && (data.type === 'ligue' || data.type === 'membre')) {
     data.parent_id = user.id;
   }
 
-  if (user.type === 'admin' && ['ligue', 'entente', 'club'].includes(data.type) && !data.parent_id) {
+  if (user.type === 'admin' && ['ligue', 'entente', 'club', 'membre', 'entraineur'].includes(data.type) && !data.parent_id) {
     data.parent_id = user.id;
   }
 

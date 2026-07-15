@@ -43,13 +43,23 @@ import {
   getPermissions,
   filterJudokas,
   filterUsers,
+  filterArbitres,
   computeStats,
   canAccessJudoka,
   enforceJudokaClub,
   canMessageUser,
   canValidateAccounts,
   getScopedClubNames,
+  NO_LOGIN_TYPES,
 } from './permissions.js';
+import {
+  getAllArbitres,
+  getArbitreById,
+  createArbitre,
+  updateArbitre,
+  deleteArbitre,
+  ARBITRE_NIVEAUX,
+} from './arbitres.js';
 import { saveUploadedFile, deleteStoredFile } from './storage.js';
 import { isSupabaseEnabled } from './supabase.js';
 
@@ -145,7 +155,7 @@ app.post('/api/auth/login', async (req, res) => {
 
     res.json({ ...result, permissions: getPermissions(result.user) });
   } catch (err) {
-    if (err.code === 'PENDING_ACCOUNT' || err.code === 'REJECTED_ACCOUNT') {
+    if (err.code === 'PENDING_ACCOUNT' || err.code === 'REJECTED_ACCOUNT' || err.code === 'NO_LOGIN') {
       return res.status(403).json({ error: err.message, code: err.code });
     }
     res.status(500).json({ error: err.message });
@@ -191,7 +201,10 @@ app.post('/api/users', handleClubDocsUpload, async (req, res) => {
     const documents = await extractClubDocuments(req.files);
     if (Object.keys(documents).length) body.documents = documents;
 
-    if (!body.type || !body.password) {
+    if (!body.type) {
+      return res.status(400).json({ error: 'Champs obligatoires manquants' });
+    }
+    if (!NO_LOGIN_TYPES.includes(body.type) && !body.password) {
       return res.status(400).json({ error: 'Champs obligatoires manquants' });
     }
 
@@ -392,9 +405,110 @@ app.get('/api/stats', async (req, res) => {
   try {
     const judokas = await getAllJudokas();
     const users = await getAllUsers();
-    res.json(computeStats(judokas, users, req.user));
+    const arbitres = await getAllArbitres();
+    res.json(computeStats(judokas, users, req.user, arbitres));
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/arbitres', async (req, res) => {
+  try {
+    const users = await getAllUsers();
+    let arbitres = await getAllArbitres(req.query.search || '');
+    arbitres = filterArbitres(arbitres, req.user, users);
+    res.json(arbitres);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/arbitres', async (req, res) => {
+  try {
+    const perms = getPermissions(req.user);
+    if (!perms.createArbitres) {
+      return res.status(403).json({ error: 'Vous n\'êtes pas autorisé à créer des arbitres' });
+    }
+
+    const body = req.body;
+    if (!body.nom?.trim() || !body.prenom?.trim() || !body.niveau) {
+      return res.status(400).json({ error: 'Nom, prénom et niveau requis' });
+    }
+    if (!ARBITRE_NIVEAUX.includes(body.niveau)) {
+      return res.status(400).json({ error: 'Niveau d\'arbitre invalide' });
+    }
+
+    const arbitre = await createArbitre({
+      nom: body.nom.trim(),
+      prenom: body.prenom.trim(),
+      niveau: body.niveau,
+      telephone: body.telephone?.trim() || '',
+      email: body.email?.trim() || '',
+      club: body.club?.trim() || '',
+      grade: body.grade?.trim() || '',
+      parent_id: req.user.id,
+      statut: 'actif',
+    });
+    res.status(201).json(arbitre);
+  } catch (err) {
+    res.status(403).json({ error: err.message });
+  }
+});
+
+app.put('/api/arbitres/:id', async (req, res) => {
+  try {
+    const perms = getPermissions(req.user);
+    if (!perms.createArbitres && !perms.manageUsers) {
+      return res.status(403).json({ error: 'Modification non autorisée' });
+    }
+    const existing = await getArbitreById(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Arbitre introuvable' });
+
+    const users = await getAllUsers();
+    const allowed = filterArbitres([existing], req.user, users);
+    if (!allowed.length) return res.status(403).json({ error: 'Accès non autorisé' });
+
+    const body = req.body;
+    if (!body.nom?.trim() || !body.prenom?.trim() || !body.niveau) {
+      return res.status(400).json({ error: 'Nom, prénom et niveau requis' });
+    }
+    if (!ARBITRE_NIVEAUX.includes(body.niveau)) {
+      return res.status(400).json({ error: 'Niveau d\'arbitre invalide' });
+    }
+
+    const updated = await updateArbitre(req.params.id, {
+      nom: body.nom.trim(),
+      prenom: body.prenom.trim(),
+      niveau: body.niveau,
+      telephone: body.telephone?.trim() || '',
+      email: body.email?.trim() || '',
+      club: body.club?.trim() || '',
+      grade: body.grade?.trim() || '',
+      statut: body.statut || 'actif',
+    });
+    res.json(updated);
+  } catch (err) {
+    res.status(403).json({ error: err.message });
+  }
+});
+
+app.delete('/api/arbitres/:id', async (req, res) => {
+  try {
+    const perms = getPermissions(req.user);
+    if (!perms.createArbitres && !perms.manageUsers && req.user.type !== 'admin') {
+      return res.status(403).json({ error: 'Suppression non autorisée' });
+    }
+    const existing = await getArbitreById(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Arbitre introuvable' });
+
+    const users = await getAllUsers();
+    const allowed = filterArbitres([existing], req.user, users);
+    if (!allowed.length) return res.status(403).json({ error: 'Accès non autorisé' });
+
+    await deleteArbitre(req.params.id);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(403).json({ error: err.message });
   }
 });
 

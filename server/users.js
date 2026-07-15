@@ -8,6 +8,8 @@ import {
   canValidateAccounts,
   getAccountStatut,
   isAccountActive,
+  canLoginAs,
+  NO_LOGIN_TYPES,
 } from './permissions.js';
 import { getSupabase, isSupabaseEnabled } from './supabase.js';
 
@@ -171,6 +173,12 @@ export async function login(identifier, password) {
   const user = await findByLogin(identifier);
   if (!user || user.password !== hashPassword(password)) return null;
 
+  if (!canLoginAs(user)) {
+    const err = new Error('Ce type de compte ne permet pas la connexion au système');
+    err.code = 'NO_LOGIN';
+    throw err;
+  }
+
   if (!isAccountActive(user)) {
     const statut = getAccountStatut(user);
     if (statut === 'pending') {
@@ -208,25 +216,38 @@ export async function getSessionUser(token) {
 export async function createUser(data, creator) {
   const enforced = enforceCreateUser(creator, { ...data });
   const users = await readUsers();
+  const isNoLogin = NO_LOGIN_TYPES.includes(enforced.type);
 
-  const emailOrUsername = enforced.email?.trim().toLowerCase() || enforced.username?.trim().toLowerCase();
+  let emailOrUsername = enforced.email?.trim().toLowerCase() || enforced.username?.trim().toLowerCase();
+  if (isNoLogin && !emailOrUsername) {
+    emailOrUsername = `${enforced.type}-${uuidv4().slice(0, 8)}@fiche.local`;
+  }
+
+  if (!emailOrUsername) {
+    throw new Error('Identifiant / email requis');
+  }
+
   if (users.some((u) => u.email?.toLowerCase() === emailOrUsername || u.username?.toLowerCase() === emailOrUsername)) {
     throw new Error('Cet identifiant est déjà utilisé');
   }
 
-  const autoActif = creator.type === 'admin' || enforced.type === 'federation' || enforced.type === 'entraineur';
+  if (!isNoLogin && (!enforced.password || enforced.password.length < 6)) {
+    throw new Error('Le mot de passe doit contenir au moins 6 caractères');
+  }
+
+  const autoActif = creator.type === 'admin' || enforced.type === 'federation' || isNoLogin;
   const user = {
     id: uuidv4(),
     type: enforced.type,
     email: emailOrUsername,
-    password: hashPassword(enforced.password),
+    password: hashPassword(isNoLogin ? crypto.randomBytes(24).toString('hex') : enforced.password),
     telephone: enforced.telephone?.trim() || '',
     parent_id: enforced.parent_id || creator.id,
+    acces_systeme: !isNoLogin,
     statut: 'pending',
     created_at: new Date().toISOString(),
   };
 
-  // Comptes sans validation requise, ou créés par Admin → actifs immédiatement
   if (autoActif || creator.type === 'admin' || !needsValidation(enforced.type)) {
     user.statut = 'actif';
   }
@@ -235,6 +256,12 @@ export async function createUser(data, creator) {
     user.nom = enforced.nom?.trim();
     user.prenom = enforced.prenom?.trim();
     user.fonction = enforced.fonction?.trim() || '';
+    user.acces_systeme = true;
+  } else if (enforced.type === 'membre') {
+    user.nom = enforced.nom?.trim();
+    user.prenom = enforced.prenom?.trim();
+    user.fonction = enforced.fonction?.trim() || 'Membre';
+    user.acces_systeme = false;
   } else if (enforced.type === 'ligue' || enforced.type === 'entente') {
     const orgName = enforced.nom_organisation?.trim() || enforced.nom?.trim();
     if (!orgName) throw new Error('Le nom de l\'organisation est obligatoire');
@@ -257,6 +284,7 @@ export async function createUser(data, creator) {
     user.prenom = enforced.prenom?.trim();
     user.club = enforced.club?.trim() || '';
     user.grade = enforced.grade?.trim() || '';
+    user.acces_systeme = false;
   }
 
   if (isSupabaseEnabled()) {
@@ -301,7 +329,7 @@ export async function updateUser(id, data, editor) {
   if (emailOrUsername) updated.email = emailOrUsername;
   if (data.telephone !== undefined) updated.telephone = data.telephone?.trim() || '';
 
-  if (existing.type === 'federation') {
+  if (existing.type === 'federation' || existing.type === 'membre') {
     if (data.nom) updated.nom = data.nom.trim();
     if (data.prenom) updated.prenom = data.prenom.trim();
     if (data.fonction) updated.fonction = data.fonction.trim();

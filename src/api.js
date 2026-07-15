@@ -210,6 +210,45 @@ export async function fetchJudokas(search = '') {
   return res.json();
 }
 
+export async function fetchArbitres(search = '') {
+  const res = await apiFetch(`/api/arbitres?search=${encodeURIComponent(search)}`);
+  if (!res.ok) throw new Error('Impossible de charger les arbitres');
+  return res.json();
+}
+
+export async function createArbitre(data) {
+  const res = await apiFetch('/api/arbitres', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Erreur lors de la création de l\'arbitre');
+  }
+  return res.json();
+}
+
+export async function updateArbitre(id, data) {
+  const res = await apiFetch(`/api/arbitres/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Erreur lors de la mise à jour');
+  }
+  return res.json();
+}
+
+export async function deleteArbitre(id) {
+  const res = await apiFetch(`/api/arbitres/${id}`, { method: 'DELETE' });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Erreur lors de la suppression');
+  }
+  return res.json();
+}
+
 export async function fetchJudoka(id) {
   const res = await apiFetch(`/api/judokas/${id}`);
   if (!res.ok) throw new Error('Judoka introuvable');
@@ -345,12 +384,18 @@ export const FEDERATION_FONCTIONS = [
   'Assistant (e)',
 ];
 
+/** Fonctions attribuables aux fiches Membres (sans connexion) */
+export const MEMBRE_FONCTIONS = FEDERATION_FONCTIONS.filter((f) => f !== 'Coordon');
+
+export const ARBITRE_NIVEAUX = ['National', 'Intercontinental', 'International'];
+
 export const USER_TYPES = {
-  federation: { label: 'Membre de la Fédération', description: 'Personnel administratif de la fédération' },
+  federation: { label: 'Compte Fédération (connexion)', description: 'Compte connecté (ex. Coordon) avec identifiant et mot de passe' },
+  membre: { label: 'Membre de la Fédération', description: 'Fiche membre sans accès au système — fonction fédérale' },
   ligue: { label: 'Ligue', description: 'Créer un compte Ligue (validé par le Coordon)' },
   entente: { label: 'Entente', description: 'Créer un compte Entente sous une Ligue' },
   club: { label: 'Club', description: 'Enregistrer un club affilié (validé par le Coordon)' },
-  entraineur: { label: 'Entraineur', description: 'Enregistrer un entraineur / coach' },
+  entraineur: { label: 'Entraineur', description: 'Fiche entraineur / coach (sans connexion)' },
 };
 
 export const ACCOUNT_STATUT_LABELS = {

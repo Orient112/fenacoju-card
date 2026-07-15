@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { createUser, updateUser, uploadClubDocuments, GRADES, USER_TYPES, FEDERATION_FONCTIONS, getUserClub } from '../api';
+import { createUser, updateUser, uploadClubDocuments, GRADES, USER_TYPES, FEDERATION_FONCTIONS, MEMBRE_FONCTIONS, getUserClub } from '../api';
 import DocumentUploadField from './DocumentUploadField';
 
 const CLUB_DOC_FIELDS = [
@@ -10,10 +10,11 @@ const CLUB_DOC_FIELDS = [
 
 const emptyForms = {
   federation: { nom: '', prenom: '', email: '', telephone: '', fonction: '', password: '', confirmPassword: '' },
+  membre: { nom: '', prenom: '', email: '', telephone: '', fonction: 'Membre' },
   ligue: { nom_organisation: '', ville: '', responsable: '', email: '', telephone: '', password: '', confirmPassword: '' },
   entente: { nom_organisation: '', ville: '', responsable: '', email: '', telephone: '', password: '', confirmPassword: '' },
   club: { nom_club: '', ville: '', responsable: '', email: '', telephone: '', password: '', confirmPassword: '' },
-  entraineur: { nom: '', prenom: '', club: '', grade: 'Noire 1er Dan', email: '', telephone: '', password: '', confirmPassword: '' },
+  entraineur: { nom: '', prenom: '', club: '', grade: 'Noire 1er Dan', email: '', telephone: '' },
 };
 
 function userToForm(user, type) {
@@ -62,10 +63,16 @@ const FORM_COPY = {
     newSubtitle: 'Enregistrez un nouvel Entraineur dans le système FENACOJU',
   },
   federation: {
-    editTitle: 'Modifier - Membre de la Fédération',
+    editTitle: 'Modifier - Compte Fédération',
+    newTitle: 'Nouveau - Compte Fédération (connexion)',
+    editSubtitle: 'Modifiez les informations de ce compte',
+    newSubtitle: 'Compte avec identifiant et mot de passe (ex. Coordon)',
+  },
+  membre: {
+    editTitle: 'Modifier - Membre',
     newTitle: 'Nouveau - Membre de la Fédération',
-    editSubtitle: 'Modifiez les informations de ce membre',
-    newSubtitle: 'Enregistrez un nouveau membre de la Fédération',
+    editSubtitle: 'Modifiez la fiche membre',
+    newSubtitle: 'Fiche sans accès au système — attributs une fonction fédérale',
   },
   ligue: {
     editTitle: 'Modifier - Ligue',
@@ -186,11 +193,13 @@ export default function UserForm({ type, editingUser, currentUser, registeredClu
     setClubDocPreviews((prev) => ({ ...prev, [key]: null }));
   };
 
+  const isNoLogin = type === 'entraineur' || type === 'membre';
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
-    if (!isEdit) {
+    if (!isEdit && !isNoLogin) {
       if (form.password.length < 6) {
         setError('Le mot de passe doit contenir au moins 6 caractères');
         return;
@@ -199,7 +208,7 @@ export default function UserForm({ type, editingUser, currentUser, registeredClu
         setError('Les mots de passe ne correspondent pas');
         return;
       }
-    } else if (form.password && form.password !== form.confirmPassword) {
+    } else if (!isNoLogin && form.password && form.password !== form.confirmPassword) {
       setError('Les mots de passe ne correspondent pas');
       return;
     }
@@ -266,6 +275,28 @@ export default function UserForm({ type, editingUser, currentUser, registeredClu
                 <select name="fonction" value={form.fonction} onChange={handleChange} required>
                   <option value="">— Sélectionner une fonction —</option>
                   {FEDERATION_FONCTIONS.map((f) => (
+                    <option key={f} value={f}>{f}</option>
+                  ))}
+                </select>
+              </div>
+            </>
+          )}
+
+          {type === 'membre' && (
+            <>
+              <div className="form-group">
+                <label>Nom <span className="required">*</span></label>
+                <input name="nom" value={form.nom} onChange={handleChange} required placeholder="Nom" />
+              </div>
+              <div className="form-group">
+                <label>Prénom <span className="required">*</span></label>
+                <input name="prenom" value={form.prenom} onChange={handleChange} required placeholder="Prénom" />
+              </div>
+              <div className="form-group">
+                <label>Fonction <span className="required">*</span></label>
+                <select name="fonction" value={form.fonction} onChange={handleChange} required>
+                  <option value="">— Sélectionner une fonction —</option>
+                  {MEMBRE_FONCTIONS.map((f) => (
                     <option key={f} value={f}>{f}</option>
                   ))}
                 </select>
@@ -358,14 +389,24 @@ export default function UserForm({ type, editingUser, currentUser, registeredClu
             </>
           )}
 
-          {type !== 'club' && (
+          {type !== 'club' && type !== 'membre' && type !== 'entraineur' && (
             <>
               <EmailField form={form} onChange={handleChange} />
               <TelephoneField form={form} onChange={handleChange} />
             </>
           )}
 
-          {!isEdit && (
+          {(type === 'membre' || type === 'entraineur') && (
+            <>
+              <div className="form-group">
+                <label>Email (contact)</label>
+                <input name="email" value={form.email} onChange={handleChange} placeholder="Optionnel" />
+              </div>
+              <TelephoneField form={form} onChange={handleChange} />
+            </>
+          )}
+
+          {!isEdit && !isNoLogin && (
             <>
               <div className="form-group">
                 <label>Mot de passe <span className="required">*</span></label>

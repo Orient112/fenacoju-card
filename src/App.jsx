@@ -3,10 +3,12 @@ import {
   fetchStats,
   fetchJudokas,
   fetchUsers,
+  fetchArbitres,
   createJudoka,
   updateJudoka,
   deleteJudoka,
   deleteUser,
+  deleteArbitre,
   validateUser,
   rejectUser,
   fetchCurrentUser,
@@ -23,8 +25,10 @@ import ClubInfoPanel from './components/ClubInfoPanel';
 const Messages = lazy(() => import('./pages/Messages'));
 const JudokaForm = lazy(() => import('./components/JudokaForm'));
 const UserForm = lazy(() => import('./components/UserForm'));
+const ArbitreForm = lazy(() => import('./components/ArbitreForm'));
 const JudokaList = lazy(() => import('./components/JudokaList'));
 const UserList = lazy(() => import('./components/UserList'));
+const ArbitreList = lazy(() => import('./components/ArbitreList'));
 const CardModal = lazy(() => import('./components/CardModal'));
 const QrScanModal = lazy(() => import('./components/QrScanModal'));
 const CreateTypeModal = lazy(() => import('./components/CreateTypeModal'));
@@ -42,6 +46,7 @@ function PageLoader({ label = 'Chargement...' }) {
 const SECTION_TITLES = {
   judokas: 'Liste des Judokas',
   entraineurs: 'Liste des Entraineurs',
+  arbitres: 'Liste des Arbitres',
   clubs: 'Liste des Clubs',
   ententes: 'Liste des Ententes',
   ligues: 'Liste des Ligues',
@@ -118,6 +123,7 @@ function getVisibleTabs(user, tabs) {
       { key: 'ententes', label: 'Ententes' },
       { key: 'clubs', label: 'Clubs' },
       { key: 'entraineurs', label: 'Entraineurs' },
+      { key: 'arbitres', label: 'Arbitres' },
       { key: 'federation', label: 'Membres' },
     ];
   }
@@ -134,6 +140,7 @@ function getVisibleTabs(user, tabs) {
       { key: 'judokas', label: 'Judokas' },
       { key: 'ententes', label: 'Ententes' },
       { key: 'clubs', label: 'Clubs' },
+      { key: 'entraineurs', label: 'Entraineurs' },
     ];
   }
 
@@ -141,6 +148,8 @@ function getVisibleTabs(user, tabs) {
     return [
       { key: 'judokas', label: 'Judokas' },
       { key: 'clubs', label: 'Clubs' },
+      { key: 'entraineurs', label: 'Entraineurs' },
+      { key: 'arbitres', label: 'Arbitres' },
     ];
   }
 
@@ -150,6 +159,7 @@ function getVisibleTabs(user, tabs) {
   if (tabs.includes('ententes')) visible.push({ key: 'ententes', label: 'Ententes' });
   if (tabs.includes('clubs')) visible.push({ key: 'clubs', label: 'Clubs' });
   if (tabs.includes('entraineurs')) visible.push({ key: 'entraineurs', label: 'Entraineurs' });
+  if (tabs.includes('arbitres')) visible.push({ key: 'arbitres', label: 'Arbitres' });
   if (tabs.includes('federation')) visible.push({ key: 'federation', label: 'Membres' });
   return visible;
 }
@@ -159,7 +169,7 @@ function getUsersForTab(members, tab) {
   if (tab === 'clubs') return members.filter((u) => u.type === 'club');
   if (tab === 'ententes') return members.filter((u) => u.type === 'entente');
   if (tab === 'ligues') return members.filter((u) => u.type === 'ligue');
-  if (tab === 'federation') return members.filter((u) => u.type === 'federation');
+  if (tab === 'federation') return members.filter((u) => u.type === 'federation' || u.type === 'membre');
   return members;
 }
 
@@ -181,13 +191,16 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [view, setView] = useState('list');
   const [dashboardTab, setDashboardTab] = useState('judokas');
-  const [stats, setStats] = useState({ total: 0, actifs: 0, clubs: 0, entraineurs: 0, pendingAccounts: 0 });
+  const [stats, setStats] = useState({ total: 0, actifs: 0, clubs: 0, entraineurs: 0, pendingAccounts: 0, arbitres: 0 });
   const [judokas, setJudokas] = useState([]);
   const [members, setMembers] = useState([]);
+  const [arbitres, setArbitres] = useState([]);
   const [registeredClubs, setRegisteredClubs] = useState([]);
   const [searchInput, setSearchInput] = useState('');
   const [editing, setEditing] = useState(null);
   const [editingUser, setEditingUser] = useState(null);
+  const [editingArbitre, setEditingArbitre] = useState(null);
+  const [deleteArbitreTarget, setDeleteArbitreTarget] = useState(null);
   const [createType, setCreateType] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [cardJudoka, setCardJudoka] = useState(null);
@@ -206,11 +219,14 @@ export default function App() {
   const tabs = perms.dashboardTabs || ['judokas'];
   const lockedClub = perms.clubScope || null;
   const canManageUsers = perms.manageUsers || perms.createUsers;
-  const canResetPassword = perms.manageUsers || perms.createUsers;
+  const canResetPassword = perms.manageUsers === true;
   const canValidateAccounts = perms.validateAccounts === true;
   const canViewClubDetails = perms.viewClubDetails === true;
-  const canViewCards = perms.viewCards !== false;
+  const canViewCards = perms.viewCards === true;
   const readOnlyJudokas = perms.readOnlyJudokas === true;
+  const hideJudokaActions = perms.hideJudokaActions === true;
+  const canCreateArbitres = perms.createArbitres === true;
+  const showHeaderCreate = perms.showHeaderCreate !== false && (perms.createUsers || perms.createTypes?.length > 0);
   const canScanQr = canUseQrScan(user, perms);
   const visibleTabs = useMemo(() => (user ? getVisibleTabs(user, tabs) : []), [user, tabs]);
   const entraineurs = useMemo(() => members.filter((m) => m.type === 'entraineur'), [members]);
@@ -220,6 +236,7 @@ export default function App() {
   }, [members, user]);
 
   const showUserTabs = ['entraineurs', 'clubs', 'ententes', 'ligues', 'federation'].includes(dashboardTab);
+  const showArbitresTab = dashboardTab === 'arbitres';
 
   const showToast = useCallback((message, type = 'success') => {
     setToast({ message, type });
@@ -261,13 +278,16 @@ export default function App() {
     };
   }, []);
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (options = {}) => {
     if (!user) return;
-    setLoading(true);
+    const silent = options.silent === true;
+    if (!silent) setLoading(true);
     try {
       const needsUsers = user.type === 'admin' || perms.viewUsers || user.type === 'club' || perms.viewClubInfo;
+      const needsArbitres = tabs.includes('arbitres') || perms.createArbitres || user.type === 'admin';
       const requests = [fetchStats(), fetchJudokas(), fetchClubs()];
       if (needsUsers) requests.push(fetchUsers());
+      if (needsArbitres) requests.push(fetchArbitres());
 
       const results = await Promise.allSettled(requests);
       const hasFailure = results.some((r) => r.status === 'rejected');
@@ -276,29 +296,50 @@ export default function App() {
       if (results[1].status === 'fulfilled') setJudokas(results[1].value);
       if (results[2].status === 'fulfilled') setRegisteredClubs(results[2].value || []);
 
-      const usersResult = results[3];
-      if (usersResult?.status === 'fulfilled') setMembers(usersResult.value || []);
+      let idx = 3;
+      if (needsUsers) {
+        if (results[idx]?.status === 'fulfilled') setMembers(results[idx].value || []);
+        idx += 1;
+      }
+      if (needsArbitres) {
+        if (results[idx]?.status === 'fulfilled') setArbitres(results[idx].value || []);
+      }
 
       if (hasFailure) {
-        setServerOnline(false);
-        showToast('Connexion au serveur lente ou indisponible. Réessayez dans un instant.', 'error');
+        if (!silent) {
+          setServerOnline(false);
+          showToast('Connexion au serveur lente ou indisponible. Réessayez dans un instant.', 'error');
+        }
       } else {
         setServerOnline(true);
-        fetchUnreadMessages()
-          .then((r) => setUnreadMessages(r.count || 0))
-          .catch(() => {});
+        if (!silent) {
+          fetchUnreadMessages()
+            .then((r) => setUnreadMessages(r.count || 0))
+            .catch(() => {});
+        }
       }
     } catch {
-      setServerOnline(false);
-      showToast('Erreur de connexion au serveur.', 'error');
+      if (!silent) {
+        setServerOnline(false);
+        showToast('Erreur de connexion au serveur.', 'error');
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
-  }, [showToast, user, perms.viewUsers]);
+  }, [showToast, user, perms.viewUsers, perms.createArbitres, perms.viewClubInfo, tabs]);
 
   useEffect(() => {
     if (user) loadData();
   }, [loadData, user]);
+
+  // Coordon: rafraîchissement silencieux toutes les 2s pour les validations en temps réel
+  useEffect(() => {
+    if (!user || !perms.liveRefresh) return undefined;
+    const id = setInterval(() => {
+      loadData({ silent: true });
+    }, 2000);
+    return () => clearInterval(id);
+  }, [user, perms.liveRefresh, loadData]);
 
   const searchTerm = searchInput.trim().toLowerCase();
 
@@ -358,14 +399,6 @@ export default function App() {
     setEditingUser(u);
     setCreateType(u.type);
     setEditing(null);
-    setView('user-form');
-  };
-
-  const handleCreateTypeSelect = (type) => {
-    setShowCreateModal(false);
-    setCreateType(type);
-    setEditing(null);
-    setEditingUser(null);
     setView('user-form');
   };
 
@@ -481,11 +514,55 @@ export default function App() {
   };
 
   const openCreateModal = () => {
-    if (!perms.createUsers && !perms.createTypes?.length) {
+    if (!showHeaderCreate && !canCreateArbitres) {
       showToast('Vous n\'êtes pas autorisé à créer des utilisateurs', 'error');
       return;
     }
     setShowCreateModal(true);
+  };
+
+  const openNewEntraineur = () => {
+    setCreateType('entraineur');
+    setEditingUser(null);
+    setEditing(null);
+    setEditingArbitre(null);
+    setView('user-form');
+  };
+
+  const openNewArbitre = () => {
+    setEditingArbitre(null);
+    setEditing(null);
+    setEditingUser(null);
+    setCreateType(null);
+    setView('arbitre-form');
+  };
+
+  const handleCreateTypeSelect = (type) => {
+    setShowCreateModal(false);
+    if (type === 'arbitre') {
+      openNewArbitre();
+      return;
+    }
+    setCreateType(type);
+    setEditing(null);
+    setEditingUser(null);
+    setEditingArbitre(null);
+    setView('user-form');
+  };
+
+  const handleArbitreSaved = async (saved) => {
+    showToast(editingArbitre ? 'Arbitre mis à jour' : `Arbitre créé — ${saved.prenom} ${saved.nom}`);
+    setEditingArbitre(null);
+    setView('list');
+    setDashboardTab('arbitres');
+    await loadData();
+  };
+
+  const handleDeleteArbitre = async () => {
+    await deleteArbitre(deleteArbitreTarget.id);
+    showToast(`${deleteArbitreTarget.prenom} ${deleteArbitreTarget.nom} supprimé`);
+    setDeleteArbitreTarget(null);
+    await loadData();
   };
 
   if (authLoading) {
@@ -520,7 +597,7 @@ export default function App() {
           >
             Dashboard
           </button>
-          {(perms.createUsers || perms.createTypes?.length > 0) && (
+          {showHeaderCreate && (
             <button
               className={`nav-btn ${view === 'user-form' && !editingUser ? 'active' : ''}`}
               onClick={openCreateModal}
@@ -584,7 +661,7 @@ export default function App() {
                       <div className="stat-label">Actifs</div>
                     </div>
                     <div className="stat-card accent">
-                      <div className="stat-value">{stats.total - stats.actifs}</div>
+                      <div className="stat-value">{stats.arbitres ?? 0}</div>
                       <div className="stat-label">Inactifs</div>
                     </div>
                   </>
@@ -720,10 +797,10 @@ export default function App() {
                     <Suspense fallback={<PageLoader label="Chargement de la liste..." />}>
                       <JudokaList
                         judokas={filteredJudokas}
-                        showActions={!readOnlyJudokas}
-                        onViewCard={!readOnlyJudokas && canViewCards ? setCardJudoka : null}
-                        onEdit={perms.createJudokas ? openEditForm : null}
-                        onDelete={perms.deleteJudokas ? setDeleteTarget : null}
+                        showActions={!readOnlyJudokas && !hideJudokaActions}
+                        onViewCard={!readOnlyJudokas && !hideJudokaActions && canViewCards ? setCardJudoka : null}
+                        onEdit={!hideJudokaActions && perms.createJudokas ? openEditForm : null}
+                        onDelete={!hideJudokaActions && perms.deleteJudokas ? setDeleteTarget : null}
                         onAddNew={perms.createJudokas ? openNewJudoka : null}
                       />
                     </Suspense>
@@ -742,9 +819,14 @@ export default function App() {
                     value={searchInput}
                     onChange={(e) => setSearchInput(e.target.value)}
                   />
-                  <button className="btn btn-outline" onClick={loadData} disabled={loading}>
+                  <button className="btn btn-outline" onClick={() => loadData()} disabled={loading}>
                     {loading ? 'Chargement...' : 'Actualiser'}
                   </button>
+                  {dashboardTab === 'entraineurs' && user.type === 'club' && perms.createTypes?.includes('entraineur') && (
+                    <button className="btn btn-accent" onClick={openNewEntraineur}>
+                      Nouvel Entraineur
+                    </button>
+                  )}
                 </div>
 
                 <div className="table-card">
@@ -759,7 +841,7 @@ export default function App() {
                     <Suspense fallback={<PageLoader label="Chargement de la liste..." />}>
                       <UserList
                         users={tabUsers}
-                        showClub={dashboardTab === 'entraineurs' && user.type === 'admin'}
+                        showClub={dashboardTab === 'entraineurs' && (user.type === 'admin' || user.type === 'ligue' || user.type === 'entente')}
                         detailColumnLabel={dashboardTab === 'federation' ? 'Fonction' : 'Détails'}
                         hideFonctionUnderName={dashboardTab === 'federation'}
                         showViewAction={dashboardTab === 'clubs' && canViewClubDetails}
@@ -774,6 +856,52 @@ export default function App() {
                       />
                     </Suspense>
                   )}
+                </div>
+              </>
+            )}
+
+            {showArbitresTab && (
+              <>
+                <div className="search-bar">
+                  <input
+                    className="search-input"
+                    type="text"
+                    placeholder="Rechercher un arbitre..."
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
+                  />
+                  <button className="btn btn-outline" onClick={() => loadData()} disabled={loading}>
+                    {loading ? 'Chargement...' : 'Actualiser'}
+                  </button>
+                  {canCreateArbitres && (
+                    <button className="btn btn-accent" onClick={openNewArbitre}>
+                      Nouvel arbitre
+                    </button>
+                  )}
+                </div>
+                <div className="table-card">
+                  <div className="table-header">
+                    <h2>{getSectionTitle('arbitres', user)}</h2>
+                  </div>
+                  <Suspense fallback={<PageLoader label="Chargement des arbitres..." />}>
+                    <ArbitreList
+                      arbitres={arbitres.filter((a) => {
+                        if (!searchTerm) return true;
+                        return (
+                          matchesSearch(`${a.prenom} ${a.nom}`, searchTerm) ||
+                          matchesSearch(a.club, searchTerm) ||
+                          matchesSearch(a.niveau, searchTerm)
+                        );
+                      })}
+                      canManage={canCreateArbitres || user.type === 'admin'}
+                      onEdit={canCreateArbitres || user.type === 'admin' ? (a) => {
+                        setEditingArbitre(a);
+                        setView('arbitre-form');
+                      } : null}
+                      onDelete={canCreateArbitres || user.type === 'admin' ? setDeleteArbitreTarget : null}
+                      onAddNew={canCreateArbitres ? openNewArbitre : null}
+                    />
+                  </Suspense>
                 </div>
               </>
             )}
@@ -823,12 +951,25 @@ export default function App() {
             />
           </Suspense>
         )}
+
+        {view === 'arbitre-form' && (
+          <Suspense fallback={<PageLoader label="Chargement du formulaire..." />}>
+            <ArbitreForm
+              key={editingArbitre?.id || 'new-arbitre'}
+              arbitre={editingArbitre}
+              registeredClubs={registeredClubs}
+              onSubmit={handleArbitreSaved}
+              onCancel={() => { setEditingArbitre(null); setView('list'); }}
+            />
+          </Suspense>
+        )}
       </main>
 
       {showCreateModal && (
         <Suspense fallback={null}>
           <CreateTypeModal
             allowedTypes={perms.createTypes}
+            includeArbitre={canCreateArbitres}
             onSelect={handleCreateTypeSelect}
             onClose={() => setShowCreateModal(false)}
           />
@@ -872,9 +1013,18 @@ export default function App() {
       {deleteUserTarget && (
         <ConfirmDialog
           title="Confirmer la suppression"
-          message={`Voulez-vous vraiment supprimer ${deleteUserTarget.nom_club || `${deleteUserTarget.prenom} ${deleteUserTarget.nom}`} ?`}
+          message={`Voulez-vous vraiment supprimer ${deleteUserTarget.nom_club || deleteUserTarget.nom_organisation || `${deleteUserTarget.prenom} ${deleteUserTarget.nom}`} ?`}
           onConfirm={handleDeleteUser}
           onCancel={() => setDeleteUserTarget(null)}
+        />
+      )}
+
+      {deleteArbitreTarget && (
+        <ConfirmDialog
+          title="Confirmer la suppression"
+          message={`Voulez-vous vraiment supprimer l'arbitre ${deleteArbitreTarget.prenom} ${deleteArbitreTarget.nom} ?`}
+          onConfirm={handleDeleteArbitre}
+          onCancel={() => setDeleteArbitreTarget(null)}
         />
       )}
 
