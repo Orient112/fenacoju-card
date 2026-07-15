@@ -71,7 +71,9 @@ export default function UserList({
                 )}
               </td>
               {showClub && <td data-label="Club">{u.club || u.nom_club || '—'}</td>}
-              <td data-label="Email">{u.email}</td>
+              <td data-label="Email">
+                {u.email?.endsWith('@fiche.local') ? '—' : (u.email || '—')}
+              </td>
               <td data-label="Téléphone">{u.telephone || '—'}</td>
               <td data-label="Statut">
                 <span className={`badge ${statutClass(statut)}`}>

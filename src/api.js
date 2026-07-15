@@ -1,7 +1,8 @@
 const TOKEN_KEY = 'fenacoju_token';
 const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
-const DEFAULT_TIMEOUT_MS = 15000;
-const AUTH_TIMEOUT_MS = 10000;
+/** Render free peut mettre ~30–50s à démarrer (cold start). */
+const DEFAULT_TIMEOUT_MS = import.meta.env.PROD ? 45000 : 15000;
+const AUTH_TIMEOUT_MS = import.meta.env.PROD ? 45000 : 10000;
 
 function apiUrl(path) {
   return `${API_BASE}${path}`;
@@ -200,19 +201,29 @@ export async function fetchClubs() {
 
 export async function fetchStats() {
   const res = await apiFetch('/api/stats');
-  if (!res.ok) throw new Error('Impossible de charger les statistiques');
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Impossible de charger les statistiques');
+  }
   return res.json();
 }
 
 export async function fetchJudokas(search = '') {
   const res = await apiFetch(`/api/judokas?search=${encodeURIComponent(search)}`);
-  if (!res.ok) throw new Error('Impossible de charger les judokas');
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Impossible de charger les judokas');
+  }
   return res.json();
 }
 
 export async function fetchArbitres(search = '') {
   const res = await apiFetch(`/api/arbitres?search=${encodeURIComponent(search)}`);
-  if (!res.ok) throw new Error('Impossible de charger les arbitres');
+  if (!res.ok) {
+    // Endpoint optionnel : ne bloque pas le dashboard si table absente
+    console.warn('Arbitres indisponibles', res.status);
+    return [];
+  }
   return res.json();
 }
 

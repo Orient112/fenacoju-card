@@ -22,7 +22,11 @@ function writeAllJson(data) {
 async function readAll() {
   if (isSupabaseEnabled()) {
     const { data, error } = await getSupabase().from('arbitres').select('*');
-    if (error) throw new Error(error.message);
+    if (error) {
+      // Table absente ou pas encore migrée : ne pas faire planter tout le dashboard
+      console.warn('Lecture arbitres impossible:', error.message);
+      return [];
+    }
     return data || [];
   }
   return readAllJson();

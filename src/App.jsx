@@ -290,7 +290,6 @@ export default function App() {
       if (needsArbitres) requests.push(fetchArbitres());
 
       const results = await Promise.allSettled(requests);
-      const hasFailure = results.some((r) => r.status === 'rejected');
 
       if (results[0].status === 'fulfilled') setStats(results[0].value);
       if (results[1].status === 'fulfilled') setJudokas(results[1].value);
@@ -305,18 +304,19 @@ export default function App() {
         if (results[idx]?.status === 'fulfilled') setArbitres(results[idx].value || []);
       }
 
-      if (hasFailure) {
+      // Hors ligne seulement si les appels essentiels (stats + judokas) échouent
+      const coreDown =
+        results[0].status === 'rejected' && results[1].status === 'rejected';
+      setServerOnline(!coreDown);
+
+      if (coreDown) {
         if (!silent) {
-          setServerOnline(false);
           showToast('Connexion au serveur lente ou indisponible. Réessayez dans un instant.', 'error');
         }
-      } else {
-        setServerOnline(true);
-        if (!silent) {
-          fetchUnreadMessages()
-            .then((r) => setUnreadMessages(r.count || 0))
-            .catch(() => {});
-        }
+      } else if (!silent) {
+        fetchUnreadMessages()
+          .then((r) => setUnreadMessages(r.count || 0))
+          .catch(() => {});
       }
     } catch {
       if (!silent) {
@@ -641,7 +641,16 @@ export default function App() {
 
       {!serverOnline && (
         <div className="server-banner">
-          Serveur hors ligne — Dans le terminal, arrêtez les anciens processus puis lancez <code>npm run dev</code> et ouvrez <code>http://localhost:5173</code>
+          {import.meta.env.PROD ? (
+            <>
+              Serveur temporairement indisponible — le backend Render peut mettre jusqu&apos;à une minute à démarrer.
+              Actualisez la page dans quelques secondes.
+            </>
+          ) : (
+            <>
+              Serveur hors ligne — Dans le terminal, lancez <code>npm run dev</code> et ouvrez <code>http://localhost:5173</code>
+            </>
+          )}
         </div>
       )}
 

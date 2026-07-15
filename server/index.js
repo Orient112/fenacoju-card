@@ -405,7 +405,12 @@ app.get('/api/stats', async (req, res) => {
   try {
     const judokas = await getAllJudokas();
     const users = await getAllUsers();
-    const arbitres = await getAllArbitres();
+    let arbitres = [];
+    try {
+      arbitres = await getAllArbitres();
+    } catch (err) {
+      console.warn('Stats sans arbitres:', err.message);
+    }
     res.json(computeStats(judokas, users, req.user, arbitres));
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -419,7 +424,8 @@ app.get('/api/arbitres', async (req, res) => {
     arbitres = filterArbitres(arbitres, req.user, users);
     res.json(arbitres);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.warn('GET /api/arbitres:', err.message);
+    res.json([]);
   }
 });
 
