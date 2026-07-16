@@ -401,8 +401,8 @@ export const MEMBRE_FONCTIONS = FEDERATION_FONCTIONS.filter((f) => f !== 'Coordo
 export const ARBITRE_NIVEAUX = ['National', 'Intercontinental', 'International'];
 
 export const USER_TYPES = {
-  federation: { label: 'Compte Fédération (connexion)', description: 'Compte connecté (ex. Coordon) avec identifiant et mot de passe' },
-  membre: { label: 'Membre de la Fédération', description: 'Fiche membre sans accès au système — fonction fédérale' },
+  federation: { label: 'Compte Fédération', description: 'Compte connecté avec identifiant et mot de passe' },
+  membre: { label: 'Membre Fédération', description: 'Fiche membre sans accès au système — fonction fédérale' },
   ligue: { label: 'Ligue', description: 'Créer un compte Ligue (validé par le Coordon)' },
   entente: { label: 'Entente', description: 'Créer un compte Entente sous une Ligue' },
   club: { label: 'Club', description: 'Enregistrer un club affilié (validé par le Coordon)' },

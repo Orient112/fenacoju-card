@@ -1833,6 +1833,13 @@ tbody tr:last-child td {
   margin-bottom: 1.5rem;
 }
 
+.create-type-actions {
+  display: flex;
+  justify-content: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
 .create-type-option {
   display: flex;
   flex-direction: column;

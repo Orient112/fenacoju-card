@@ -42,7 +42,7 @@ const emptyForm = () => ({
 
 
 
-export default function JudokaForm({ judoka, lockedClub, registeredClubs = [], entraineurs = [], onSubmit, onCancel }) {
+export default function JudokaForm({ judoka, lockedClub, registeredClubs = [], entraineurs = [], allowPhoto = true, onSubmit, onCancel }) {
 
   const initialForm = () => {
 
@@ -240,6 +240,7 @@ export default function JudokaForm({ judoka, lockedClub, registeredClubs = [], e
 
         <div className="form-grid">
 
+          {allowPhoto && (
           <div className="form-group full-width">
 
             <label>Photo du judoka</label>
@@ -330,6 +331,7 @@ export default function JudokaForm({ judoka, lockedClub, registeredClubs = [], e
             )}
 
           </div>
+          )}
 
 
 
@@ -591,7 +593,7 @@ export default function JudokaForm({ judoka, lockedClub, registeredClubs = [], e
 
 
 
-      {showCamera && (
+      {allowPhoto && showCamera && (
 
         <CameraCapture
 

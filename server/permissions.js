@@ -25,7 +25,7 @@ export const FEDERATION_ROLES = {
     hideJudokaActions: true,
     liveRefresh: true,
     dashboardTabs: [...SENIOR_FEDERATION_TABS, 'federation'],
-    createTypes: ['ligue', 'membre'],
+    createTypes: ['ligue', 'federation', 'membre'],
     scanQr: true,
     viewClubDetails: true,
   },
@@ -243,7 +243,7 @@ export function getPermissions(user) {
       canMessage: true,
       viewClubDetails: true,
       orgScope: true,
-      showHeaderCreate: true,
+      showHeaderCreate: false,
     };
   }
 
@@ -255,16 +255,16 @@ export function getPermissions(user) {
       viewCards: false,
       createUsers: true,
       createJudokas: false,
-      createArbitres: true,
+      createArbitres: false,
       export: false,
       deleteJudokas: false,
       manageUsers: false,
       createTypes: ['club'],
-      dashboardTabs: ['judokas', 'clubs', 'entraineurs', 'arbitres'],
+      dashboardTabs: ['judokas', 'clubs', 'entraineurs'],
       canMessage: true,
       viewClubDetails: true,
       orgScope: true,
-      showHeaderCreate: true,
+      showHeaderCreate: false,
     };
   }
 
@@ -520,7 +520,7 @@ export function enforceCreateUser(user, data) {
     data.parent_id = user.id;
   }
 
-  if (isCoordon(user) && (data.type === 'ligue' || data.type === 'membre')) {
+  if (isCoordon(user) && (data.type === 'ligue' || data.type === 'membre' || data.type === 'federation')) {
     data.parent_id = user.id;
   }
 

@@ -149,7 +149,6 @@ function getVisibleTabs(user, tabs) {
       { key: 'judokas', label: 'Judokas' },
       { key: 'clubs', label: 'Clubs' },
       { key: 'entraineurs', label: 'Entraineurs' },
-      { key: 'arbitres', label: 'Arbitres' },
     ];
   }
 
@@ -529,6 +528,22 @@ export default function App() {
     setView('user-form');
   };
 
+  const openNewEntente = () => {
+    setCreateType('entente');
+    setEditingUser(null);
+    setEditing(null);
+    setEditingArbitre(null);
+    setView('user-form');
+  };
+
+  const openNewClub = () => {
+    setCreateType('club');
+    setEditingUser(null);
+    setEditing(null);
+    setEditingArbitre(null);
+    setView('user-form');
+  };
+
   const openNewArbitre = () => {
     setEditingArbitre(null);
     setEditing(null);
@@ -728,6 +743,15 @@ export default function App() {
               />
             )}
 
+            {(user.type === 'ligue' || user.type === 'entente') && perms.viewStats && (
+              <ClubInfoPanel
+                title={user.nom_organisation || user.nom}
+                responsable={user.responsable}
+                ville={user.ville}
+                responsableLabel={user.type === 'ligue' ? 'Responsable de la ligue' : 'Responsable de l\'entente'}
+              />
+            )}
+
             {visibleTabs.length > 1 && (
               <div className="dashboard-tabs">
                 {visibleTabs.map((tab) => (
@@ -832,8 +856,18 @@ export default function App() {
                     {loading ? 'Chargement...' : 'Actualiser'}
                   </button>
                   {dashboardTab === 'entraineurs' && user.type === 'club' && perms.createTypes?.includes('entraineur') && (
-                    <button className="btn btn-accent" onClick={openNewEntraineur}>
+                    <button className="btn btn-primary" onClick={openNewEntraineur}>
                       Nouvel Entraineur
+                    </button>
+                  )}
+                  {dashboardTab === 'ententes' && user.type === 'ligue' && perms.createTypes?.includes('entente') && (
+                    <button className="btn btn-primary" onClick={openNewEntente}>
+                      Nouvelle Entente
+                    </button>
+                  )}
+                  {dashboardTab === 'clubs' && user.type === 'entente' && perms.createTypes?.includes('club') && (
+                    <button className="btn btn-primary" onClick={openNewClub}>
+                      Nouvel Club
                     </button>
                   )}
                 </div>
@@ -941,10 +975,10 @@ export default function App() {
               lockedClub={lockedClub}
               registeredClubs={registeredClubs}
               entraineurs={entraineurs}
+              allowPhoto={user.type === 'admin' || (user.type === 'federation' && user.fonction === 'Coordon')}
               onSubmit={editing ? handleUpdate : handleCreate}
               onCancel={() => { setEditing(null); setView('list'); }}
-            />
-          </Suspense>
+            />          </Suspense>
         )}
 
         {view === 'user-form' && createType && (
@@ -979,6 +1013,10 @@ export default function App() {
           <CreateTypeModal
             allowedTypes={perms.createTypes}
             includeArbitre={canCreateArbitres}
+            groupFederation={
+              user.type === 'admin'
+              || (user.type === 'federation' && user.fonction === 'Coordon')
+            }
             onSelect={handleCreateTypeSelect}
             onClose={() => setShowCreateModal(false)}
           />
