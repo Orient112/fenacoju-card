@@ -67,12 +67,14 @@ const FORM_COPY = {
     newTitle: 'Nouveau - Compte Fédération',
     editSubtitle: 'Modifiez les informations de ce compte',
     newSubtitle: 'Compte avec identifiant et mot de passe (ex. Coordon)',
+    createLabel: 'Créer Compte',
   },
   membre: {
     editTitle: 'Modifier - Membre',
     newTitle: 'Nouveau - Membre de la Fédération',
     editSubtitle: 'Modifiez la fiche membre',
     newSubtitle: 'Fiche sans accès au système — indiquez le rôle fédéral',
+    createLabel: 'Créer Membre',
   },
   ligue: {
     editTitle: 'Modifier - Ligue',
@@ -443,7 +445,11 @@ export default function UserForm({ type, editingUser, currentUser, registeredClu
             Annuler
           </button>
           <button type="submit" className="btn btn-primary" disabled={loading || !canSubmit}>
-            {loading ? 'Enregistrement...' : isEdit ? 'Mettre à jour' : 'Créer l\'utilisateur'}
+            {loading
+              ? 'Enregistrement...'
+              : isEdit
+                ? 'Mettre à jour'
+                : (FORM_COPY[type]?.createLabel || 'Créer l\'utilisateur')}
           </button>
         </div>
       </form>
