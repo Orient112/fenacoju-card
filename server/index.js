@@ -81,6 +81,18 @@ const upload = multer({
   },
 });
 
+function handlePhotoUpload(req, res, next) {
+  upload.single('photo')(req, res, (err) => {
+    if (err) {
+      const msg = err.code === 'LIMIT_FILE_SIZE'
+        ? 'La taille du fichier dépasse 5 Mo. Choisissez une photo plus légère.'
+        : (err.message || 'Erreur lors du chargement de la photo');
+      return res.status(400).json({ error: msg });
+    }
+    next();
+  });
+}
+
 const docUpload = multer({
   storage: memoryStorage,
   limits: { fileSize: 10 * 1024 * 1024 },
@@ -577,7 +589,7 @@ app.get('/api/judokas/:id', async (req, res) => {
   }
 });
 
-app.post('/api/judokas', upload.single('photo'), async (req, res) => {
+app.post('/api/judokas', handlePhotoUpload, async (req, res) => {
   try {
     const perms = getPermissions(req.user);
     if (!perms.createJudokas) {
@@ -633,9 +645,9 @@ app.post('/api/judokas', upload.single('photo'), async (req, res) => {
   }
 });
 
-app.put('/api/judokas/:id', upload.single('photo'), handleUpdateJudoka);
+app.put('/api/judokas/:id', handlePhotoUpload, handleUpdateJudoka);
 // POST : plus fiable via le proxy Vercel (PUT multipart souvent bloqué / timeout)
-app.post('/api/judokas/:id', upload.single('photo'), handleUpdateJudoka);
+app.post('/api/judokas/:id', handlePhotoUpload, handleUpdateJudoka);
 
 async function handleUpdateJudoka(req, res) {
   try {

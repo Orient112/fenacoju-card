@@ -144,24 +144,25 @@ export default function JudokaForm({ judoka, lockedClub, registeredClubs = [], e
 
 
 
+  const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+
   const setPhotoFile = (file) => {
-
+    if (!file) return;
+    if (file.size > MAX_PHOTO_BYTES) {
+      setError('La taille du fichier dépasse 5 Mo. Choisissez une photo plus légère.');
+      setPhoto(null);
+      setPhotoPreview(judoka?.photo || null);
+      return;
+    }
+    setError('');
     setPhoto(file);
-
     setPhotoPreview(URL.createObjectURL(file));
-
   };
 
-
-
   const handleFileSelect = (e) => {
-
     const file = e.target.files[0];
-
     if (file) setPhotoFile(file);
-
     e.target.value = '';
-
   };
 
 
