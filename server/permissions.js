@@ -244,6 +244,7 @@ export function getPermissions(user) {
       viewClubDetails: true,
       orgScope: true,
       showHeaderCreate: false,
+      liveRefresh: true,
     };
   }
 
@@ -265,6 +266,7 @@ export function getPermissions(user) {
       viewClubDetails: true,
       orgScope: true,
       showHeaderCreate: false,
+      liveRefresh: true,
     };
   }
 
@@ -426,9 +428,10 @@ export function computeStats(judokas, users, user, arbitres = []) {
   const filteredUsers = filterUsers(users, user);
   const entraineurs = filteredUsers.filter((u) => u.type === 'entraineur').length;
   const clubAccounts = filteredUsers.filter((u) => u.type === 'club').length;
-  const pendingAccounts = filteredUsers.filter(
-    (u) => ['ligue', 'entente', 'club'].includes(u.type) && getAccountStatut(u) === 'pending'
-  ).length;
+  const pendingLigues = filteredUsers.filter((u) => u.type === 'ligue' && getAccountStatut(u) === 'pending').length;
+  const pendingEntentes = filteredUsers.filter((u) => u.type === 'entente' && getAccountStatut(u) === 'pending').length;
+  const pendingClubs = filteredUsers.filter((u) => u.type === 'club' && getAccountStatut(u) === 'pending').length;
+  const pendingAccounts = pendingLigues + pendingEntentes + pendingClubs;
 
   const clubs = user.type === 'club'
     ? 1
@@ -442,7 +445,14 @@ export function computeStats(judokas, users, user, arbitres = []) {
     clubs,
     clubAccounts,
     ligues: filteredUsers.filter((u) => u.type === 'ligue').length,
+    liguesActives: filteredUsers.filter((u) => u.type === 'ligue' && getAccountStatut(u) === 'actif').length,
     ententes: filteredUsers.filter((u) => u.type === 'entente').length,
+    ententesActives: filteredUsers.filter((u) => u.type === 'entente' && getAccountStatut(u) === 'actif').length,
+    clubsActifs: filteredUsers.filter((u) => u.type === 'club' && getAccountStatut(u) === 'actif').length,
+    federationMembers: filteredUsers.filter((u) => u.type === 'federation' || u.type === 'membre').length,
+    pendingLigues,
+    pendingEntentes,
+    pendingClubs,
     pendingAccounts,
     arbitres: filteredArbitres.length,
     thisMonth: filteredJudokas.filter((j) => new Date(j.date_inscription) >= monthStart).length,

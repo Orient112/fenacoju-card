@@ -395,7 +395,10 @@ export const FEDERATION_FONCTIONS = [
   'Assistant (e)',
 ];
 
-/** Fonctions attribuables aux fiches Membres (sans connexion) */
+/** Fonctions pour comptes Fédération connectés (sans « Membre ») */
+export const FEDERATION_ACCOUNT_FONCTIONS = FEDERATION_FONCTIONS.filter((f) => f !== 'Membre');
+
+/** Fonctions attribuables aux fiches Membres (sans connexion) — libre désormais via champ Rôle */
 export const MEMBRE_FONCTIONS = FEDERATION_FONCTIONS.filter((f) => f !== 'Coordon');
 
 export const ARBITRE_NIVEAUX = ['National', 'Intercontinental', 'International'];

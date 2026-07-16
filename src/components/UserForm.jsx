@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { createUser, updateUser, uploadClubDocuments, GRADES, USER_TYPES, FEDERATION_FONCTIONS, MEMBRE_FONCTIONS, getUserClub } from '../api';
+import { createUser, updateUser, uploadClubDocuments, GRADES, USER_TYPES, FEDERATION_ACCOUNT_FONCTIONS, getUserClub } from '../api';
 import DocumentUploadField from './DocumentUploadField';
 
 const CLUB_DOC_FIELDS = [
@@ -10,7 +10,7 @@ const CLUB_DOC_FIELDS = [
 
 const emptyForms = {
   federation: { nom: '', prenom: '', email: '', telephone: '', fonction: '', password: '', confirmPassword: '' },
-  membre: { nom: '', prenom: '', email: '', telephone: '', fonction: 'Membre' },
+  membre: { nom: '', prenom: '', email: '', telephone: '', fonction: '' },
   ligue: { nom_organisation: '', ville: '', responsable: '', email: '', telephone: '', password: '', confirmPassword: '' },
   entente: { nom_organisation: '', ville: '', responsable: '', email: '', telephone: '', password: '', confirmPassword: '' },
   club: { nom_club: '', ville: '', responsable: '', email: '', telephone: '', password: '', confirmPassword: '' },
@@ -64,7 +64,7 @@ const FORM_COPY = {
   },
   federation: {
     editTitle: 'Modifier - Compte Fédération',
-    newTitle: 'Nouveau - Compte Fédération (connexion)',
+    newTitle: 'Nouveau - Compte Fédération',
     editSubtitle: 'Modifiez les informations de ce compte',
     newSubtitle: 'Compte avec identifiant et mot de passe (ex. Coordon)',
   },
@@ -72,7 +72,7 @@ const FORM_COPY = {
     editTitle: 'Modifier - Membre',
     newTitle: 'Nouveau - Membre de la Fédération',
     editSubtitle: 'Modifiez la fiche membre',
-    newSubtitle: 'Fiche sans accès au système — attributs une fonction fédérale',
+    newSubtitle: 'Fiche sans accès au système — indiquez le rôle fédéral',
   },
   ligue: {
     editTitle: 'Modifier - Ligue',
@@ -274,7 +274,7 @@ export default function UserForm({ type, editingUser, currentUser, registeredClu
                 <label>Fonction <span className="required">*</span></label>
                 <select name="fonction" value={form.fonction} onChange={handleChange} required>
                   <option value="">— Sélectionner une fonction —</option>
-                  {FEDERATION_FONCTIONS.map((f) => (
+                  {FEDERATION_ACCOUNT_FONCTIONS.map((f) => (
                     <option key={f} value={f}>{f}</option>
                   ))}
                 </select>
@@ -293,13 +293,14 @@ export default function UserForm({ type, editingUser, currentUser, registeredClu
                 <input name="prenom" value={form.prenom} onChange={handleChange} required placeholder="Prénom" />
               </div>
               <div className="form-group">
-                <label>Fonction <span className="required">*</span></label>
-                <select name="fonction" value={form.fonction} onChange={handleChange} required>
-                  <option value="">— Sélectionner une fonction —</option>
-                  {MEMBRE_FONCTIONS.map((f) => (
-                    <option key={f} value={f}>{f}</option>
-                  ))}
-                </select>
+                <label>Rôle <span className="required">*</span></label>
+                <input
+                  name="fonction"
+                  value={form.fonction}
+                  onChange={handleChange}
+                  required
+                  placeholder="Ex. Conseiller technique, Commissaire…"
+                />
               </div>
             </>
           )}

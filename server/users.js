@@ -260,7 +260,9 @@ export async function createUser(data, creator) {
   } else if (enforced.type === 'membre') {
     user.nom = enforced.nom?.trim();
     user.prenom = enforced.prenom?.trim();
-    user.fonction = enforced.fonction?.trim() || 'Membre';
+    const role = enforced.fonction?.trim();
+    if (!role) throw new Error('Le rôle est obligatoire');
+    user.fonction = role;
     user.acces_systeme = false;
   } else if (enforced.type === 'ligue' || enforced.type === 'entente') {
     const orgName = enforced.nom_organisation?.trim() || enforced.nom?.trim();

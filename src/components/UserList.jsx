@@ -87,9 +87,10 @@ export default function UserList({
                 {(u.type === 'club' || u.type === 'ligue' || u.type === 'entente') && u.ville && (
                   <span className="judoka-club">{u.ville}</span>
                 )}
-                {u.type === 'federation' && u.fonction && (
-                  <span className="badge badge-actif">{u.fonction}</span>
+                {(u.type === 'federation' || u.type === 'membre') && (
+                  <span className="badge badge-actif">{u.fonction || '—'}</span>
                 )}
+                {!['entraineur', 'club', 'ligue', 'entente', 'federation', 'membre'].includes(u.type) && '—'}
               </td>
               {(canManage || showViewAction || canValidate) && (
                 <td data-label="Actions">
