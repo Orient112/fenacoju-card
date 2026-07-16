@@ -8,6 +8,25 @@ import SearchableSelect from './SearchableSelect';
 
 
 
+const JUDOKA_FORM_FIELDS = [
+  'nom',
+  'prenom',
+  'date_naissance',
+  'sexe',
+  'club',
+  'entraineur_id',
+  'entraineur_nom',
+  'grade',
+  'categorie',
+  'numero_licence',
+  'telephone',
+  'email',
+  'taille',
+  'poids',
+  'date_inscription',
+  'statut',
+];
+
 const emptyForm = () => ({
 
   nom: '',
@@ -44,13 +63,22 @@ const emptyForm = () => ({
 
 });
 
+function formFromJudoka(judoka) {
+  const base = emptyForm();
+  if (!judoka) return base;
+  for (const key of JUDOKA_FORM_FIELDS) {
+    if (judoka[key] != null && judoka[key] !== '') base[key] = judoka[key];
+  }
+  return base;
+}
+
 
 
 export default function JudokaForm({ judoka, lockedClub, registeredClubs = [], entraineurs = [], allowPhoto = true, onSubmit, onCancel }) {
 
   const initialForm = () => {
 
-    const base = judoka ? { ...judoka } : emptyForm();
+    const base = judoka ? formFromJudoka(judoka) : emptyForm();
 
     if (lockedClub && !judoka) base.club = lockedClub;
 
@@ -92,7 +120,7 @@ export default function JudokaForm({ judoka, lockedClub, registeredClubs = [], e
 
     if (judoka) {
 
-      setForm({ ...judoka });
+      setForm(formFromJudoka(judoka));
 
       setPhotoPreview(judoka.photo || null);
 
@@ -182,14 +210,8 @@ export default function JudokaForm({ judoka, lockedClub, registeredClubs = [], e
 
     const formData = new FormData();
 
-    Object.entries(form).forEach(([key, value]) => {
-
-      if (key !== 'id' && key !== 'numero_carte' && key !== 'photo' && key !== 'created_at' && key !== 'updated_at') {
-
-        formData.append(key, value ?? '');
-
-      }
-
+    JUDOKA_FORM_FIELDS.forEach((key) => {
+      formData.append(key, form[key] ?? '');
     });
 
     if (photo) formData.append('photo', photo);

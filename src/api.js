@@ -297,7 +297,8 @@ export async function createJudoka(formData) {
 }
 
 export async function updateJudoka(id, formData) {
-  const res = await apiFetch(`/api/judokas/${id}`, { method: 'PUT', body: formData });
+  // POST plutôt que PUT : le proxy Vercel gère mal certains PUT multipart (timeout)
+  const res = await apiFetch(`/api/judokas/${id}`, { method: 'POST', body: formData });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || 'Erreur lors de la mise à jour');

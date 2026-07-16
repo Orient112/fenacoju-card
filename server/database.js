@@ -97,7 +97,12 @@ export async function createJudoka(data) {
   };
 
   if (isSupabaseEnabled()) {
-    const { error } = await getSupabase().from('judokas').insert(row);
+    let { error } = await getSupabase().from('judokas').insert(row);
+    // Colonnes optionnelles absentes (migration non appliquée) → réessayer sans elles
+    if (error && /taille|poids|column|schema cache/i.test(error.message || '')) {
+      const { taille, poids, ...rest } = row;
+      ({ error } = await getSupabase().from('judokas').insert(rest));
+    }
     if (error) throw new Error(error.message);
     return;
   }
@@ -111,7 +116,11 @@ export async function updateJudoka(id, data) {
   const payload = { ...data, updated_at: new Date().toISOString() };
 
   if (isSupabaseEnabled()) {
-    const { error } = await getSupabase().from('judokas').update(payload).eq('id', id);
+    let { error } = await getSupabase().from('judokas').update(payload).eq('id', id);
+    if (error && /taille|poids|column|schema cache/i.test(error.message || '')) {
+      const { taille, poids, ...rest } = payload;
+      ({ error } = await getSupabase().from('judokas').update(rest).eq('id', id));
+    }
     if (error) throw new Error(error.message);
     return;
   }

@@ -633,7 +633,11 @@ app.post('/api/judokas', upload.single('photo'), async (req, res) => {
   }
 });
 
-app.put('/api/judokas/:id', upload.single('photo'), async (req, res) => {
+app.put('/api/judokas/:id', upload.single('photo'), handleUpdateJudoka);
+// POST : plus fiable via le proxy Vercel (PUT multipart souvent bloqué / timeout)
+app.post('/api/judokas/:id', upload.single('photo'), handleUpdateJudoka);
+
+async function handleUpdateJudoka(req, res) {
   try {
     const perms = getPermissions(req.user);
     if (perms.readOnlyJudokas || (!perms.createJudokas && !perms.manageUsers && req.user.type !== 'admin')) {
@@ -653,7 +657,9 @@ app.put('/api/judokas/:id', upload.single('photo'), async (req, res) => {
     }
 
     const club = enforceJudokaClub(req.user, body.club?.trim());
-    if (!(await isClubRegistered(club))) {
+    const clubUnchanged =
+      club.trim().toLowerCase() === (existing.club || '').trim().toLowerCase();
+    if (!clubUnchanged && !(await isClubRegistered(club))) {
       return res.status(400).json({ error: 'Ce club n\'est pas enregistré dans le système' });
     }
 
@@ -685,9 +691,10 @@ app.put('/api/judokas/:id', upload.single('photo'), async (req, res) => {
 
     res.json(await getJudokaById(req.params.id));
   } catch (err) {
-    res.status(403).json({ error: err.message });
+    const status = /autorisé|autorisée/i.test(err.message || '') ? 403 : 500;
+    res.status(status).json({ error: err.message || 'Erreur lors de la mise à jour' });
   }
-});
+}
 
 app.delete('/api/judokas/:id', async (req, res) => {
   try {
