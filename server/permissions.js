@@ -431,7 +431,8 @@ export function computeStats(judokas, users, user, arbitres = []) {
   const pendingLigues = filteredUsers.filter((u) => u.type === 'ligue' && getAccountStatut(u) === 'pending').length;
   const pendingEntentes = filteredUsers.filter((u) => u.type === 'entente' && getAccountStatut(u) === 'pending').length;
   const pendingClubs = filteredUsers.filter((u) => u.type === 'club' && getAccountStatut(u) === 'pending').length;
-  const pendingAccounts = pendingLigues + pendingEntentes + pendingClubs;
+  const pendingEntraineurs = filteredUsers.filter((u) => u.type === 'entraineur' && getAccountStatut(u) === 'pending').length;
+  const pendingAccounts = pendingLigues + pendingEntentes + pendingClubs + pendingEntraineurs;
 
   const clubs = user.type === 'club'
     ? 1
@@ -453,10 +454,12 @@ export function computeStats(judokas, users, user, arbitres = []) {
     pendingLigues,
     pendingEntentes,
     pendingClubs,
+    pendingEntraineurs,
     pendingAccounts,
     arbitres: filteredArbitres.length,
     thisMonth: filteredJudokas.filter((j) => new Date(j.date_inscription) >= monthStart).length,
     entraineurs,
+    entraineursActifs: filteredUsers.filter((u) => u.type === 'entraineur' && getAccountStatut(u) === 'actif').length,
   };
 }
 

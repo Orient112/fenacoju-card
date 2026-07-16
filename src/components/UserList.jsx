@@ -39,6 +39,8 @@ export default function UserList({
     );
   }
 
+  const canViewType = (u) => ['ligue', 'entente', 'club', 'entraineur'].includes(u.type);
+
   return (
     <table className="data-table">
       <thead>
@@ -56,7 +58,7 @@ export default function UserList({
       <tbody>
         {users.map((u) => {
           const statut = u.statut || 'actif';
-          const needsValidation = ['ligue', 'entente', 'club'].includes(u.type) && statut === 'pending';
+          const needsValidation = ['ligue', 'entente', 'club', 'entraineur'].includes(u.type) && statut === 'pending';
           return (
             <tr key={u.id} className={needsValidation ? 'row-pending' : undefined}>
               <td data-label="Type">
@@ -95,12 +97,12 @@ export default function UserList({
               {(canManage || showViewAction || canValidate) && (
                 <td data-label="Actions">
                   <div className="actions-cell">
-                    {showViewAction && u.type === 'club' && onView && (
+                    {showViewAction && canViewType(u) && onView && (
                       <button
                         type="button"
                         className="btn btn-outline btn-sm btn-icon"
                         onClick={() => onView(u)}
-                        title="Voir les détails du club"
+                        title="Voir les détails"
                       >
                         👁️
                       </button>
@@ -135,16 +137,16 @@ export default function UserList({
                         ✏️
                       </button>
                     )}
-                  {u.type !== 'admin' && u.acces_systeme !== false && u.type !== 'entraineur' && u.type !== 'membre' && onResetPassword && (
-                    <button
-                      type="button"
-                      className="btn btn-outline btn-sm btn-icon"
-                      onClick={() => onResetPassword(u)}
-                      title="Réinitialiser mot de passe"
-                    >
-                      🔑
-                    </button>
-                  )}
+                    {u.type !== 'admin' && u.acces_systeme !== false && u.type !== 'entraineur' && u.type !== 'membre' && onResetPassword && (
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-sm btn-icon"
+                        onClick={() => onResetPassword(u)}
+                        title="Réinitialiser mot de passe"
+                      >
+                        🔑
+                      </button>
+                    )}
                     {canManage && u.type !== 'admin' && onDelete && (
                       <button
                         type="button"

@@ -51,6 +51,8 @@ create table if not exists judokas (
   numero_licence text default '',
   telephone text default '',
   email text default '',
+  taille text default '',
+  poids text default '',
   photo text default '',
   entraineur_id text default '',
   entraineur_nom text default '',

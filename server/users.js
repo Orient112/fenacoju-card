@@ -40,7 +40,7 @@ function createAdminUser() {
 }
 
 function needsValidation(type) {
-  return ['ligue', 'entente', 'club'].includes(type);
+  return ['ligue', 'entente', 'club', 'entraineur'].includes(type);
 }
 
 export function sanitizeUser(user) {
@@ -235,7 +235,12 @@ export async function createUser(data, creator) {
     throw new Error('Le mot de passe doit contenir au moins 6 caractères');
   }
 
-  const autoActif = creator.type === 'admin' || enforced.type === 'federation' || isNoLogin;
+  // Membres : actifs sans login ; entraineurs : pending sauf création Admin
+  const autoActif =
+    creator.type === 'admin'
+    || enforced.type === 'federation'
+    || (isNoLogin && enforced.type === 'membre');
+
   const user = {
     id: uuidv4(),
     type: enforced.type,

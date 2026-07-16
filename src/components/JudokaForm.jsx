@@ -34,6 +34,10 @@ const emptyForm = () => ({
 
   email: '',
 
+  taille: '',
+
+  poids: '',
+
   date_inscription: new Date().toISOString().split('T')[0],
 
   statut: 'actif',
@@ -381,7 +385,45 @@ export default function JudokaForm({ judoka, lockedClub, registeredClubs = [], e
 
 
 
-          <div className="form-group">
+            <div className="form-group">
+
+              <label>Taille (cm)</label>
+
+              <input
+                name="taille"
+                type="number"
+                min="50"
+                max="250"
+                step="0.1"
+                value={form.taille || ''}
+                onChange={handleChange}
+                placeholder="Ex. 172"
+              />
+
+            </div>
+
+
+
+            <div className="form-group">
+
+              <label>Poids (kg)</label>
+
+              <input
+                name="poids"
+                type="number"
+                min="10"
+                max="250"
+                step="0.1"
+                value={form.poids || ''}
+                onChange={handleChange}
+                placeholder="Ex. 68"
+              />
+
+            </div>
+
+
+
+            <div className="form-group">
 
             <label>Club / Dojo <span className="required">*</span></label>
 

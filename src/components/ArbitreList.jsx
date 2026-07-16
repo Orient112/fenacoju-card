@@ -1,4 +1,4 @@
-export default function ArbitreList({ arbitres, canManage = false, onEdit, onDelete, onAddNew }) {
+export default function ArbitreList({ arbitres, canManage = false, showViewAction = false, onView, onEdit, onDelete, onAddNew }) {
   if (arbitres.length === 0) {
     return (
       <div className="empty-state">
@@ -23,7 +23,7 @@ export default function ArbitreList({ arbitres, canManage = false, onEdit, onDel
           <th>Club</th>
           <th>Grade</th>
           <th>Téléphone</th>
-          {canManage && <th>Actions</th>}
+          {(canManage || showViewAction) && <th>Actions</th>}
         </tr>
       </thead>
       <tbody>
@@ -39,10 +39,20 @@ export default function ArbitreList({ arbitres, canManage = false, onEdit, onDel
             <td data-label="Club">{a.club || '—'}</td>
             <td data-label="Grade">{a.grade || '—'}</td>
             <td data-label="Téléphone">{a.telephone || '—'}</td>
-            {canManage && (
+            {(canManage || showViewAction) && (
               <td data-label="Actions">
                 <div className="actions-cell">
-                  {onEdit && (
+                  {showViewAction && onView && (
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm btn-icon"
+                      onClick={() => onView(a)}
+                      title="Voir les détails"
+                    >
+                      👁️
+                    </button>
+                  )}
+                  {canManage && onEdit && (
                     <button
                       type="button"
                       className="btn btn-outline btn-sm btn-icon"
@@ -52,7 +62,7 @@ export default function ArbitreList({ arbitres, canManage = false, onEdit, onDel
                       ✏️
                     </button>
                   )}
-                  {onDelete && (
+                  {canManage && onDelete && (
                     <button
                       type="button"
                       className="btn btn-danger btn-sm btn-icon"

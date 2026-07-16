@@ -5,12 +5,12 @@ const FEDERATION_CHOICES = [
   {
     key: 'federation',
     label: 'Compte Fédération',
-    description: 'Compte avec identifiant et mot de passe (ex. Coordon)',
+    description: 'Compte avec identifiant et mot de passe',
   },
   {
     key: 'membre',
     label: 'Membre Fédération',
-    description: 'Fiche sans accès au système — fonction fédérale uniquement',
+    description: 'Compte sans identifiant et mot de passe',
   },
 ];
 

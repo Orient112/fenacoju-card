@@ -33,6 +33,7 @@ const CardModal = lazy(() => import('./components/CardModal'));
 const QrScanModal = lazy(() => import('./components/QrScanModal'));
 const CreateTypeModal = lazy(() => import('./components/CreateTypeModal'));
 const ClubDetailModal = lazy(() => import('./components/ClubDetailModal'));
+const AccountDetailModal = lazy(() => import('./components/AccountDetailModal'));
 
 function PageLoader({ label = 'Chargement...' }) {
   return (
@@ -209,6 +210,7 @@ export default function App() {
   const [deleteUserTarget, setDeleteUserTarget] = useState(null);
   const [resetPasswordTarget, setResetPasswordTarget] = useState(null);
   const [viewClub, setViewClub] = useState(null);
+  const [viewAccount, setViewAccount] = useState(null);
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [toast, setToast] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -592,7 +594,16 @@ export default function App() {
   }
 
   if (!user) {
-    return <Login onLogin={setUser} />;
+    return (
+      <Login
+        onLogin={(u) => {
+          setUser(u);
+          setView('list');
+          const first = getVisibleTabs(u, u.permissions?.dashboardTabs || ['judokas'])[0];
+          setDashboardTab(first?.key || 'judokas');
+        }}
+      />
+    );
   }
 
   return (
@@ -674,91 +685,37 @@ export default function App() {
           <>
             {perms.viewStats && (
               <div className="stats-grid">
-                {/* Coordon : stats selon l'onglet actif */}
-                {user.type === 'federation' && user.fonction === 'Coordon' ? (
+                {/* Admin / Coordon : une case fixe par onglet (ne change pas au clic) */}
+                {user.type === 'admin' || (user.type === 'federation' && user.fonction === 'Coordon') ? (
                   <>
-                    {dashboardTab === 'judokas' && (
-                      <>
-                        <div className="stat-card">
-                          <div className="stat-value">{stats.total}</div>
-                          <div className="stat-label">Judokas</div>
-                        </div>
-                        <div className="stat-card success">
-                          <div className="stat-value">{stats.actifs}</div>
-                          <div className="stat-label">Actifs</div>
-                        </div>
-                        <div className="stat-card accent">
-                          <div className="stat-value">{stats.total - stats.actifs}</div>
-                          <div className="stat-label">Inactifs</div>
-                        </div>
-                      </>
-                    )}
-                    {dashboardTab === 'ligues' && (
-                      <>
-                        <div className="stat-card">
-                          <div className="stat-value">{stats.ligues ?? 0}</div>
-                          <div className="stat-label">Ligues</div>
-                        </div>
-                        <div className="stat-card success">
-                          <div className="stat-value">{stats.liguesActives ?? 0}</div>
-                          <div className="stat-label">Actives</div>
-                        </div>
-                        <div className="stat-card accent">
-                          <div className="stat-value">{stats.pendingLigues ?? 0}</div>
-                          <div className="stat-label">En attente</div>
-                        </div>
-                      </>
-                    )}
-                    {dashboardTab === 'ententes' && (
-                      <>
-                        <div className="stat-card">
-                          <div className="stat-value">{stats.ententes ?? 0}</div>
-                          <div className="stat-label">Ententes</div>
-                        </div>
-                        <div className="stat-card success">
-                          <div className="stat-value">{stats.ententesActives ?? 0}</div>
-                          <div className="stat-label">Actives</div>
-                        </div>
-                        <div className="stat-card accent">
-                          <div className="stat-value">{stats.pendingEntentes ?? 0}</div>
-                          <div className="stat-label">En attente</div>
-                        </div>
-                      </>
-                    )}
-                    {dashboardTab === 'clubs' && (
-                      <>
-                        <div className="stat-card">
-                          <div className="stat-value">{stats.clubs}</div>
-                          <div className="stat-label">Clubs</div>
-                        </div>
-                        <div className="stat-card success">
-                          <div className="stat-value">{stats.clubsActifs ?? 0}</div>
-                          <div className="stat-label">Actifs</div>
-                        </div>
-                        <div className="stat-card accent">
-                          <div className="stat-value">{stats.pendingClubs ?? 0}</div>
-                          <div className="stat-label">En attente</div>
-                        </div>
-                      </>
-                    )}
-                    {dashboardTab === 'entraineurs' && (
-                      <div className="stat-card">
-                        <div className="stat-value">{stats.entraineurs}</div>
-                        <div className="stat-label">Entraineurs</div>
-                      </div>
-                    )}
-                    {dashboardTab === 'arbitres' && (
-                      <div className="stat-card accent">
-                        <div className="stat-value">{stats.arbitres ?? 0}</div>
-                        <div className="stat-label">Arbitres</div>
-                      </div>
-                    )}
-                    {dashboardTab === 'federation' && (
-                      <div className="stat-card">
-                        <div className="stat-value">{stats.federationMembers ?? 0}</div>
-                        <div className="stat-label">Membres</div>
-                      </div>
-                    )}
+                    <button type="button" className={`stat-card stat-clickable ${dashboardTab === 'judokas' ? 'stat-active' : ''}`} onClick={() => setDashboardTab('judokas')}>
+                      <div className="stat-value">{stats.total}</div>
+                      <div className="stat-label">Judokas</div>
+                    </button>
+                    <button type="button" className={`stat-card stat-clickable ${dashboardTab === 'ligues' ? 'stat-active' : ''}`} onClick={() => setDashboardTab('ligues')}>
+                      <div className="stat-value">{stats.ligues ?? 0}</div>
+                      <div className="stat-label">Ligues</div>
+                    </button>
+                    <button type="button" className={`stat-card stat-clickable ${dashboardTab === 'ententes' ? 'stat-active' : ''}`} onClick={() => setDashboardTab('ententes')}>
+                      <div className="stat-value">{stats.ententes ?? 0}</div>
+                      <div className="stat-label">Ententes</div>
+                    </button>
+                    <button type="button" className={`stat-card stat-clickable ${dashboardTab === 'clubs' ? 'stat-active' : ''}`} onClick={() => setDashboardTab('clubs')}>
+                      <div className="stat-value">{stats.clubs}</div>
+                      <div className="stat-label">Clubs</div>
+                    </button>
+                    <button type="button" className={`stat-card stat-clickable ${dashboardTab === 'entraineurs' ? 'stat-active' : ''}`} onClick={() => setDashboardTab('entraineurs')}>
+                      <div className="stat-value">{stats.entraineurs}</div>
+                      <div className="stat-label">Entraineurs</div>
+                    </button>
+                    <button type="button" className={`stat-card accent stat-clickable ${dashboardTab === 'arbitres' ? 'stat-active' : ''}`} onClick={() => setDashboardTab('arbitres')}>
+                      <div className="stat-value">{stats.arbitres ?? 0}</div>
+                      <div className="stat-label">Arbitres</div>
+                    </button>
+                    <button type="button" className={`stat-card success stat-clickable ${dashboardTab === 'federation' ? 'stat-active' : ''}`} onClick={() => setDashboardTab('federation')}>
+                      <div className="stat-value">{stats.federationMembers ?? 0}</div>
+                      <div className="stat-label">Membres</div>
+                    </button>
                   </>
                 ) : (
                   <>
@@ -843,7 +800,8 @@ export default function App() {
                     tab.key === 'ligues' ? (stats.pendingLigues || 0)
                       : tab.key === 'ententes' ? (stats.pendingEntentes || 0)
                         : tab.key === 'clubs' ? (stats.pendingClubs || 0)
-                          : 0;
+                          : tab.key === 'entraineurs' ? (stats.pendingEntraineurs || 0)
+                            : 0;
                   const showBadge = canValidateAccounts && pendingCount > 0;
                   return (
                     <button
@@ -983,11 +941,20 @@ export default function App() {
                         users={tabUsers}
                         showClub={dashboardTab === 'entraineurs' && (user.type === 'admin' || user.type === 'ligue' || user.type === 'entente')}
                         detailColumnLabel={dashboardTab === 'federation' ? 'Fonction / Rôle' : 'Détails'}
-                        hideFonctionUnderName={false}
-                        showViewAction={dashboardTab === 'clubs' && canViewClubDetails}
+                        hideFonctionUnderName={dashboardTab === 'federation'}
+                        showViewAction={
+                          (dashboardTab === 'clubs' && canViewClubDetails)
+                          || canValidateAccounts
+                        }
                         canManage={canManageUsers}
-                        canValidate={canValidateAccounts && ['ligues', 'ententes', 'clubs'].includes(dashboardTab)}
-                        onView={setViewClub}
+                        canValidate={canValidateAccounts && ['ligues', 'ententes', 'clubs', 'entraineurs'].includes(dashboardTab)}
+                        onView={(u) => {
+                          if (u.type === 'club' && canViewClubDetails && user.type === 'admin') {
+                            setViewClub(u);
+                          } else {
+                            setViewAccount(u);
+                          }
+                        }}
                         onEdit={canManageUsers ? openEditUser : null}
                         onDelete={canManageUsers ? setDeleteUserTarget : null}
                         onResetPassword={canResetPassword ? setResetPasswordTarget : null}
@@ -1034,6 +1001,8 @@ export default function App() {
                         );
                       })}
                       canManage={canCreateArbitres || user.type === 'admin'}
+                      showViewAction={canValidateAccounts || user.type === 'admin'}
+                      onView={(a) => setViewAccount({ ...a, _kind: 'arbitre' })}
                       onEdit={canCreateArbitres || user.type === 'admin' ? (a) => {
                         setEditingArbitre(a);
                         setView('arbitre-form');
@@ -1071,7 +1040,7 @@ export default function App() {
               judoka={editing}
               lockedClub={lockedClub}
               registeredClubs={registeredClubs}
-              entraineurs={entraineurs}
+              entraineurs={entraineurs.filter((e) => (e.statut || 'actif') === 'actif')}
               allowPhoto={user.type === 'admin' || (user.type === 'federation' && user.fonction === 'Coordon')}
               onSubmit={editing ? handleUpdate : handleCreate}
               onCancel={() => { setEditing(null); setView('list'); }}
@@ -1141,6 +1110,15 @@ export default function App() {
               (m) => m.type === 'entraineur' && matchClubName(m.club, viewClub.nom_club)
             )}
             onClose={() => setViewClub(null)}
+          />
+        </Suspense>
+      )}
+
+      {viewAccount && (
+        <Suspense fallback={null}>
+          <AccountDetailModal
+            account={viewAccount}
+            onClose={() => setViewAccount(null)}
           />
         </Suspense>
       )}
