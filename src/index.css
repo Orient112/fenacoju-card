@@ -2849,3 +2849,308 @@ tbody tr:last-child td {
   font-family: inherit;
 }
 
+
+/* Competition toggle (Admin / Coordon) */
+.competition-access-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: white;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.competition-access-toggle.is-on {
+  background: rgba(22, 163, 74, 0.35);
+  border-color: rgba(134, 239, 172, 0.55);
+}
+
+.competition-access-toggle input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.competition-access-toggle .toggle-slider {
+  position: relative;
+  width: 38px;
+  height: 22px;
+  background: rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+  transition: background 0.2s ease;
+  flex-shrink: 0;
+}
+
+.competition-access-toggle .toggle-slider::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: white;
+  transition: transform 0.2s ease;
+}
+
+.competition-access-toggle input:checked + .toggle-slider {
+  background: var(--success);
+}
+
+.competition-access-toggle input:checked + .toggle-slider::after {
+  transform: translateX(16px);
+}
+
+.competition-access-toggle input:disabled + .toggle-slider {
+  opacity: 0.55;
+}
+
+/* Competition settings page */
+.competition-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.card-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1.25rem 1.4rem;
+}
+
+.competition-form .form-grid,
+.competition-reg-form .form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.form-group-full {
+  grid-column: 1 / -1;
+}
+
+.competition-public-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.competition-public-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.competition-public-header h3 {
+  margin-bottom: 0.25rem;
+}
+
+.competition-public-header p,
+.form-hint {
+  color: var(--text-muted);
+  font-size: 0.92rem;
+}
+
+.toggle-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  cursor: pointer;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.toggle-switch input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-switch .toggle-slider {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  background: #cbd5e1;
+  border-radius: 999px;
+  transition: background 0.2s ease;
+}
+
+.toggle-switch .toggle-slider::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.25);
+  transition: transform 0.2s ease;
+}
+
+.toggle-switch input:checked + .toggle-slider {
+  background: var(--success);
+}
+
+.toggle-switch input:checked + .toggle-slider::after {
+  transform: translateX(20px);
+}
+
+.toggle-switch input:disabled + .toggle-slider {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.competition-link-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: center;
+}
+
+.competition-link-input {
+  flex: 1 1 220px;
+  min-width: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.85rem;
+}
+
+.table-wrap {
+  overflow-x: auto;
+  margin-top: 0.75rem;
+}
+
+/* Public competition registration */
+.competition-public-page {
+  min-height: 100vh;
+  padding: 1.5rem 1rem 2.5rem;
+  background:
+    radial-gradient(circle at top right, rgba(227, 6, 19, 0.08), transparent 30%),
+    radial-gradient(circle at top left, rgba(29, 67, 147, 0.14), transparent 34%),
+    linear-gradient(180deg, #f7faff 0%, var(--bg) 100%);
+}
+
+.competition-public-shell {
+  max-width: 820px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+}
+
+.competition-public-brand {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+  color: white;
+  border-radius: var(--radius);
+  padding: 1.15rem 1.25rem;
+  box-shadow: var(--shadow-lg);
+}
+
+.competition-public-brand img {
+  background: white;
+  border-radius: 50%;
+  padding: 4px;
+}
+
+.competition-public-kicker {
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.85;
+  margin-bottom: 0.15rem;
+}
+
+.competition-public-brand h1 {
+  font-size: 1.45rem;
+  line-height: 1.25;
+}
+
+.competition-public-brand p {
+  opacity: 0.9;
+  font-size: 0.92rem;
+}
+
+.competition-public-desc {
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.9rem 1rem;
+  color: var(--text-muted);
+}
+
+.competition-choice {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.competition-choice h2 {
+  margin-bottom: 0.35rem;
+}
+
+.competition-choice > p {
+  color: var(--text-muted);
+  margin-bottom: 1.25rem;
+}
+
+.competition-choice-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.85rem;
+}
+
+.competition-choice-btn {
+  min-height: 3.2rem;
+  font-weight: 700;
+}
+
+.competition-success {
+  background: var(--surface);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  padding: 2rem 1.25rem;
+}
+
+@media (max-width: 720px) {
+  .competition-form .form-grid,
+  .competition-reg-form .form-grid,
+  .competition-choice-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .competition-public-header {
+    flex-direction: column;
+  }
+
+  .header-nav {
+    flex-wrap: wrap;
+  }
+}
+
+.competition-settings-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.competition-settings-header {
+  margin-bottom: 0;
+}

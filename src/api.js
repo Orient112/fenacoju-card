@@ -384,6 +384,86 @@ export async function fetchUnreadMessages() {
   return res.json();
 }
 
+export async function fetchCompetition() {
+  const res = await apiFetch('/api/competition');
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Erreur compétition');
+  }
+  return res.json();
+}
+
+export async function setCompetitionAccess(accessEnabled) {
+  const res = await apiFetch('/api/competition/access', {
+    method: 'PUT',
+    body: JSON.stringify({ access_enabled: accessEnabled }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Erreur lors de l\'activation');
+  }
+  return res.json();
+}
+
+export async function updateCompetition(data) {
+  const res = await apiFetch('/api/competition', {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Erreur lors de la mise à jour');
+  }
+  return res.json();
+}
+
+export async function fetchCompetitionRegistrations() {
+  const res = await apiFetch('/api/competition/registrations');
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Erreur lors du chargement des inscriptions');
+  }
+  return res.json();
+}
+
+export async function fetchPublicCompetition(token) {
+  const res = await fetchWithTimeout(apiUrl(`/api/public/competition/${encodeURIComponent(token)}`));
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Formulaire indisponible');
+  }
+  return res.json();
+}
+
+export async function lookupPublicCompetitionJudoka(token, cardId) {
+  const res = await fetchWithTimeout(
+    apiUrl(`/api/public/competition/${encodeURIComponent(token)}/judoka/${encodeURIComponent(cardId)}`)
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Judoka introuvable');
+  }
+  return res.json();
+}
+
+export async function registerPublicCompetition(token, data) {
+  const res = await fetchWithTimeout(apiUrl(`/api/public/competition/${encodeURIComponent(token)}/register`), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Erreur lors de l\'inscription');
+  }
+  return res.json();
+}
+
+export function competitionPublicUrl(token) {
+  if (!token) return '';
+  return `${window.location.origin}/competition/${token}`;
+}
+
 export const FENACOJU_BLUE = '#1D4393';
 
 export const FEDERATION_FONCTIONS = [
@@ -391,6 +471,7 @@ export const FEDERATION_FONCTIONS = [
   'Coordon Adjoint',
   'Secrétaire Général',
   'Directeur Technique',
+  'Directeur Compétition',
   'Responsable Affiliation',
   'Membre',
   'Assistant (e)',

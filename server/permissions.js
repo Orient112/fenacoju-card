@@ -71,6 +71,24 @@ export const FEDERATION_ROLES = {
     deleteJudokas: false,
     dashboardTabs: SENIOR_FEDERATION_TABS,
   },
+  'Directeur Compétition': {
+    viewUsers: true,
+    viewJudokas: true,
+    viewStats: true,
+    viewCards: false,
+    createUsers: false,
+    createJudokas: false,
+    createArbitres: false,
+    export: true,
+    deleteJudokas: false,
+    manageAll: false,
+    manageUsers: false,
+    validateAccounts: false,
+    hideJudokaActions: true,
+    dashboardTabs: ['judokas', 'entraineurs', 'arbitres'],
+    createTypes: [],
+    canManageCompetition: true,
+  },
   'Responsable Affiliation': {
     viewUsers: true,
     viewJudokas: true,
@@ -121,6 +139,20 @@ const DEFAULT_FEDERATION = {
 
 export function isCoordon(user) {
   return user?.type === 'federation' && user?.fonction === 'Coordon';
+}
+
+export function isDirecteurCompetition(user) {
+  return user?.type === 'federation' && user?.fonction === 'Directeur Compétition';
+}
+
+export function canToggleCompetitionAccess(user) {
+  return user?.type === 'admin' || isCoordon(user);
+}
+
+export function canManageCompetition(user) {
+  if (!user) return false;
+  if (canToggleCompetitionAccess(user)) return true;
+  return getPermissions(user).canManageCompetition === true;
 }
 
 export function canLoginAs(user) {
@@ -223,6 +255,7 @@ export function getPermissions(user) {
       scanQr: true,
       viewClubDetails: true,
       showHeaderCreate: true,
+      canToggleCompetitionAccess: true,
     };
   }
 
@@ -317,6 +350,7 @@ export function getPermissions(user) {
       canMessage: true,
       viewClubDetails: tabs.includes('clubs') || role.viewClubDetails === true,
       showHeaderCreate: (role.createTypes || []).length > 0 || role.createUsers === true,
+      canToggleCompetitionAccess: user.fonction === 'Coordon',
     };
   }
 
@@ -351,6 +385,10 @@ export function filterArbitres(arbitres, user, allUsers = []) {
   }
 
   if (user.type === 'admin' || isCoordon(user) || (user.type === 'federation' && perms.manageAll)) {
+    return arbitres;
+  }
+
+  if (user.type === 'federation' && perms.dashboardTabs?.includes('arbitres')) {
     return arbitres;
   }
 

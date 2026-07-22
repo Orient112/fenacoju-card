@@ -15,6 +15,8 @@ import {
   logoutUser,
   fetchClubs,
   fetchUnreadMessages,
+  fetchCompetition,
+  setCompetitionAccess,
   getToken,
   USER_TYPES,
 } from './api';
@@ -34,6 +36,7 @@ const QrScanModal = lazy(() => import('./components/QrScanModal'));
 const CreateTypeModal = lazy(() => import('./components/CreateTypeModal'));
 const ClubDetailModal = lazy(() => import('./components/ClubDetailModal'));
 const AccountDetailModal = lazy(() => import('./components/AccountDetailModal'));
+const CompetitionSettings = lazy(() => import('./pages/CompetitionSettings'));
 
 function PageLoader({ label = 'Chargement...' }) {
   return (
@@ -215,6 +218,8 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const [loading, setLoading] = useState(true);
   const [serverOnline, setServerOnline] = useState(true);
+  const [competitionAccess, setCompetitionAccessState] = useState(false);
+  const [competitionToggleBusy, setCompetitionToggleBusy] = useState(false);
 
   const perms = user?.permissions || {};
   const tabs = perms.dashboardTabs || ['judokas'];
@@ -229,6 +234,10 @@ export default function App() {
   const canCreateArbitres = perms.createArbitres === true;
   const showHeaderCreate = perms.showHeaderCreate !== false && (perms.createUsers || perms.createTypes?.length > 0);
   const canScanQr = canUseQrScan(user, perms);
+  const canToggleCompetition = perms.canToggleCompetitionAccess === true;
+  const canManageCompetition = perms.canManageCompetition === true;
+  const showCompetitionButton = canManageCompetition;
+  const competitionButtonEnabled = canManageCompetition && competitionAccess;
   const visibleTabs = useMemo(() => (user ? getVisibleTabs(user, tabs) : []), [user, tabs]);
   const entraineurs = useMemo(() => members.filter((m) => m.type === 'entraineur'), [members]);
   const entraineurClub = useMemo(() => {
@@ -332,6 +341,41 @@ export default function App() {
   useEffect(() => {
     if (user) loadData();
   }, [loadData, user]);
+
+  useEffect(() => {
+    if (!user) {
+      setCompetitionAccessState(false);
+      return undefined;
+    }
+    if (!canToggleCompetition && !canManageCompetition) return undefined;
+
+    let cancelled = false;
+    fetchCompetition()
+      .then((data) => {
+        if (!cancelled) setCompetitionAccessState(Boolean(data.access_enabled));
+      })
+      .catch(() => {
+        if (!cancelled) setCompetitionAccessState(false);
+      });
+    return () => { cancelled = true; };
+  }, [user, canToggleCompetition, canManageCompetition]);
+
+  const handleCompetitionAccessToggle = async () => {
+    if (!canToggleCompetition || competitionToggleBusy) return;
+    setCompetitionToggleBusy(true);
+    try {
+      const next = !competitionAccess;
+      await setCompetitionAccess(next);
+      setCompetitionAccessState(next);
+      showToast(next
+        ? 'Bouton Compétition activé pour le Directeur Compétition'
+        : 'Bouton Compétition désactivé');
+    } catch (err) {
+      showToast(err.message || 'Erreur', 'error');
+    } finally {
+      setCompetitionToggleBusy(false);
+    }
+  };
 
   // Rafraîchissement silencieux (Coordon, Ligue, Entente) pour voir les validations en temps réel
   useEffect(() => {
@@ -646,6 +690,40 @@ export default function App() {
               disabled={!serverOnline}
             >
               Scan QR
+            </button>
+          )}
+          {canToggleCompetition && (
+            <label
+              className={`competition-access-toggle ${competitionAccess ? 'is-on' : ''}`}
+              title="Activer / désactiver le bouton Compétition du Directeur Compétition"
+            >
+              <span>Compétition</span>
+              <input
+                type="checkbox"
+                checked={competitionAccess}
+                onChange={handleCompetitionAccessToggle}
+                disabled={competitionToggleBusy || !serverOnline}
+              />
+              <span className="toggle-slider" />
+            </label>
+          )}
+          {showCompetitionButton && (
+            <button
+              className={`nav-btn ${view === 'competition' ? 'active' : ''}`}
+              onClick={() => {
+                if (!competitionButtonEnabled) {
+                  showToast('Le bouton Compétition n\'est pas encore activé par Admin / Coordon', 'error');
+                  return;
+                }
+                setView('competition');
+                setEditing(null);
+                setEditingUser(null);
+                setCreateType(null);
+              }}
+              disabled={!serverOnline || !competitionButtonEnabled}
+              title={competitionButtonEnabled ? 'Paramètres compétition' : 'En attente d\'activation Admin / Coordon'}
+            >
+              Compétition
             </button>
           )}
           {perms.export && (
@@ -1029,6 +1107,15 @@ export default function App() {
             <Messages
               currentUser={user}
               onUnreadChange={setUnreadMessages}
+            />
+          </Suspense>
+        )}
+
+        {view === 'competition' && (
+          <Suspense fallback={<PageLoader label="Chargement de la compétition..." />}>
+            <CompetitionSettings
+              onBack={() => setView('list')}
+              onToast={showToast}
             />
           </Suspense>
         )}

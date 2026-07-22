@@ -51,6 +51,9 @@ import {
   canValidateAccounts,
   getScopedClubNames,
   NO_LOGIN_TYPES,
+  canToggleCompetitionAccess,
+  canManageCompetition,
+  isDirecteurCompetition,
 } from './permissions.js';
 import {
   getAllArbitres,
@@ -62,6 +65,14 @@ import {
 } from './arbitres.js';
 import { saveUploadedFile, deleteStoredFile } from './storage.js';
 import { isSupabaseEnabled } from './supabase.js';
+import {
+  getCompetitionSettings,
+  updateCompetitionSettings,
+  getCompetitionRegistrations,
+  createCompetitionRegistration,
+  toPublicCompetition,
+  isCompetitionConfigured,
+} from './competition.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -193,6 +204,105 @@ app.get('/api/auth/me', async (req, res) => {
   }
 });
 
+app.get('/api/public/competition/:token', async (req, res) => {
+  try {
+    const settings = await getCompetitionSettings();
+    if (!settings.public_enabled || settings.public_token !== req.params.token) {
+      return res.status(404).json({ error: 'Formulaire de compétition indisponible' });
+    }
+    const pub = toPublicCompetition(settings);
+    if (!pub) return res.status(404).json({ error: 'Formulaire de compétition indisponible' });
+    res.json(pub);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/public/competition/:token/judoka/:cardId', async (req, res) => {
+  try {
+    const settings = await getCompetitionSettings();
+    if (!settings.public_enabled || settings.public_token !== req.params.token) {
+      return res.status(404).json({ error: 'Formulaire de compétition indisponible' });
+    }
+    if (!isCompetitionConfigured(settings)) {
+      return res.status(404).json({ error: 'Formulaire de compétition indisponible' });
+    }
+
+    const judoka = await getJudokaByCardNumber(req.params.cardId);
+    if (!judoka) return res.status(404).json({ error: 'Aucun judoka trouvé avec cet identifiant' });
+
+    res.json({
+      id: judoka.id,
+      numero_carte: judoka.numero_carte,
+      nom: judoka.nom,
+      prenom: judoka.prenom,
+      date_naissance: judoka.date_naissance,
+      sexe: judoka.sexe,
+      club: judoka.club,
+      grade: judoka.grade,
+      categorie: judoka.categorie,
+      poids: judoka.poids,
+      taille: judoka.taille,
+      telephone: judoka.telephone,
+      email: judoka.email,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/public/competition/:token/register', async (req, res) => {
+  try {
+    const settings = await getCompetitionSettings();
+    if (!settings.public_enabled || settings.public_token !== req.params.token) {
+      return res.status(404).json({ error: 'Formulaire de compétition indisponible' });
+    }
+    if (!isCompetitionConfigured(settings)) {
+      return res.status(404).json({ error: 'Formulaire de compétition indisponible' });
+    }
+
+    const body = req.body || {};
+    let judokaId = body.judoka_id || null;
+    let numeroCarte = body.numero_carte || '';
+
+    if (body.deja_enregistre) {
+      const judoka = await getJudokaByCardNumber(body.numero_carte || body.judoka_id);
+      if (!judoka) {
+        return res.status(404).json({ error: 'Aucun judoka trouvé avec cet identifiant' });
+      }
+      judokaId = judoka.id;
+      numeroCarte = judoka.numero_carte;
+      const registration = await createCompetitionRegistration({
+        judoka_id: judokaId,
+        numero_carte: numeroCarte,
+        nom: body.nom || judoka.nom,
+        prenom: body.prenom || judoka.prenom,
+        date_naissance: body.date_naissance || judoka.date_naissance,
+        sexe: body.sexe || judoka.sexe,
+        club: body.club || judoka.club,
+        grade: body.grade || judoka.grade,
+        categorie: body.categorie || judoka.categorie,
+        poids: body.poids || judoka.poids,
+        taille: body.taille || judoka.taille,
+        telephone: body.telephone || judoka.telephone,
+        email: body.email || judoka.email,
+        deja_enregistre: true,
+      });
+      return res.status(201).json(registration);
+    }
+
+    const registration = await createCompetitionRegistration({
+      ...body,
+      judoka_id: judokaId,
+      numero_carte: numeroCarte,
+      deja_enregistre: false,
+    });
+    res.status(201).json(registration);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 app.use('/api', authMiddleware);
 
 app.get('/api/clubs', async (_req, res) => {
@@ -205,6 +315,102 @@ app.get('/api/clubs', async (_req, res) => {
 
 app.get('/api/permissions', (req, res) => {
   res.json(getPermissions(req.user));
+});
+
+app.get('/api/competition', async (req, res) => {
+  try {
+    const settings = await getCompetitionSettings();
+    const perms = getPermissions(req.user);
+    const canToggle = canToggleCompetitionAccess(req.user);
+    const canManage = canManageCompetition(req.user);
+    const accessOk = canToggle || (isDirecteurCompetition(req.user) && settings.access_enabled);
+
+    if (!canToggle && !perms.canManageCompetition) {
+      return res.status(403).json({ error: 'Accès non autorisé' });
+    }
+
+    res.json({
+      ...settings,
+      configured: isCompetitionConfigured(settings),
+      access_ok: accessOk,
+      can_toggle_access: canToggle,
+      can_edit: accessOk && (canToggle || canManage),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/competition/access', async (req, res) => {
+  try {
+    if (!canToggleCompetitionAccess(req.user)) {
+      return res.status(403).json({ error: 'Seul Admin ou Coordon peut activer la compétition' });
+    }
+    const enabled = Boolean(req.body?.access_enabled);
+    const settings = await updateCompetitionSettings({ access_enabled: enabled });
+    res.json({
+      access_enabled: settings.access_enabled,
+      configured: isCompetitionConfigured(settings),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/competition', async (req, res) => {
+  try {
+    const current = await getCompetitionSettings();
+    const canToggle = canToggleCompetitionAccess(req.user);
+    const isDirector = isDirecteurCompetition(req.user);
+
+    if (!canToggle && !(isDirector && current.access_enabled)) {
+      return res.status(403).json({
+        error: isDirector
+          ? 'Le bouton Compétition n\'est pas encore activé par Admin / Coordon'
+          : 'Accès non autorisé',
+      });
+    }
+
+    const body = req.body || {};
+    const patch = {};
+
+    if (body.nom !== undefined) patch.nom = String(body.nom).trim();
+    if (body.date_debut !== undefined) patch.date_debut = body.date_debut || '';
+    if (body.date_fin !== undefined) patch.date_fin = body.date_fin || '';
+    if (body.lieu !== undefined) patch.lieu = String(body.lieu).trim();
+    if (body.description !== undefined) patch.description = String(body.description).trim();
+    if (body.public_enabled !== undefined) {
+      const next = { ...current, ...patch };
+      if (body.public_enabled && !isCompetitionConfigured(next)) {
+        return res.status(400).json({
+          error: 'Paramétrez d\'abord la compétition (nom, date, lieu) avant de rendre le formulaire public',
+        });
+      }
+      patch.public_enabled = Boolean(body.public_enabled);
+    }
+
+    const settings = await updateCompetitionSettings(patch);
+    res.json({
+      ...settings,
+      configured: isCompetitionConfigured(settings),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/competition/registrations', async (req, res) => {
+  try {
+    const current = await getCompetitionSettings();
+    const canToggle = canToggleCompetitionAccess(req.user);
+    const isDirector = isDirecteurCompetition(req.user);
+    if (!canToggle && !(isDirector && current.access_enabled)) {
+      return res.status(403).json({ error: 'Accès non autorisé' });
+    }
+    res.json(await getCompetitionRegistrations());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.post('/api/users', handleClubDocsUpload, async (req, res) => {
