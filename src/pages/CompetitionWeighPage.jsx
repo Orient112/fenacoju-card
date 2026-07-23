@@ -73,9 +73,17 @@ export default function CompetitionWeighPage({ token }) {
     setMessage('');
     try {
       const updated = await updatePublicCompetitionWeight(token, registration.id, poids);
-      setRegistrations((prev) => prev.map((r) => (r.id === updated.id ? { ...r, ...updated } : r)));
+      setRegistrations((prev) => {
+        const next = prev.map((r) => (r.id === updated.id ? { ...r, ...updated } : r));
+        const allDone = next.length > 0 && next.every((r) => r.poids);
+        if (allDone) {
+          setMessage('Pesé Clôturée');
+        } else {
+          setMessage(`Poids validé pour ${updated.prenom} ${updated.nom}`);
+        }
+        return next;
+      });
       setWeights((prev) => ({ ...prev, [updated.id]: updated.poids || '' }));
-      setMessage(`Poids validé pour ${updated.prenom} ${updated.nom}`);
     } catch (err) {
       setMessage(err.message);
     } finally {
@@ -108,6 +116,7 @@ export default function CompetitionWeighPage({ token }) {
   }
 
   const weighed = registrations.filter((r) => r.poids).length;
+  const weighComplete = registrations.length > 0 && weighed === registrations.length;
 
   return (
     <div className="competition-public-page">
@@ -125,6 +134,13 @@ export default function CompetitionWeighPage({ token }) {
           </div>
         </header>
 
+        {weighComplete && (
+          <div className="competition-weigh-closed">
+            <strong>Pesé Clôturée</strong>
+            <p>Tous les judokas inscrits ont été pesés. Le tirage au sort est disponible sur la page Compétition.</p>
+          </div>
+        )}
+
         <div className="competition-weigh-toolbar">
           <input
             className="search-input"
@@ -136,7 +152,7 @@ export default function CompetitionWeighPage({ token }) {
           />
         </div>
 
-        {message && <div className="form-hint competition-weigh-msg">{message}</div>}
+        {message && !weighComplete && <div className="form-hint competition-weigh-msg">{message}</div>}
 
         {registrations.length === 0 ? (
           <div className="empty-state">

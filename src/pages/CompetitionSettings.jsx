@@ -7,6 +7,8 @@ import {
   competitionPublicUrl,
   competitionWeighUrl,
 } from '../api';
+import { exportCompetitionListToPdf } from '../utils/exportCompetitionListPdf';
+import { buildWeightDraw } from '../utils/competitionDraw';
 
 function formatDateFr(value) {
   if (!value) return '—';
@@ -87,6 +89,8 @@ export default function CompetitionSettings({ onBack, onToast }) {
   const [liveTick, setLiveTick] = useState(false);
   const [showParamsModal, setShowParamsModal] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [drawResult, setDrawResult] = useState(null);
   const [form, setForm] = useState({
     nom: '',
     date_debut: '',
@@ -225,6 +229,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
       const updated = await deleteCompetitionPublicLink();
       setSettings((prev) => ({ ...prev, ...updated }));
       setRegistrations([]);
+      setDrawResult(null);
       setConfirmDelete(false);
       onToast?.('Lien supprimé et inscriptions effacées');
     } catch (err) {
@@ -232,6 +237,31 @@ export default function CompetitionSettings({ onBack, onToast }) {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleExportList = async () => {
+    if (!registrations.length) {
+      onToast?.('Aucun inscrit à exporter', 'error');
+      return;
+    }
+    setExporting(true);
+    try {
+      exportCompetitionListToPdf(registrations, settings || {});
+      onToast?.('Liste exportée en PDF');
+    } catch (err) {
+      onToast?.(err.message || 'Erreur lors de l\'export PDF', 'error');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleTirage = () => {
+    const result = buildWeightDraw(registrations);
+    if (!result.groups.length) {
+      onToast?.('Aucun judoka pesé pour le tirage', 'error');
+      return;
+    }
+    setDrawResult(result);
   };
 
   if (loading) {
@@ -251,6 +281,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
   const isClosed = configured && !isPublic;
   const canWeigh = configured && isPublic;
   const weighedCount = registrations.filter((r) => r.poids).length;
+  const weighComplete = registrations.length > 0 && weighedCount === registrations.length;
 
   return (
     <div className="competition-page">
@@ -394,6 +425,15 @@ export default function CompetitionSettings({ onBack, onToast }) {
                     >
                       Paramètres de Compétition
                     </button>
+                    {weighComplete && (
+                      <button
+                        type="button"
+                        className="btn btn-tirage"
+                        onClick={handleTirage}
+                      >
+                        Tirage au Sort
+                      </button>
+                    )}
                   </div>
                 </div>
               )}
@@ -426,7 +466,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
               </div>
               <div className="competition-inscriptions-actions">
                 <a
-                  className={`btn btn-primary ${!canWeigh ? 'is-disabled' : ''}`}
+                  className={`btn btn-primary competition-action-btn ${!canWeigh ? 'is-disabled' : ''}`}
                   href={canWeigh ? weighUrl : undefined}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -444,6 +484,14 @@ export default function CompetitionSettings({ onBack, onToast }) {
                 >
                   Pesé
                 </a>
+                <button
+                  type="button"
+                  className="btn btn-outline competition-action-btn"
+                  onClick={handleExportList}
+                  disabled={exporting || registrations.length === 0}
+                >
+                  {exporting ? 'Export...' : 'Exporter Liste'}
+                </button>
               </div>
             </div>
 
@@ -539,6 +587,62 @@ export default function CompetitionSettings({ onBack, onToast }) {
               <button type="button" className="btn btn-danger" onClick={handleDeleteLink} disabled={saving}>
                 {saving ? 'Suppression...' : 'Supprimer'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {drawResult && (
+        <div className="confirm-overlay" onClick={() => setDrawResult(null)}>
+          <div className="competition-draw-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="competition-params-modal-head">
+              <div>
+                <h3>Tirage au Sort</h3>
+                <p className="form-hint">
+                  {drawResult.totalFights} combat{drawResult.totalFights > 1 ? 's' : ''} · {drawResult.totalJudokas} judoka{drawResult.totalJudokas > 1 ? 's' : ''} · classés par poids identiques
+                </p>
+              </div>
+              <div className="competition-inscriptions-actions">
+                <button type="button" className="btn btn-tirage" onClick={handleTirage}>
+                  Relancer
+                </button>
+                <button type="button" className="btn btn-outline btn-sm" onClick={() => setDrawResult(null)}>
+                  Fermer
+                </button>
+              </div>
+            </div>
+
+            <div className="competition-draw-groups">
+              {drawResult.groups.map((group) => (
+                <section key={group.key} className="competition-draw-group">
+                  <header>
+                    <h4>{group.poids} kg · {group.sexeLabel}</h4>
+                    <span>{group.count} judoka{group.count > 1 ? 's' : ''}</span>
+                  </header>
+                  {group.fights.length === 0 && !group.bye && (
+                    <p className="form-hint">Pas de combat dans cette catégorie.</p>
+                  )}
+                  <ul className="competition-draw-fights">
+                    {group.fights.map((fight, idx) => (
+                      <li key={fight.id}>
+                        <span className="competition-draw-fight-num">Combat {idx + 1}</span>
+                        <strong>{fight.labelA}</strong>
+                        <span className="competition-draw-vs">vs</span>
+                        <strong>{fight.labelB}</strong>
+                        <p>
+                          {(fight.a.club || '—')} · {(fight.b.club || '—')}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                  {group.bye && (
+                    <p className="competition-draw-bye">
+                      Exempt : <strong>{group.bye.label}</strong>
+                      {group.bye.club ? ` (${group.bye.club})` : ''}
+                    </p>
+                  )}
+                </section>
+              ))}
             </div>
           </div>
         </div>
