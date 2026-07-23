@@ -110,7 +110,7 @@ export function isCompetitionConfigured(settings) {
   return Boolean(settings?.nom?.trim() && settings?.date_debut && settings?.lieu?.trim());
 }
 
-export function toPublicCompetition(settings) {
+export function toPublicCompetition(settings, extras = {}) {
   if (!settings?.public_enabled || !isCompetitionConfigured(settings)) return null;
   return {
     nom: settings.nom,
@@ -119,6 +119,7 @@ export function toPublicCompetition(settings) {
     lieu: settings.lieu,
     description: settings.description || '',
     public_token: settings.public_token,
+    ...extras,
   };
 }
 
@@ -178,4 +179,66 @@ export async function createCompetitionRegistration(payload) {
   list.push(row);
   writeRegistrationsJson(list);
   return row;
+}
+
+export async function getCompetitionRegistrationById(id) {
+  if (isSupabaseEnabled()) {
+    try {
+      const { data, error } = await getSupabase()
+        .from('competition_registrations')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    } catch (err) {
+      console.warn('Lecture inscription compétition impossible:', err.message);
+    }
+  }
+  return readRegistrationsJson().find((r) => r.id === id) || null;
+}
+
+export async function updateCompetitionRegistrationWeight(id, poids) {
+  const weight = String(poids ?? '').trim();
+  if (!weight) throw new Error('Le poids est obligatoire');
+
+  if (isSupabaseEnabled()) {
+    try {
+      const { data, error } = await getSupabase()
+        .from('competition_registrations')
+        .update({ poids: weight })
+        .eq('id', id)
+        .select('*')
+        .maybeSingle();
+      if (error) throw error;
+      if (data) return data;
+    } catch (err) {
+      if (!/relation|does not exist|schema cache/i.test(err.message || '')) throw err;
+      console.warn('Update poids compétition fallback JSON:', err.message);
+    }
+  }
+
+  const list = readRegistrationsJson();
+  const index = list.findIndex((r) => r.id === id);
+  if (index === -1) throw new Error('Inscription introuvable');
+  list[index] = { ...list[index], poids: weight };
+  writeRegistrationsJson(list);
+  return list[index];
+}
+
+export function toPublicRegistration(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    numero_carte: row.numero_carte || '',
+    nom: row.nom,
+    prenom: row.prenom,
+    club: row.club || '',
+    grade: row.grade || '',
+    categorie: row.categorie || '',
+    sexe: row.sexe || 'M',
+    poids: row.poids || '',
+    deja_enregistre: Boolean(row.deja_enregistre),
+    created_at: row.created_at,
+  };
 }

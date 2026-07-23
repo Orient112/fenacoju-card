@@ -15,8 +15,6 @@ const emptyForm = () => ({
   club: '',
   grade: 'Blanche',
   categorie: '',
-  poids: '',
-  taille: '',
   telephone: '',
   email: '',
 });
@@ -25,7 +23,7 @@ export default function CompetitionPublicForm({ token }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [competition, setCompetition] = useState(null);
-  const [step, setStep] = useState('choice'); // choice | lookup | form | success
+  const [step, setStep] = useState('choice');
   const [cardId, setCardId] = useState('');
   const [lookupLoading, setLookupLoading] = useState(false);
   const [form, setForm] = useState(emptyForm());
@@ -88,8 +86,6 @@ export default function CompetitionPublicForm({ token }) {
         club: judoka.club || '',
         grade: judoka.grade || 'Blanche',
         categorie: judoka.categorie || '',
-        poids: judoka.poids || '',
-        taille: judoka.taille || '',
         telephone: judoka.telephone || '',
         email: judoka.email || '',
       });
@@ -114,6 +110,9 @@ export default function CompetitionPublicForm({ token }) {
       };
       await registerPublicCompetition(token, payload);
       setSuccessName(`${form.prenom} ${form.nom}`.trim());
+      setCompetition((prev) => prev
+        ? { ...prev, registrations_count: (prev.registrations_count || 0) + 1 }
+        : prev);
       setStep('success');
     } catch (err) {
       setError(err.message);
@@ -146,12 +145,14 @@ export default function CompetitionPublicForm({ token }) {
     );
   }
 
+  const count = competition.registrations_count ?? 0;
+
   return (
     <div className="competition-public-page">
       <div className="competition-public-shell">
         <header className="competition-public-brand">
           <img src="/fenacoju-logo.png" alt="FENACOJU" width="56" height="56" />
-          <div>
+          <div className="competition-public-brand-text">
             <p className="competition-public-kicker">FENACOJU</p>
             <h1>{competition.nom}</h1>
             <p>
@@ -163,6 +164,10 @@ export default function CompetitionPublicForm({ token }) {
                 ? ` → ${new Date(competition.date_fin).toLocaleDateString('fr-FR')}`
                 : ''}
             </p>
+          </div>
+          <div className="competition-count-badge" title="Judokas déjà inscrits">
+            <strong>{count}</strong>
+            <span>inscrit{count > 1 ? 's' : ''}</span>
           </div>
         </header>
 
@@ -219,7 +224,7 @@ export default function CompetitionPublicForm({ token }) {
             {judokaMeta && (
               <p className="form-hint">
                 Données importées depuis la carte <strong>{judokaMeta.numero_carte}</strong>.
-                Vérifiez le poids / catégorie si besoin.
+                Vérifiez la catégorie si besoin. Le poids sera saisi à la pesée.
               </p>
             )}
 
@@ -273,14 +278,6 @@ export default function CompetitionPublicForm({ token }) {
                 </select>
               </div>
               <div className="form-group">
-                <label htmlFor="poids">Poids (kg)</label>
-                <input id="poids" name="poids" value={form.poids} onChange={handleChange} placeholder="Ex. 66" />
-              </div>
-              <div className="form-group">
-                <label htmlFor="taille">Taille (cm)</label>
-                <input id="taille" name="taille" value={form.taille} onChange={handleChange} placeholder="Ex. 170" />
-              </div>
-              <div className="form-group">
                 <label htmlFor="telephone">Téléphone</label>
                 <input id="telephone" name="telephone" value={form.telephone} onChange={handleChange} />
               </div>
@@ -311,6 +308,7 @@ export default function CompetitionPublicForm({ token }) {
             <p>
               {successName || 'Le judoka'} est inscrit(e) à <strong>{competition.nom}</strong>.
             </p>
+            <p className="form-hint">{count} judoka{count > 1 ? 's' : ''} inscrit{count > 1 ? 's' : ''} au total.</p>
             <button
               type="button"
               className="btn btn-primary"

@@ -70,7 +70,9 @@ import {
   updateCompetitionSettings,
   getCompetitionRegistrations,
   createCompetitionRegistration,
+  updateCompetitionRegistrationWeight,
   toPublicCompetition,
+  toPublicRegistration,
   isCompetitionConfigured,
 } from './competition.js';
 
@@ -210,11 +212,51 @@ app.get('/api/public/competition/:token', async (req, res) => {
     if (!settings.public_enabled || settings.public_token !== req.params.token) {
       return res.status(404).json({ error: 'Formulaire de compétition indisponible' });
     }
-    const pub = toPublicCompetition(settings);
+    const registrations = await getCompetitionRegistrations();
+    const pub = toPublicCompetition(settings, {
+      registrations_count: registrations.length,
+    });
     if (!pub) return res.status(404).json({ error: 'Formulaire de compétition indisponible' });
     res.json(pub);
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/public/competition/:token/registrations', async (req, res) => {
+  try {
+    const settings = await getCompetitionSettings();
+    if (!settings.public_enabled || settings.public_token !== req.params.token) {
+      return res.status(404).json({ error: 'Page de pesée indisponible' });
+    }
+    if (!isCompetitionConfigured(settings)) {
+      return res.status(404).json({ error: 'Page de pesée indisponible' });
+    }
+    const registrations = await getCompetitionRegistrations();
+    res.json({
+      competition: toPublicCompetition(settings, { registrations_count: registrations.length }),
+      registrations: registrations.map(toPublicRegistration),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/public/competition/:token/registrations/:id/poids', async (req, res) => {
+  try {
+    const settings = await getCompetitionSettings();
+    if (!settings.public_enabled || settings.public_token !== req.params.token) {
+      return res.status(404).json({ error: 'Page de pesée indisponible' });
+    }
+    if (!isCompetitionConfigured(settings)) {
+      return res.status(404).json({ error: 'Page de pesée indisponible' });
+    }
+
+    const updated = await updateCompetitionRegistrationWeight(req.params.id, req.body?.poids);
+    res.json(toPublicRegistration(updated));
+  } catch (err) {
+    const status = /introuvable|obligatoire/i.test(err.message || '') ? 400 : 500;
+    res.status(status).json({ error: err.message });
   }
 });
 
@@ -282,8 +324,8 @@ app.post('/api/public/competition/:token/register', async (req, res) => {
         club: body.club || judoka.club,
         grade: body.grade || judoka.grade,
         categorie: body.categorie || judoka.categorie,
-        poids: body.poids || judoka.poids,
-        taille: body.taille || judoka.taille,
+        poids: '',
+        taille: '',
         telephone: body.telephone || judoka.telephone,
         email: body.email || judoka.email,
         deja_enregistre: true,
@@ -295,6 +337,8 @@ app.post('/api/public/competition/:token/register', async (req, res) => {
       ...body,
       judoka_id: judokaId,
       numero_carte: numeroCarte,
+      poids: '',
+      taille: '',
       deja_enregistre: false,
     });
     res.status(201).json(registration);

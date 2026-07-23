@@ -464,6 +464,38 @@ export function competitionPublicUrl(token) {
   return `${window.location.origin}/competition/${token}`;
 }
 
+export function competitionWeighUrl(token) {
+  if (!token) return '';
+  return `${window.location.origin}/competition/${token}/pese`;
+}
+
+export async function fetchPublicCompetitionRegistrations(token) {
+  const res = await fetchWithTimeout(
+    apiUrl(`/api/public/competition/${encodeURIComponent(token)}/registrations`)
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Page de pesée indisponible');
+  }
+  return res.json();
+}
+
+export async function updatePublicCompetitionWeight(token, registrationId, poids) {
+  const res = await fetchWithTimeout(
+    apiUrl(`/api/public/competition/${encodeURIComponent(token)}/registrations/${encodeURIComponent(registrationId)}/poids`),
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ poids }),
+    }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Erreur lors de la validation du poids');
+  }
+  return res.json();
+}
+
 export const FENACOJU_BLUE = '#1D4393';
 
 export const FEDERATION_FONCTIONS = [
