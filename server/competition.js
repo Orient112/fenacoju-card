@@ -88,7 +88,6 @@ export async function updateCompetitionSettings(patch) {
   const next = ensureDefaults({
     ...current,
     ...patch,
-    public_token: current.public_token || patch.public_token,
     updated_at: new Date().toISOString(),
   });
 
@@ -202,6 +201,10 @@ export async function updateCompetitionRegistrationWeight(id, poids) {
   const weight = String(poids ?? '').trim();
   if (!weight) throw new Error('Le poids est obligatoire');
 
+  const existing = await getCompetitionRegistrationById(id);
+  if (!existing) throw new Error('Inscription introuvable');
+  if (existing.poids) throw new Error('Ce judoka a déjà été pesé');
+
   if (isSupabaseEnabled()) {
     try {
       const { data, error } = await getSupabase()
@@ -224,6 +227,33 @@ export async function updateCompetitionRegistrationWeight(id, poids) {
   list[index] = { ...list[index], poids: weight };
   writeRegistrationsJson(list);
   return list[index];
+}
+
+export async function clearCompetitionRegistrations() {
+  if (isSupabaseEnabled()) {
+    try {
+      const { error } = await getSupabase()
+        .from('competition_registrations')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000');
+      if (error) throw error;
+    } catch (err) {
+      if (!/relation|does not exist|schema cache/i.test(err.message || '')) {
+        console.warn('Suppression inscriptions compétition fallback JSON:', err.message);
+      }
+    }
+  }
+  writeRegistrationsJson([]);
+  return true;
+}
+
+export async function deleteCompetitionPublicLink() {
+  await clearCompetitionRegistrations();
+  const settings = await updateCompetitionSettings({
+    public_enabled: false,
+    public_token: uuidv4().replace(/-/g, '').slice(0, 16),
+  });
+  return settings;
 }
 
 export function toPublicRegistration(row) {

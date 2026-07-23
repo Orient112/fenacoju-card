@@ -3,6 +3,7 @@ import {
   fetchCompetition,
   updateCompetition,
   fetchCompetitionRegistrations,
+  deleteCompetitionPublicLink,
   competitionPublicUrl,
   competitionWeighUrl,
 } from '../api';
@@ -16,6 +17,67 @@ function formatDateFr(value) {
   }
 }
 
+function ParamsFormFields({ form, onChange }) {
+  return (
+    <div className="form-grid">
+      <div className="form-group form-group-full">
+        <label htmlFor="comp-nom">Nom de la compétition *</label>
+        <input
+          id="comp-nom"
+          name="nom"
+          value={form.nom}
+          onChange={onChange}
+          required
+          placeholder="Ex. Championnat National 2026"
+        />
+      </div>
+      <div className="form-group">
+        <label htmlFor="comp-lieu">Lieu *</label>
+        <input
+          id="comp-lieu"
+          name="lieu"
+          value={form.lieu}
+          onChange={onChange}
+          required
+          placeholder="Ville / salle"
+        />
+      </div>
+      <div className="form-group">
+        <label htmlFor="comp-debut">Date de début *</label>
+        <input
+          id="comp-debut"
+          type="date"
+          name="date_debut"
+          value={form.date_debut}
+          onChange={onChange}
+          required
+        />
+      </div>
+      <div className="form-group">
+        <label htmlFor="comp-fin">Date de fin</label>
+        <input
+          id="comp-fin"
+          type="date"
+          name="date_fin"
+          value={form.date_fin}
+          onChange={onChange}
+        />
+      </div>
+      <div className="form-group form-group-full">
+        <label htmlFor="comp-desc">Description</label>
+        <textarea
+          id="comp-desc"
+          name="description"
+          value={form.description}
+          onChange={onChange}
+          rows={3}
+          placeholder="Informations utiles pour les judokas..."
+        />
+      </div>
+    </div>
+  );
+}
+
 export default function CompetitionSettings({ onBack, onToast }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -23,6 +85,8 @@ export default function CompetitionSettings({ onBack, onToast }) {
   const [settings, setSettings] = useState(null);
   const [registrations, setRegistrations] = useState([]);
   const [liveTick, setLiveTick] = useState(false);
+  const [showParamsModal, setShowParamsModal] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [form, setForm] = useState({
     nom: '',
     date_debut: '',
@@ -41,6 +105,16 @@ export default function CompetitionSettings({ onBack, onToast }) {
     savingRef.current = saving;
   }, [saving]);
 
+  const applySettingsForm = (data) => {
+    setForm({
+      nom: data.nom || '',
+      date_debut: data.date_debut || '',
+      date_fin: data.date_fin || '',
+      lieu: data.lieu || '',
+      description: data.description || '',
+    });
+  };
+
   const loadInitial = useCallback(async () => {
     setLoading(true);
     setError('');
@@ -52,13 +126,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
         return;
       }
       setSettings(data);
-      setForm({
-        nom: data.nom || '',
-        date_debut: data.date_debut || '',
-        date_fin: data.date_fin || '',
-        lieu: data.lieu || '',
-        description: data.description || '',
-      });
+      applySettingsForm(data);
       if (data.access_ok || data.can_toggle_access) {
         const regs = await fetchCompetitionRegistrations().catch(() => []);
         setRegistrations(regs);
@@ -81,7 +149,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
       if (regs) setRegistrations(regs);
       setLiveTick((v) => !v);
     } catch {
-      // silent background refresh
+      // silent
     }
   }, []);
 
@@ -108,6 +176,8 @@ export default function CompetitionSettings({ onBack, onToast }) {
     try {
       const updated = await updateCompetition(form);
       setSettings((prev) => ({ ...prev, ...updated }));
+      applySettingsForm(updated);
+      setShowParamsModal(false);
       onToast?.('Paramètres de la compétition enregistrés');
     } catch (err) {
       setError(err.message);
@@ -129,7 +199,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
       onToast?.(
         updated.public_enabled
           ? 'Lien du formulaire rendu public'
-          : 'Formulaire public désactivé'
+          : 'Inscriptions clôturées'
       );
     } catch (err) {
       setError(err.message);
@@ -148,6 +218,22 @@ export default function CompetitionSettings({ onBack, onToast }) {
     }
   };
 
+  const handleDeleteLink = async () => {
+    setSaving(true);
+    setError('');
+    try {
+      const updated = await deleteCompetitionPublicLink();
+      setSettings((prev) => ({ ...prev, ...updated }));
+      setRegistrations([]);
+      setConfirmDelete(false);
+      onToast?.('Lien supprimé et inscriptions effacées');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="page-loader">
@@ -160,6 +246,10 @@ export default function CompetitionSettings({ onBack, onToast }) {
   const publicUrl = competitionPublicUrl(settings?.public_token);
   const weighUrl = competitionWeighUrl(settings?.public_token);
   const accessBlocked = settings && !settings.access_ok && !settings.can_toggle_access;
+  const configured = Boolean(settings?.configured);
+  const isPublic = Boolean(settings?.public_enabled);
+  const isClosed = configured && !isPublic;
+  const canWeigh = configured && isPublic;
   const weighedCount = registrations.filter((r) => r.poids).length;
 
   return (
@@ -195,8 +285,8 @@ export default function CompetitionSettings({ onBack, onToast }) {
               <span>Pesés</span>
             </div>
             <div className="competition-stat">
-              <strong>{settings?.public_enabled ? 'Oui' : 'Non'}</strong>
-              <span>Formulaire public</span>
+              <strong>{isPublic ? 'Ouvertes' : (configured ? 'Clôturées' : 'Non')}</strong>
+              <span>Inscriptions</span>
             </div>
             <div className="competition-stat">
               <strong>{settings?.lieu || '—'}</strong>
@@ -215,114 +305,112 @@ export default function CompetitionSettings({ onBack, onToast }) {
         </div>
       ) : (
         <>
-          <div className="competition-layout">
-            <form className="form-card competition-form" onSubmit={handleSave}>
-              <div className="competition-section-head">
-                <h3>Paramètres</h3>
-                <p>Informations affichées sur le formulaire public.</p>
-              </div>
-              <div className="form-grid">
-                <div className="form-group form-group-full">
-                  <label htmlFor="comp-nom">Nom de la compétition *</label>
-                  <input
-                    id="comp-nom"
-                    name="nom"
-                    value={form.nom}
-                    onChange={handleChange}
-                    required
-                    placeholder="Ex. Championnat National 2026"
-                  />
+          <div className={`competition-layout ${configured ? 'competition-layout-single' : ''}`}>
+            {!configured && (
+              <form className="form-card competition-form" onSubmit={handleSave}>
+                <div className="competition-section-head">
+                  <h3>Paramètres</h3>
+                  <p>Renseignez ces informations pour activer la publication.</p>
                 </div>
-                <div className="form-group">
-                  <label htmlFor="comp-lieu">Lieu *</label>
-                  <input
-                    id="comp-lieu"
-                    name="lieu"
-                    value={form.lieu}
-                    onChange={handleChange}
-                    required
-                    placeholder="Ville / salle"
-                  />
+                <ParamsFormFields form={form} onChange={handleChange} />
+                <div className="form-actions">
+                  <button type="submit" className="btn btn-primary" disabled={saving}>
+                    {saving ? 'Enregistrement...' : 'Enregistrer'}
+                  </button>
                 </div>
-                <div className="form-group">
-                  <label htmlFor="comp-debut">Date de début *</label>
-                  <input
-                    id="comp-debut"
-                    type="date"
-                    name="date_debut"
-                    value={form.date_debut}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="comp-fin">Date de fin</label>
-                  <input
-                    id="comp-fin"
-                    type="date"
-                    name="date_fin"
-                    value={form.date_fin}
-                    onChange={handleChange}
-                  />
-                </div>
-                <div className="form-group form-group-full">
-                  <label htmlFor="comp-desc">Description</label>
-                  <textarea
-                    id="comp-desc"
-                    name="description"
-                    value={form.description}
-                    onChange={handleChange}
-                    rows={3}
-                    placeholder="Informations utiles pour les judokas..."
-                  />
-                </div>
-              </div>
-              <div className="form-actions">
-                <button type="submit" className="btn btn-primary" disabled={saving}>
-                  {saving ? 'Enregistrement...' : 'Enregistrer'}
-                </button>
-              </div>
-            </form>
+              </form>
+            )}
 
             <aside className="form-card competition-public-panel">
               <div className="competition-section-head">
                 <h3>Publication</h3>
-                <p>Rendez le formulaire d&apos;inscription accessible aux judokas.</p>
+                <p>Contrôlez l&apos;accès public aux inscriptions.</p>
               </div>
 
               <div className="competition-public-header">
                 <div>
                   <p className="competition-status-label">Statut du lien</p>
-                  <strong>{settings?.public_enabled ? 'Public' : 'Privé'}</strong>
+                  <strong>{isPublic ? 'On' : 'Off'}</strong>
                 </div>
-                <label className="toggle-switch" title="Rendre le formulaire public">
+                <label className="toggle-switch" title="Activer / clôturer les inscriptions">
                   <input
                     type="checkbox"
-                    checked={Boolean(settings?.public_enabled)}
+                    checked={isPublic}
                     onChange={handleTogglePublic}
-                    disabled={saving || !settings?.configured}
+                    disabled={saving || !configured}
                   />
                   <span className="toggle-slider" />
-                  <span className="toggle-label">{settings?.public_enabled ? 'On' : 'Off'}</span>
+                  <span className="toggle-label">{isPublic ? 'On' : 'Off'}</span>
                 </label>
               </div>
 
-              {!settings?.configured && (
+              {!configured && (
                 <p className="form-hint">Renseignez le nom, la date et le lieu avant de publier.</p>
               )}
 
-              {settings?.public_enabled && publicUrl && (
+              {isClosed && (
+                <div className="competition-closed-banner">
+                  <strong>Les Inscriptions sont clôturées</strong>
+                  <p>Le lien public n&apos;accepte plus de nouvelles inscriptions.</p>
+                </div>
+              )}
+
+              {configured && publicUrl && (
                 <div className="competition-link-block">
                   <label>Lien d&apos;inscription</label>
                   <div className="competition-link-row">
-                    <input type="text" readOnly value={publicUrl} className="competition-link-input" />
-                    <button type="button" className="btn btn-accent" onClick={() => handleCopyLink(publicUrl)}>
+                    <input
+                      type="text"
+                      readOnly
+                      value={publicUrl}
+                      className={`competition-link-input ${isClosed ? 'is-closed' : ''}`}
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-accent"
+                      onClick={() => handleCopyLink(publicUrl)}
+                      disabled={isClosed}
+                    >
                       Copier
                     </button>
-                    <a className="btn btn-outline" href={publicUrl} target="_blank" rel="noopener noreferrer">
+                    <a
+                      className={`btn btn-outline ${isClosed ? 'is-disabled' : ''}`}
+                      href={isClosed ? undefined : publicUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => {
+                        if (isClosed) e.preventDefault();
+                      }}
+                    >
                       Ouvrir
                     </a>
+                    <button
+                      type="button"
+                      className="btn btn-outline"
+                      onClick={() => {
+                        applySettingsForm(settings);
+                        setShowParamsModal(true);
+                      }}
+                    >
+                      Paramètres de Compétition
+                    </button>
                   </div>
+                </div>
+              )}
+
+              {isClosed && (
+                <div className="competition-delete-row">
+                  <button
+                    type="button"
+                    className="btn btn-danger"
+                    disabled={saving}
+                    onClick={() => setConfirmDelete(true)}
+                  >
+                    Supprimer le lien
+                  </button>
+                  <p className="form-hint">
+                    Rend le lien définitivement inaccessible et efface la liste des inscrits.
+                  </p>
                 </div>
               )}
             </aside>
@@ -338,14 +426,19 @@ export default function CompetitionSettings({ onBack, onToast }) {
               </div>
               <div className="competition-inscriptions-actions">
                 <a
-                  className={`btn btn-primary ${!settings?.public_enabled || !settings?.configured ? 'is-disabled' : ''}`}
-                  href={settings?.public_enabled && settings?.configured ? weighUrl : undefined}
+                  className={`btn btn-primary ${!canWeigh ? 'is-disabled' : ''}`}
+                  href={canWeigh ? weighUrl : undefined}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={(e) => {
-                    if (!settings?.public_enabled || !settings?.configured) {
+                    if (!canWeigh) {
                       e.preventDefault();
-                      onToast?.('Publiez d\'abord le formulaire de compétition', 'error');
+                      onToast?.(
+                        isClosed
+                          ? 'La pesée est inactive tant que les inscriptions sont clôturées'
+                          : 'Publiez d\'abord le formulaire de compétition',
+                        'error'
+                      );
                     }
                   }}
                 >
@@ -405,6 +498,50 @@ export default function CompetitionSettings({ onBack, onToast }) {
             )}
           </section>
         </>
+      )}
+
+      {showParamsModal && (
+        <div className="confirm-overlay" onClick={() => setShowParamsModal(false)}>
+          <div className="competition-params-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="competition-params-modal-head">
+              <h3>Paramètres de Compétition</h3>
+              <button type="button" className="btn btn-outline btn-sm" onClick={() => setShowParamsModal(false)}>
+                Fermer
+              </button>
+            </div>
+            <form onSubmit={handleSave}>
+              <ParamsFormFields form={form} onChange={handleChange} />
+              <div className="form-actions">
+                <button type="button" className="btn btn-outline" onClick={() => setShowParamsModal(false)}>
+                  Annuler
+                </button>
+                <button type="submit" className="btn btn-primary" disabled={saving}>
+                  {saving ? 'Enregistrement...' : 'Enregistrer'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {confirmDelete && (
+        <div className="confirm-overlay" onClick={() => setConfirmDelete(false)}>
+          <div className="confirm-dialog" onClick={(e) => e.stopPropagation()}>
+            <h3>Supprimer le lien ?</h3>
+            <p>
+              Cette action rend le lien définitivement inaccessible, efface tous les judokas inscrits
+              et désactive la pesée. Continuer ?
+            </p>
+            <div className="confirm-actions">
+              <button type="button" className="btn btn-outline" onClick={() => setConfirmDelete(false)}>
+                Annuler
+              </button>
+              <button type="button" className="btn btn-danger" onClick={handleDeleteLink} disabled={saving}>
+                {saving ? 'Suppression...' : 'Supprimer'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

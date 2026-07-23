@@ -177,153 +177,165 @@ export default function CompetitionPublicForm({ token }) {
 
         {error && step !== 'success' && <div className="form-error">{error}</div>}
 
-        {step === 'choice' && (
-          <div className="competition-choice">
-            <h2>Inscription à la compétition</h2>
-            <p>Choisissez votre situation pour continuer.</p>
-            <div className="competition-choice-actions">
-              <button type="button" className="btn btn-primary competition-choice-btn" onClick={startExisting}>
-                Déjà enregistré
-              </button>
-              <button type="button" className="btn btn-outline competition-choice-btn" onClick={startNew}>
-                Pas encore dans le Système
-              </button>
-            </div>
+        {competition.closed ? (
+          <div className="empty-state competition-success">
+            <h3>Les Inscriptions sont clôturées</h3>
+            <p>
+              Les inscriptions à <strong>{competition.nom}</strong> ne sont plus ouvertes.
+            </p>
+            <p className="form-hint">{count} judoka{count > 1 ? 's' : ''} déjà inscrit{count > 1 ? 's' : ''}.</p>
           </div>
-        )}
-
-        {step === 'lookup' && (
-          <form className="competition-lookup form-card" onSubmit={handleLookup}>
-            <h2>Judoka déjà enregistré</h2>
-            <p>Saisissez votre n° de carte FENACOJU pour importer vos données.</p>
-            <div className="form-group">
-              <label htmlFor="card-id">ID / N° de carte</label>
-              <input
-                id="card-id"
-                value={cardId}
-                onChange={(e) => setCardId(e.target.value)}
-                placeholder="Ex. FCJ-2026-0001"
-                required
-                autoFocus
-              />
-            </div>
-            <div className="form-actions">
-              <button type="button" className="btn btn-outline" onClick={() => setStep('choice')}>
-                Retour
-              </button>
-              <button type="submit" className="btn btn-primary" disabled={lookupLoading}>
-                {lookupLoading ? 'Recherche...' : 'Importer les données'}
-              </button>
-            </div>
-          </form>
-        )}
-
-        {step === 'form' && (
-          <form className="competition-reg-form form-card" onSubmit={handleSubmit}>
-            <h2>{judokaMeta ? 'Confirmer l\'inscription' : 'Nouvel enregistrement'}</h2>
-            {judokaMeta && (
-              <p className="form-hint">
-                Données importées depuis la carte <strong>{judokaMeta.numero_carte}</strong>.
-                Vérifiez la catégorie si besoin. Le poids sera saisi à la pesée.
-              </p>
+        ) : (
+          <>
+            {step === 'choice' && (
+              <div className="competition-choice">
+                <h2>Inscription à la compétition</h2>
+                <p>Choisissez votre situation pour continuer.</p>
+                <div className="competition-choice-actions">
+                  <button type="button" className="btn btn-primary competition-choice-btn" onClick={startExisting}>
+                    Déjà enregistré
+                  </button>
+                  <button type="button" className="btn btn-outline competition-choice-btn" onClick={startNew}>
+                    Pas encore dans le Système
+                  </button>
+                </div>
+              </div>
             )}
 
-            <div className="form-grid">
-              <div className="form-group">
-                <label htmlFor="nom">Nom *</label>
-                <input id="nom" name="nom" value={form.nom} onChange={handleChange} required readOnly={Boolean(judokaMeta)} />
-              </div>
-              <div className="form-group">
-                <label htmlFor="prenom">Prénom *</label>
-                <input id="prenom" name="prenom" value={form.prenom} onChange={handleChange} required readOnly={Boolean(judokaMeta)} />
-              </div>
-              <div className="form-group">
-                <label htmlFor="date_naissance">Date de naissance *</label>
-                <input
-                  id="date_naissance"
-                  type="date"
-                  name="date_naissance"
-                  value={form.date_naissance}
-                  onChange={handleChange}
-                  required
-                  readOnly={Boolean(judokaMeta)}
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="sexe">Sexe *</label>
-                <select id="sexe" name="sexe" value={form.sexe} onChange={handleChange} disabled={Boolean(judokaMeta)}>
-                  <option value="M">Masculin</option>
-                  <option value="F">Féminin</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label htmlFor="club">Club *</label>
-                <input id="club" name="club" value={form.club} onChange={handleChange} required readOnly={Boolean(judokaMeta)} />
-              </div>
-              <div className="form-group">
-                <label htmlFor="grade">Grade</label>
-                <select id="grade" name="grade" value={form.grade} onChange={handleChange} disabled={Boolean(judokaMeta)}>
-                  {GRADES.map((g) => (
-                    <option key={g} value={g}>{g}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="form-group">
-                <label htmlFor="categorie">Catégorie</label>
-                <select id="categorie" name="categorie" value={form.categorie} onChange={handleChange}>
-                  <option value="">— Sélectionner —</option>
-                  {CATEGORIES.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="form-group">
-                <label htmlFor="telephone">Téléphone</label>
-                <input id="telephone" name="telephone" value={form.telephone} onChange={handleChange} />
-              </div>
-              <div className="form-group">
-                <label htmlFor="email">Email</label>
-                <input id="email" type="email" name="email" value={form.email} onChange={handleChange} />
-              </div>
-            </div>
+            {step === 'lookup' && (
+              <form className="competition-lookup form-card" onSubmit={handleLookup}>
+                <h2>Judoka déjà enregistré</h2>
+                <p>Saisissez votre n° de carte FENACOJU pour importer vos données.</p>
+                <div className="form-group">
+                  <label htmlFor="card-id">ID / N° de carte</label>
+                  <input
+                    id="card-id"
+                    value={cardId}
+                    onChange={(e) => setCardId(e.target.value)}
+                    placeholder="Ex. FCJ-2026-0001"
+                    required
+                    autoFocus
+                  />
+                </div>
+                <div className="form-actions">
+                  <button type="button" className="btn btn-outline" onClick={() => setStep('choice')}>
+                    Retour
+                  </button>
+                  <button type="submit" className="btn btn-primary" disabled={lookupLoading}>
+                    {lookupLoading ? 'Recherche...' : 'Importer les données'}
+                  </button>
+                </div>
+              </form>
+            )}
 
-            <div className="form-actions">
-              <button
-                type="button"
-                className="btn btn-outline"
-                onClick={() => setStep(judokaMeta ? 'lookup' : 'choice')}
-              >
-                Retour
-              </button>
-              <button type="submit" className="btn btn-primary" disabled={submitting}>
-                {submitting ? 'Envoi...' : 'Valider l\'inscription'}
-              </button>
-            </div>
-          </form>
-        )}
+            {step === 'form' && (
+              <form className="competition-reg-form form-card" onSubmit={handleSubmit}>
+                <h2>{judokaMeta ? 'Confirmer l\'inscription' : 'Nouvel enregistrement'}</h2>
+                {judokaMeta && (
+                  <p className="form-hint">
+                    Données importées depuis la carte <strong>{judokaMeta.numero_carte}</strong>.
+                    Vérifiez la catégorie si besoin. Le poids sera saisi à la pesée.
+                  </p>
+                )}
 
-        {step === 'success' && (
-          <div className="empty-state competition-success">
-            <h3>Inscription enregistrée</h3>
-            <p>
-              {successName || 'Le judoka'} est inscrit(e) à <strong>{competition.nom}</strong>.
-            </p>
-            <p className="form-hint">{count} judoka{count > 1 ? 's' : ''} inscrit{count > 1 ? 's' : ''} au total.</p>
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => {
-                setStep('choice');
-                setForm(emptyForm());
-                setJudokaMeta(null);
-                setCardId('');
-                setSuccessName('');
-                setError('');
-              }}
-            >
-              Nouvelle inscription
-            </button>
-          </div>
+                <div className="form-grid">
+                  <div className="form-group">
+                    <label htmlFor="nom">Nom *</label>
+                    <input id="nom" name="nom" value={form.nom} onChange={handleChange} required readOnly={Boolean(judokaMeta)} />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="prenom">Prénom *</label>
+                    <input id="prenom" name="prenom" value={form.prenom} onChange={handleChange} required readOnly={Boolean(judokaMeta)} />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="date_naissance">Date de naissance *</label>
+                    <input
+                      id="date_naissance"
+                      type="date"
+                      name="date_naissance"
+                      value={form.date_naissance}
+                      onChange={handleChange}
+                      required
+                      readOnly={Boolean(judokaMeta)}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="sexe">Sexe *</label>
+                    <select id="sexe" name="sexe" value={form.sexe} onChange={handleChange} disabled={Boolean(judokaMeta)}>
+                      <option value="M">Masculin</option>
+                      <option value="F">Féminin</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="club">Club *</label>
+                    <input id="club" name="club" value={form.club} onChange={handleChange} required readOnly={Boolean(judokaMeta)} />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="grade">Grade</label>
+                    <select id="grade" name="grade" value={form.grade} onChange={handleChange} disabled={Boolean(judokaMeta)}>
+                      {GRADES.map((g) => (
+                        <option key={g} value={g}>{g}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="categorie">Catégorie</label>
+                    <select id="categorie" name="categorie" value={form.categorie} onChange={handleChange}>
+                      <option value="">— Sélectionner —</option>
+                      {CATEGORIES.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="telephone">Téléphone</label>
+                    <input id="telephone" name="telephone" value={form.telephone} onChange={handleChange} />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="email">Email</label>
+                    <input id="email" type="email" name="email" value={form.email} onChange={handleChange} />
+                  </div>
+                </div>
+
+                <div className="form-actions">
+                  <button
+                    type="button"
+                    className="btn btn-outline"
+                    onClick={() => setStep(judokaMeta ? 'lookup' : 'choice')}
+                  >
+                    Retour
+                  </button>
+                  <button type="submit" className="btn btn-primary" disabled={submitting}>
+                    {submitting ? 'Envoi...' : 'Valider l\'inscription'}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {step === 'success' && (
+              <div className="empty-state competition-success">
+                <h3>Inscription enregistrée</h3>
+                <p>
+                  {successName || 'Le judoka'} est inscrit(e) à <strong>{competition.nom}</strong>.
+                </p>
+                <p className="form-hint">{count} judoka{count > 1 ? 's' : ''} inscrit{count > 1 ? 's' : ''} au total.</p>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => {
+                    setStep('choice');
+                    setForm(emptyForm());
+                    setJudokaMeta(null);
+                    setCardId('');
+                    setSuccessName('');
+                    setError('');
+                  }}
+                >
+                  Nouvelle inscription
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

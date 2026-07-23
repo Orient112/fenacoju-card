@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { fetchPublicCompetitionRegistrations, updatePublicCompetitionWeight } from '../api';
 
 export default function CompetitionWeighPage({ token }) {
@@ -9,6 +9,7 @@ export default function CompetitionWeighPage({ token }) {
   const [weights, setWeights] = useState({});
   const [savingId, setSavingId] = useState(null);
   const [message, setMessage] = useState('');
+  const [search, setSearch] = useState('');
 
   const load = useCallback(async (silent = false) => {
     if (!silent) {
@@ -22,7 +23,11 @@ export default function CompetitionWeighPage({ token }) {
       setWeights((prev) => {
         const next = { ...prev };
         for (const r of data.registrations || []) {
-          if (next[r.id] === undefined) next[r.id] = r.poids || '';
+          if (r.poids) {
+            next[r.id] = r.poids;
+          } else if (next[r.id] === undefined) {
+            next[r.id] = '';
+          }
         }
         return next;
       });
@@ -43,11 +48,22 @@ export default function CompetitionWeighPage({ token }) {
     return () => clearInterval(id);
   }, [loading, error, load]);
 
+  const filtered = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) return registrations;
+    return registrations.filter((r) => {
+      const full = `${r.prenom || ''} ${r.nom || ''}`.trim().toLowerCase();
+      const reverse = `${r.nom || ''} ${r.prenom || ''}`.trim().toLowerCase();
+      return full.includes(term) || reverse.includes(term) || (r.nom || '').toLowerCase().includes(term);
+    });
+  }, [registrations, search]);
+
   const handleWeightChange = (id, value) => {
     setWeights((prev) => ({ ...prev, [id]: value }));
   };
 
   const handleValidate = async (registration) => {
+    if (registration.poids) return;
     const poids = String(weights[registration.id] ?? '').trim();
     if (!poids) {
       setMessage('Saisissez un poids avant de valider.');
@@ -109,6 +125,17 @@ export default function CompetitionWeighPage({ token }) {
           </div>
         </header>
 
+        <div className="competition-weigh-toolbar">
+          <input
+            className="search-input"
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Rechercher par nom..."
+            aria-label="Rechercher un judoka par nom"
+          />
+        </div>
+
         {message && <div className="form-hint competition-weigh-msg">{message}</div>}
 
         {registrations.length === 0 ? (
@@ -116,14 +143,20 @@ export default function CompetitionWeighPage({ token }) {
             <h3>Aucun inscrit</h3>
             <p>Les judokas apparaîtront ici dès qu&apos;ils s&apos;inscrivent.</p>
           </div>
+        ) : filtered.length === 0 ? (
+          <div className="empty-state">
+            <h3>Aucun résultat</h3>
+            <p>Aucun judoka ne correspond à « {search} ».</p>
+          </div>
         ) : (
           <div className="competition-weigh-list">
-            {registrations.map((r, idx) => {
+            {filtered.map((r) => {
               const done = Boolean(r.poids);
+              const originalIndex = registrations.findIndex((item) => item.id === r.id);
               return (
                 <div key={r.id} className={`competition-weigh-row ${done ? 'is-done' : ''}`}>
                   <div className="competition-weigh-identity">
-                    <span className="competition-weigh-num">{idx + 1}</span>
+                    <span className="competition-weigh-num">{originalIndex + 1}</span>
                     <div>
                       <strong>{`${r.prenom || ''} ${r.nom || ''}`.trim()}</strong>
                       <p>
@@ -143,14 +176,16 @@ export default function CompetitionWeighPage({ token }) {
                       value={weights[r.id] ?? ''}
                       onChange={(e) => handleWeightChange(r.id, e.target.value)}
                       aria-label={`Poids de ${r.prenom} ${r.nom}`}
+                      readOnly={done}
+                      disabled={done}
                     />
                     <button
                       type="button"
                       className="btn btn-primary"
-                      disabled={savingId === r.id}
+                      disabled={done || savingId === r.id}
                       onClick={() => handleValidate(r)}
                     >
-                      {savingId === r.id ? '...' : 'Valider'}
+                      {done ? 'Pesé' : (savingId === r.id ? '...' : 'Valider')}
                     </button>
                   </div>
                 </div>

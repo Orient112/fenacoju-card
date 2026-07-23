@@ -3422,3 +3422,69 @@ tbody tr:last-child td {
   }
 }
 
+
+.competition-layout-single {
+  grid-template-columns: 1fr;
+}
+
+.competition-closed-banner {
+  background: rgba(227, 6, 19, 0.08);
+  border: 1px solid rgba(227, 6, 19, 0.28);
+  border-radius: var(--radius-sm);
+  padding: 0.9rem 1rem;
+  color: var(--text);
+}
+
+.competition-closed-banner strong {
+  display: block;
+  color: var(--accent);
+  margin-bottom: 0.2rem;
+}
+
+.competition-closed-banner p {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.competition-link-input.is-closed {
+  opacity: 0.65;
+  text-decoration: line-through;
+}
+
+.competition-delete-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin-top: 0.35rem;
+}
+
+.competition-params-modal {
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  width: min(680px, 94vw);
+  max-height: 90vh;
+  overflow: auto;
+  padding: 1.25rem 1.35rem;
+}
+
+.competition-params-modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.competition-weigh-toolbar {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.competition-weigh-toolbar .search-input {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 0.9rem;
+}

@@ -71,6 +71,7 @@ import {
   getCompetitionRegistrations,
   createCompetitionRegistration,
   updateCompetitionRegistrationWeight,
+  deleteCompetitionPublicLink,
   toPublicCompetition,
   toPublicRegistration,
   isCompetitionConfigured,
@@ -209,12 +210,29 @@ app.get('/api/auth/me', async (req, res) => {
 app.get('/api/public/competition/:token', async (req, res) => {
   try {
     const settings = await getCompetitionSettings();
-    if (!settings.public_enabled || settings.public_token !== req.params.token) {
+    if (settings.public_token !== req.params.token || !isCompetitionConfigured(settings)) {
       return res.status(404).json({ error: 'Formulaire de compétition indisponible' });
     }
+
     const registrations = await getCompetitionRegistrations();
+    const base = {
+      nom: settings.nom,
+      date_debut: settings.date_debut,
+      date_fin: settings.date_fin || '',
+      lieu: settings.lieu,
+      description: settings.description || '',
+      public_token: settings.public_token,
+      registrations_count: registrations.length,
+      closed: !settings.public_enabled,
+    };
+
+    if (!settings.public_enabled) {
+      return res.json(base);
+    }
+
     const pub = toPublicCompetition(settings, {
       registrations_count: registrations.length,
+      closed: false,
     });
     if (!pub) return res.status(404).json({ error: 'Formulaire de compétition indisponible' });
     res.json(pub);
@@ -437,6 +455,30 @@ app.put('/api/competition', async (req, res) => {
     res.json({
       ...settings,
       configured: isCompetitionConfigured(settings),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/competition/public-link', async (req, res) => {
+  try {
+    const current = await getCompetitionSettings();
+    const canToggle = canToggleCompetitionAccess(req.user);
+    const isDirector = isDirecteurCompetition(req.user);
+    if (!canToggle && !(isDirector && current.access_enabled)) {
+      return res.status(403).json({ error: 'Accès non autorisé' });
+    }
+    if (current.public_enabled) {
+      return res.status(400).json({
+        error: 'Désactivez d\'abord le lien (Off) avant de le supprimer définitivement',
+      });
+    }
+    const settings = await deleteCompetitionPublicLink();
+    res.json({
+      ...settings,
+      configured: isCompetitionConfigured(settings),
+      registrations_cleared: true,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
