@@ -1,7 +1,12 @@
 import { jsPDF } from 'jspdf';
+import { sortRegistrationsByGenderAndWeight } from './competitionDraw';
 
 function fullName(r) {
   return `${r.prenom || ''} ${r.nom || ''}`.trim() || '—';
+}
+
+function genderSectionTitle(sexe) {
+  return sexe === 'F' ? 'Filles' : 'Garçons';
 }
 
 export function exportCompetitionListToPdf(registrations, competition = {}) {
@@ -9,6 +14,7 @@ export function exportCompetitionListToPdf(registrations, competition = {}) {
     throw new Error('Aucun inscrit à exporter');
   }
 
+  const sorted = sortRegistrationsByGenderAndWeight(registrations);
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const marginX = 14;
   let y = 18;
@@ -26,7 +32,8 @@ export function exportCompetitionListToPdf(registrations, competition = {}) {
   const meta = [
     competition.lieu ? `Lieu : ${competition.lieu}` : null,
     competition.date_debut ? `Date : ${competition.date_debut}` : null,
-    `Inscrits : ${registrations.length}`,
+    `Inscrits : ${sorted.length}`,
+    'Classement : poids · Garçons / Filles',
     `Export : ${new Date().toLocaleString('fr-FR')}`,
   ].filter(Boolean);
   pdf.text(meta.join('  ·  '), marginX, y);
@@ -35,6 +42,15 @@ export function exportCompetitionListToPdf(registrations, competition = {}) {
   const headers = ['#', 'Nom', 'Club', 'N° carte', 'Catégorie', 'Sexe', 'Poids'];
   const colWidths = [10, 45, 40, 28, 28, 14, 18];
   const rowHeight = 7;
+
+  const ensureSpace = (needed = 14) => {
+    if (y > pageHeight - needed) {
+      pdf.addPage();
+      y = 18;
+      return true;
+    }
+    return false;
+  };
 
   const drawHeader = () => {
     pdf.setFillColor(29, 67, 147);
@@ -52,37 +68,62 @@ export function exportCompetitionListToPdf(registrations, competition = {}) {
     pdf.setFont('helvetica', 'normal');
   };
 
-  drawHeader();
+  const drawSectionTitle = (title) => {
+    ensureSpace(16);
+    pdf.setFillColor(226, 232, 240);
+    pdf.rect(marginX, y - 4.5, usableWidth, rowHeight + 1, 'F');
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(11);
+    pdf.setTextColor(29, 67, 147);
+    pdf.text(title, marginX + 2, y);
+    y += rowHeight + 2;
+    pdf.setTextColor(15, 23, 42);
+    drawHeader();
+  };
 
-  registrations.forEach((r, idx) => {
+  let currentGender = null;
+  let indexInSection = 0;
+
+  sorted.forEach((r) => {
+    const sexe = r.sexe === 'F' ? 'F' : 'M';
+    if (sexe !== currentGender) {
+      currentGender = sexe;
+      indexInSection = 0;
+      drawSectionTitle(genderSectionTitle(sexe));
+    }
+
+    ensureSpace(12);
     if (y > pageHeight - 18) {
       pdf.addPage();
       y = 18;
-      drawHeader();
+      drawSectionTitle(genderSectionTitle(sexe));
     }
 
-    if (idx % 2 === 0) {
+    if (indexInSection % 2 === 0) {
       pdf.setFillColor(241, 245, 249);
       pdf.rect(marginX, y - 4.5, usableWidth, rowHeight, 'F');
     }
 
     const row = [
-      String(idx + 1),
+      String(indexInSection + 1),
       fullName(r),
       r.club || '—',
       r.numero_carte || '—',
       r.categorie || '—',
-      r.sexe || '—',
+      sexe === 'F' ? 'F' : 'M',
       r.poids ? `${r.poids} kg` : '—',
     ];
 
     let x = marginX + 1;
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(9);
     row.forEach((cell, i) => {
       const text = pdf.splitTextToSize(String(cell), colWidths[i] - 2)[0] || '';
       pdf.text(text, x, y);
       x += colWidths[i];
     });
     y += rowHeight;
+    indexInSection += 1;
   });
 
   const slug = (competition.nom || 'competition')

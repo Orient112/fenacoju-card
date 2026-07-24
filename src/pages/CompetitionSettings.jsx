@@ -8,7 +8,7 @@ import {
   competitionWeighUrl,
 } from '../api';
 import { exportCompetitionListToPdf } from '../utils/exportCompetitionListPdf';
-import { buildWeightDraw } from '../utils/competitionDraw';
+import { buildWeightDraw, buildTeamDraw } from '../utils/competitionDraw';
 
 function formatDateFr(value) {
   if (!value) return '—';
@@ -90,7 +90,9 @@ export default function CompetitionSettings({ onBack, onToast }) {
   const [showParamsModal, setShowParamsModal] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [showDrawModeModal, setShowDrawModeModal] = useState(false);
   const [drawResult, setDrawResult] = useState(null);
+  const [drawMode, setDrawMode] = useState(null);
   const [form, setForm] = useState({
     nom: '',
     date_debut: '',
@@ -255,13 +257,36 @@ export default function CompetitionSettings({ onBack, onToast }) {
     }
   };
 
-  const handleTirage = () => {
-    const result = buildWeightDraw(registrations);
-    if (!result.groups.length) {
+  const handleTirageOpen = () => {
+    const weighed = registrations.filter((r) => r.poids).length;
+    if (weighed === 0) {
       onToast?.('Aucun judoka pesé pour le tirage', 'error');
       return;
     }
+    setDrawResult(null);
+    setDrawMode(null);
+    setShowDrawModeModal(true);
+  };
+
+  const handleTirageMode = (mode) => {
+    const result = mode === 'equipe'
+      ? buildTeamDraw(registrations)
+      : buildWeightDraw(registrations);
+    if (!result.groups.length) {
+      onToast?.('Aucun combat possible pour ce mode', 'error');
+      return;
+    }
+    setDrawMode(mode);
     setDrawResult(result);
+    setShowDrawModeModal(false);
+  };
+
+  const handleTirageRelancer = () => {
+    if (!drawMode) {
+      setShowDrawModeModal(true);
+      return;
+    }
+    handleTirageMode(drawMode);
   };
 
   if (loading) {
@@ -281,7 +306,6 @@ export default function CompetitionSettings({ onBack, onToast }) {
   const isClosed = configured && !isPublic;
   const canWeigh = configured && isPublic;
   const weighedCount = registrations.filter((r) => r.poids).length;
-  const weighComplete = registrations.length > 0 && weighedCount === registrations.length;
 
   return (
     <div className="competition-page">
@@ -425,15 +449,6 @@ export default function CompetitionSettings({ onBack, onToast }) {
                     >
                       Paramètres de Compétition
                     </button>
-                    {weighComplete && (
-                      <button
-                        type="button"
-                        className="btn btn-tirage"
-                        onClick={handleTirage}
-                      >
-                        Tirage au Sort
-                      </button>
-                    )}
                   </div>
                 </div>
               )}
@@ -491,6 +506,15 @@ export default function CompetitionSettings({ onBack, onToast }) {
                   disabled={exporting || registrations.length === 0}
                 >
                   {exporting ? 'Export...' : 'Exporter Liste'}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-tirage competition-action-btn"
+                  onClick={handleTirageOpen}
+                  disabled={weighedCount === 0}
+                  title={weighedCount === 0 ? 'Peséez d\'abord les judokas' : 'Lancer le tirage au sort'}
+                >
+                  Tirage au sort
                 </button>
               </div>
             </div>
@@ -592,18 +616,50 @@ export default function CompetitionSettings({ onBack, onToast }) {
         </div>
       )}
 
+      {showDrawModeModal && (
+        <div className="confirm-overlay" onClick={() => setShowDrawModeModal(false)}>
+          <div className="competition-draw-mode-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="competition-params-modal-head">
+              <div>
+                <h3>Tirage au sort</h3>
+                <p className="form-hint">Choisissez le mode de classement des combats.</p>
+              </div>
+              <button type="button" className="btn btn-outline btn-sm" onClick={() => setShowDrawModeModal(false)}>
+                Fermer
+              </button>
+            </div>
+            <div className="competition-draw-mode-actions">
+              <button type="button" className="btn btn-tirage competition-draw-mode-btn" onClick={() => handleTirageMode('individuel')}>
+                Individuel
+              </button>
+              <button type="button" className="btn btn-primary competition-draw-mode-btn" onClick={() => handleTirageMode('equipe')}>
+                Par Equipe
+              </button>
+            </div>
+            <p className="form-hint competition-draw-mode-hint">
+              Individuel : combats par poids (Garçons / Filles).<br />
+              Par Equipe : combats regroupés par club / équipe.
+            </p>
+          </div>
+        </div>
+      )}
+
       {drawResult && (
         <div className="confirm-overlay" onClick={() => setDrawResult(null)}>
           <div className="competition-draw-modal" onClick={(e) => e.stopPropagation()}>
             <div className="competition-params-modal-head">
               <div>
-                <h3>Tirage au Sort</h3>
+                <h3>Tirage au sort · {drawResult.modeLabel}</h3>
                 <p className="form-hint">
-                  {drawResult.totalFights} combat{drawResult.totalFights > 1 ? 's' : ''} · {drawResult.totalJudokas} judoka{drawResult.totalJudokas > 1 ? 's' : ''} · classés par poids identiques
+                  {drawResult.totalFights} combat{drawResult.totalFights > 1 ? 's' : ''} · {drawResult.totalJudokas} judoka{drawResult.totalJudokas > 1 ? 's' : ''}
+                  {drawResult.mode === 'individuel' ? ' · par poids (Garçons / Filles)' : ' · par équipes'}
                 </p>
               </div>
               <div className="competition-inscriptions-actions">
-                <button type="button" className="btn btn-tirage" onClick={handleTirage}>
+                <button type="button" className="btn btn-outline" onClick={() => { setDrawResult(null); setShowDrawModeModal(true); }}>
+                  Mode
+                </button>
+                <button type="button" className="btn btn-tirage" onClick={handleTirageRelancer}>
                   Relancer
                 </button>
                 <button type="button" className="btn btn-outline btn-sm" onClick={() => setDrawResult(null)}>
@@ -616,7 +672,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
               {drawResult.groups.map((group) => (
                 <section key={group.key} className="competition-draw-group">
                   <header>
-                    <h4>{group.poids} kg · {group.sexeLabel}</h4>
+                    <h4>{group.title}</h4>
                     <span>{group.count} judoka{group.count > 1 ? 's' : ''}</span>
                   </header>
                   {group.fights.length === 0 && !group.bye && (
