@@ -1,6 +1,14 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { fetchPublicCompetitionRegistrations, updatePublicCompetitionWeight } from '../api';
 
+const FILTERS = [
+  { key: 'all', label: 'Tous' },
+  { key: 'garcon', label: 'Garçon' },
+  { key: 'fille', label: 'Fille' },
+  { key: 'deja_pese', label: 'Déjà pesé' },
+  { key: 'non_pese', label: 'Non pesé' },
+];
+
 export default function CompetitionWeighPage({ token }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -10,6 +18,9 @@ export default function CompetitionWeighPage({ token }) {
   const [savingId, setSavingId] = useState(null);
   const [message, setMessage] = useState('');
   const [search, setSearch] = useState('');
+  const [filterClub, setFilterClub] = useState('');
+  const [filterPoids, setFilterPoids] = useState('');
+  const [activeFilter, setActiveFilter] = useState('all');
 
   const load = useCallback(async (silent = false) => {
     if (!silent) {
@@ -48,15 +59,41 @@ export default function CompetitionWeighPage({ token }) {
     return () => clearInterval(id);
   }, [loading, error, load]);
 
+  const clubs = useMemo(() => {
+    const set = new Set();
+    for (const r of registrations) {
+      const club = (r.club || '').trim();
+      if (club) set.add(club);
+    }
+    return [...set].sort((a, b) => a.localeCompare(b, 'fr'));
+  }, [registrations]);
+
+  const poidsOptions = useMemo(() => {
+    const set = new Set();
+    for (const r of registrations) {
+      const p = String(r.poids || '').trim();
+      if (p) set.add(p);
+    }
+    return [...set].sort((a, b) => Number(a) - Number(b) || a.localeCompare(b, 'fr'));
+  }, [registrations]);
+
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
-    if (!term) return registrations;
     return registrations.filter((r) => {
+      if (filterClub && (r.club || '').trim() !== filterClub) return false;
+      if (filterPoids && String(r.poids || '').trim() !== filterPoids) return false;
+
+      if (activeFilter === 'garcon' && r.sexe === 'F') return false;
+      if (activeFilter === 'fille' && r.sexe !== 'F') return false;
+      if (activeFilter === 'deja_pese' && !r.poids) return false;
+      if (activeFilter === 'non_pese' && r.poids) return false;
+
+      if (!term) return true;
       const full = `${r.prenom || ''} ${r.nom || ''}`.trim().toLowerCase();
       const reverse = `${r.nom || ''} ${r.prenom || ''}`.trim().toLowerCase();
       return full.includes(term) || reverse.includes(term) || (r.nom || '').toLowerCase().includes(term);
     });
-  }, [registrations, search]);
+  }, [registrations, search, filterClub, filterPoids, activeFilter]);
 
   const handleWeightChange = (id, value) => {
     setWeights((prev) => ({ ...prev, [id]: value }));
@@ -141,6 +178,41 @@ export default function CompetitionWeighPage({ token }) {
           </div>
         )}
 
+        <div className="competition-weigh-filters">
+          <div className="competition-weigh-filter-chips">
+            {FILTERS.map((f) => (
+              <button
+                key={f.key}
+                type="button"
+                className={`competition-filter-chip ${activeFilter === f.key ? 'active' : ''}`}
+                onClick={() => setActiveFilter(f.key)}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+          <div className="competition-weigh-filter-selects">
+            <label>
+              <span>Club</span>
+              <select value={filterClub} onChange={(e) => setFilterClub(e.target.value)}>
+                <option value="">Tous les clubs</option>
+                {clubs.map((club) => (
+                  <option key={club} value={club}>{club}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>Poids</span>
+              <select value={filterPoids} onChange={(e) => setFilterPoids(e.target.value)}>
+                <option value="">Tous les poids</option>
+                {poidsOptions.map((p) => (
+                  <option key={p} value={p}>{p} kg</option>
+                ))}
+              </select>
+            </label>
+          </div>
+        </div>
+
         <div className="competition-weigh-toolbar">
           <input
             className="search-input"
@@ -162,7 +234,7 @@ export default function CompetitionWeighPage({ token }) {
         ) : filtered.length === 0 ? (
           <div className="empty-state">
             <h3>Aucun résultat</h3>
-            <p>Aucun judoka ne correspond à « {search} ».</p>
+            <p>Aucun judoka ne correspond aux filtres / recherche.</p>
           </div>
         ) : (
           <div className="competition-weigh-list">
@@ -197,7 +269,7 @@ export default function CompetitionWeighPage({ token }) {
                     />
                     <button
                       type="button"
-                      className="btn btn-primary"
+                      className={`btn ${done ? 'btn-pese-done' : 'btn-primary'}`}
                       disabled={done || savingId === r.id}
                       onClick={() => handleValidate(r)}
                     >

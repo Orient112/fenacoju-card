@@ -71,7 +71,9 @@ import {
   getCompetitionRegistrations,
   createCompetitionRegistration,
   updateCompetitionRegistrationWeight,
+  deleteCompetitionRegistration,
   deleteCompetitionPublicLink,
+  findDuplicateCompetitionRegistration,
   toPublicCompetition,
   toPublicRegistration,
   isCompetitionConfigured,
@@ -291,6 +293,15 @@ app.get('/api/public/competition/:token/judoka/:cardId', async (req, res) => {
     const judoka = await getJudokaByCardNumber(req.params.cardId);
     if (!judoka) return res.status(404).json({ error: 'Aucun judoka trouvé avec cet identifiant' });
 
+    const duplicate = await findDuplicateCompetitionRegistration({
+      deja_enregistre: true,
+      judoka_id: judoka.id,
+      numero_carte: judoka.numero_carte,
+    });
+    if (duplicate) {
+      return res.status(409).json({ error: 'Ce judoka est déjà inscrit à cette compétition' });
+    }
+
     res.json({
       id: judoka.id,
       numero_carte: judoka.numero_carte,
@@ -332,6 +343,16 @@ app.post('/api/public/competition/:token/register', async (req, res) => {
       }
       judokaId = judoka.id;
       numeroCarte = judoka.numero_carte;
+
+      const duplicate = await findDuplicateCompetitionRegistration({
+        deja_enregistre: true,
+        judoka_id: judokaId,
+        numero_carte: numeroCarte,
+      });
+      if (duplicate) {
+        return res.status(409).json({ error: 'Ce judoka est déjà inscrit à cette compétition' });
+      }
+
       const registration = await createCompetitionRegistration({
         judoka_id: judokaId,
         numero_carte: numeroCarte,
@@ -351,6 +372,18 @@ app.post('/api/public/competition/:token/register', async (req, res) => {
       return res.status(201).json(registration);
     }
 
+    const duplicate = await findDuplicateCompetitionRegistration({
+      deja_enregistre: false,
+      nom: body.nom,
+      prenom: body.prenom,
+      date_naissance: body.date_naissance,
+      club: body.club,
+      email: body.email,
+    });
+    if (duplicate) {
+      return res.status(409).json({ error: 'Ce judoka est déjà inscrit à cette compétition' });
+    }
+
     const registration = await createCompetitionRegistration({
       ...body,
       judoka_id: judokaId,
@@ -361,7 +394,8 @@ app.post('/api/public/competition/:token/register', async (req, res) => {
     });
     res.status(201).json(registration);
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    const status = /déjà inscrit/i.test(err.message || '') ? 409 : 400;
+    res.status(status).json({ error: err.message });
   }
 });
 
@@ -496,6 +530,22 @@ app.get('/api/competition/registrations', async (req, res) => {
     res.json(await getCompetitionRegistrations());
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/competition/registrations/:id', async (req, res) => {
+  try {
+    const current = await getCompetitionSettings();
+    const canToggle = canToggleCompetitionAccess(req.user);
+    const isDirector = isDirecteurCompetition(req.user);
+    if (!canToggle && !(isDirector && current.access_enabled)) {
+      return res.status(403).json({ error: 'Accès non autorisé' });
+    }
+    const result = await deleteCompetitionRegistration(req.params.id);
+    res.json(result);
+  } catch (err) {
+    const status = /introuvable/i.test(err.message || '') ? 404 : 500;
+    res.status(status).json({ error: err.message });
   }
 });
 

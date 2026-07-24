@@ -435,6 +435,17 @@ export async function fetchCompetitionRegistrations() {
   return res.json();
 }
 
+export async function deleteCompetitionRegistration(id) {
+  const res = await apiFetch(`/api/competition/registrations/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Erreur lors de la suppression');
+  }
+  return res.json();
+}
+
 export async function fetchPublicCompetition(token) {
   const res = await fetchWithTimeout(apiUrl(`/api/public/competition/${encodeURIComponent(token)}`));
   if (!res.ok) {

@@ -3,6 +3,7 @@ import {
   fetchCompetition,
   updateCompetition,
   fetchCompetitionRegistrations,
+  deleteCompetitionRegistration,
   deleteCompetitionPublicLink,
   competitionPublicUrl,
   competitionWeighUrl,
@@ -94,6 +95,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
   const [showDrawModeModal, setShowDrawModeModal] = useState(false);
   const [drawResult, setDrawResult] = useState(null);
   const [drawMode, setDrawMode] = useState(null);
+  const [deleteRegTarget, setDeleteRegTarget] = useState(null);
   const [form, setForm] = useState({
     nom: '',
     date_debut: '',
@@ -292,6 +294,23 @@ export default function CompetitionSettings({ onBack, onToast }) {
       onToast?.('Grille de combat exportée en PDF');
     } catch (err) {
       onToast?.(err.message || 'Erreur lors de l\'export de la grille', 'error');
+    }
+  };
+
+  const handleDeleteRegistration = async () => {
+    if (!deleteRegTarget) return;
+    setSaving(true);
+    setError('');
+    try {
+      await deleteCompetitionRegistration(deleteRegTarget.id);
+      setRegistrations((prev) => prev.filter((r) => r.id !== deleteRegTarget.id));
+      setDeleteRegTarget(null);
+      onToast?.('Judoka retiré de la compétition');
+    } catch (err) {
+      setError(err.message);
+      onToast?.(err.message, 'error');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -543,6 +562,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
                       <th>Poids</th>
                       <th>Type</th>
                       <th>Inscription</th>
+                      <th>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -567,6 +587,18 @@ export default function CompetitionSettings({ onBack, onToast }) {
                         </td>
                         <td data-label="Inscription">
                           {r.created_at ? new Date(r.created_at).toLocaleString('fr-FR') : '—'}
+                        </td>
+                        <td data-label="Actions">
+                          <div className="actions-cell">
+                            <button
+                              type="button"
+                              className="btn btn-danger btn-sm btn-icon"
+                              title="Supprimer"
+                              onClick={() => setDeleteRegTarget(r)}
+                            >
+                              🗑️
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -615,6 +647,27 @@ export default function CompetitionSettings({ onBack, onToast }) {
                 Annuler
               </button>
               <button type="button" className="btn btn-danger" onClick={handleDeleteLink} disabled={saving}>
+                {saving ? 'Suppression...' : 'Supprimer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteRegTarget && (
+        <div className="confirm-overlay" onClick={() => setDeleteRegTarget(null)}>
+          <div className="confirm-dialog" onClick={(e) => e.stopPropagation()}>
+            <h3>Supprimer l&apos;inscription ?</h3>
+            <p>
+              Retirer{' '}
+              <strong>{`${deleteRegTarget.prenom || ''} ${deleteRegTarget.nom || ''}`.trim()}</strong>
+              {' '}de la compétition ?
+            </p>
+            <div className="confirm-actions">
+              <button type="button" className="btn btn-outline" onClick={() => setDeleteRegTarget(null)}>
+                Annuler
+              </button>
+              <button type="button" className="btn btn-danger" onClick={handleDeleteRegistration} disabled={saving}>
                 {saving ? 'Suppression...' : 'Supprimer'}
               </button>
             </div>

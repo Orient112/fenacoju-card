@@ -139,7 +139,52 @@ export async function getCompetitionRegistrations() {
   return readRegistrationsJson().sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 }
 
+function norm(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function normCard(value) {
+  return String(value || '').trim().toUpperCase();
+}
+
+function normDate(value) {
+  return String(value || '').trim().slice(0, 10);
+}
+
+export async function findDuplicateCompetitionRegistration(payload) {
+  const list = await getCompetitionRegistrations();
+
+  if (payload.deja_enregistre) {
+    const judokaId = payload.judoka_id || null;
+    const carte = normCard(payload.numero_carte);
+    return list.find((r) => {
+      if (judokaId && r.judoka_id && String(r.judoka_id) === String(judokaId)) return true;
+      if (carte && normCard(r.numero_carte) === carte) return true;
+      return false;
+    }) || null;
+  }
+
+  const nom = norm(payload.nom);
+  const prenom = norm(payload.prenom);
+  const dateNaissance = normDate(payload.date_naissance);
+  const club = norm(payload.club);
+  const email = norm(payload.email);
+
+  return list.find((r) => (
+    norm(r.nom) === nom
+    && norm(r.prenom) === prenom
+    && normDate(r.date_naissance) === dateNaissance
+    && norm(r.club) === club
+    && norm(r.email) === email
+  )) || null;
+}
+
 export async function createCompetitionRegistration(payload) {
+  const duplicate = await findDuplicateCompetitionRegistration(payload);
+  if (duplicate) {
+    throw new Error('Ce judoka est déjà inscrit à cette compétition');
+  }
+
   const row = {
     id: uuidv4(),
     judoka_id: payload.judoka_id || null,
@@ -195,6 +240,29 @@ export async function getCompetitionRegistrationById(id) {
     }
   }
   return readRegistrationsJson().find((r) => r.id === id) || null;
+}
+
+export async function deleteCompetitionRegistration(id) {
+  const existing = await getCompetitionRegistrationById(id);
+  if (!existing) throw new Error('Inscription introuvable');
+
+  if (isSupabaseEnabled()) {
+    try {
+      const { error } = await getSupabase()
+        .from('competition_registrations')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      return { success: true, id };
+    } catch (err) {
+      if (!/relation|does not exist|schema cache/i.test(err.message || '')) throw err;
+      console.warn('Suppression inscription compétition fallback JSON:', err.message);
+    }
+  }
+
+  const list = readRegistrationsJson().filter((r) => r.id !== id);
+  writeRegistrationsJson(list);
+  return { success: true, id };
 }
 
 export async function updateCompetitionRegistrationWeight(id, poids) {

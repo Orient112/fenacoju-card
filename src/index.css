@@ -3653,3 +3653,80 @@ a.competition-action-btn,
   text-align: center;
   line-height: 1.45;
 }
+
+.btn-pese-done,
+.btn-pese-done:hover,
+.btn-pese-done:disabled {
+  background: #94a3b8 !important;
+  color: #f8fafc !important;
+  border: 1px solid #64748b;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+  opacity: 1;
+}
+
+.competition-weigh-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.9rem 1rem;
+  box-shadow: var(--shadow);
+}
+
+.competition-weigh-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.competition-filter-chip {
+  border: 1px solid var(--border);
+  background: #f8fafc;
+  color: var(--text);
+  border-radius: 999px;
+  padding: 0.4rem 0.85rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.competition-filter-chip.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: white;
+}
+
+.competition-weigh-filter-selects {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.competition-weigh-filter-selects label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.competition-weigh-filter-selects select {
+  font-family: inherit;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.55rem 0.7rem;
+  background: white;
+  color: var(--text);
+}
+
+@media (max-width: 640px) {
+  .competition-weigh-filter-selects {
+    grid-template-columns: 1fr;
+  }
+}
