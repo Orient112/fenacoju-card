@@ -387,8 +387,8 @@ app.post('/api/public/competition/:token/register', async (req, res) => {
 
     const registration = await createCompetitionRegistration({
       ...body,
-      judoka_id: judokaId,
-      numero_carte: numeroCarte,
+      judoka_id: null,
+      numero_carte: '',
       poids: '',
       taille: '',
       deja_enregistre: false,

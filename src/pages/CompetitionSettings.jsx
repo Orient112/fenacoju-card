@@ -275,8 +275,9 @@ export default function CompetitionSettings({ onBack, onToast }) {
 
   const handleTirageOpen = () => {
     const weighed = registrations.filter((r) => r.poids).length;
-    if (weighed === 0) {
-      onToast?.('Aucun judoka pesé pour le tirage', 'error');
+    const weighDone = registrations.length > 0 && weighed === registrations.length;
+    if (!weighDone) {
+      onToast?.('Le tirage au sort est disponible uniquement quand la pesée est terminée', 'error');
       return;
     }
     setDrawResult(null);
@@ -344,6 +345,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
   const isClosed = configured && !isPublic;
   const canWeigh = configured && isPublic;
   const weighedCount = registrations.filter((r) => r.poids).length;
+  const weighComplete = registrations.length > 0 && weighedCount === registrations.length;
 
   return (
     <div className="competition-page">
@@ -549,8 +551,12 @@ export default function CompetitionSettings({ onBack, onToast }) {
                   type="button"
                   className="btn btn-tirage competition-action-btn"
                   onClick={handleTirageOpen}
-                  disabled={weighedCount === 0}
-                  title={weighedCount === 0 ? 'Peséez d\'abord les judokas' : 'Lancer le tirage au sort'}
+                  disabled={!weighComplete}
+                  title={
+                    weighComplete
+                      ? 'Lancer le tirage au sort'
+                      : 'Disponible uniquement quand tous les inscrits sont pesés'
+                  }
                 >
                   Tirage au sort
                 </button>
@@ -584,7 +590,9 @@ export default function CompetitionSettings({ onBack, onToast }) {
                         <td data-label="#">{registrations.length - idx}</td>
                         <td data-label="Nom">{`${r.prenom || ''} ${r.nom || ''}`.trim()}</td>
                         <td data-label="Club">{r.club || '—'}</td>
-                        <td data-label="N° carte">{r.numero_carte || '—'}</td>
+                        <td data-label="N° carte">
+                          {r.deja_enregistre ? (r.numero_carte || '—') : '—'}
+                        </td>
                         <td data-label="Catégorie">{r.categorie || '—'}</td>
                         <td data-label="Poids">
                           {r.poids ? (

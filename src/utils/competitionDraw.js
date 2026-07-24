@@ -22,6 +22,7 @@ function sexeLabel(sexe) {
 }
 
 function pairMembers(members, keyPrefix) {
+  // Classement / appariement strictement aléatoire à chaque tirage
   const shuffled = shuffle(members);
   const fights = [];
   let bye = null;
@@ -40,9 +41,16 @@ function pairMembers(members, keyPrefix) {
     });
   }
 
+  // Mélanger aussi l'ordre des combats (positions dans la grille)
   return {
-    fights,
+    fights: shuffle(fights),
     bye: bye ? { ...bye, label: judokaLabel(bye) } : null,
+    seedOrder: shuffled.map((r) => ({
+      ...r,
+      id: r.id,
+      label: judokaLabel(r),
+      club: r.club || '',
+    })),
   };
 }
 
@@ -69,7 +77,7 @@ export function buildWeightDraw(registrations) {
   const groups = [...buckets.entries()]
     .map(([key, members]) => {
       const [sexe, poids] = key.split('|');
-      const { fights, bye } = pairMembers(members, key);
+      const { fights, bye, seedOrder } = pairMembers(members, key);
       return {
         key,
         mode: 'individuel',
@@ -80,6 +88,7 @@ export function buildWeightDraw(registrations) {
         count: members.length,
         fights,
         bye,
+        seedOrder,
       };
     })
     .sort((a, b) => {
@@ -126,7 +135,7 @@ export function buildTeamDraw(registrations) {
       const subGroups = [...genderBuckets.entries()]
         .map(([key, list]) => {
           const [sexe, poids] = key.split('|');
-          const { fights, bye } = pairMembers(list, `${team}|${key}`);
+          const { fights, bye, seedOrder } = pairMembers(list, `${team}|${key}`);
           return {
             key: `${team}|${key}`,
             mode: 'equipe',
@@ -138,6 +147,7 @@ export function buildTeamDraw(registrations) {
             count: list.length,
             fights,
             bye,
+            seedOrder,
           };
         })
         .sort((a, b) => {

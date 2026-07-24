@@ -185,10 +185,12 @@ export async function createCompetitionRegistration(payload) {
     throw new Error('Ce judoka est déjà inscrit à cette compétition');
   }
 
+  const dejaEnregistre = Boolean(payload.deja_enregistre);
   const row = {
     id: uuidv4(),
-    judoka_id: payload.judoka_id || null,
-    numero_carte: payload.numero_carte || '',
+    judoka_id: dejaEnregistre ? (payload.judoka_id || null) : null,
+    // Pas de n° de carte pour les judokas hors système
+    numero_carte: dejaEnregistre ? (payload.numero_carte || '') : '',
     nom: payload.nom?.trim() || '',
     prenom: payload.prenom?.trim() || '',
     date_naissance: payload.date_naissance || '',
@@ -200,7 +202,7 @@ export async function createCompetitionRegistration(payload) {
     taille: payload.taille?.trim() || '',
     telephone: payload.telephone?.trim() || '',
     email: payload.email?.trim() || '',
-    deja_enregistre: Boolean(payload.deja_enregistre),
+    deja_enregistre: dejaEnregistre,
     created_at: new Date().toISOString(),
   };
 

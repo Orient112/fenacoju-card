@@ -65,7 +65,7 @@ export default function CompetitionPublicForm({ token }) {
             closed: data.closed,
           };
         });
-        setError('');
+        // Ne pas effacer les erreurs utilisateur (ex. « déjà inscrit »)
       } catch (err) {
         if (!cancelled) {
           // Si le lien a été invalidé / compétition reset
@@ -95,6 +95,7 @@ export default function CompetitionPublicForm({ token }) {
   const startNew = () => {
     setStep('form');
     setError('');
+    setCardId('');
     setJudokaMeta(null);
     setForm(emptyForm());
   };
@@ -137,7 +138,8 @@ export default function CompetitionPublicForm({ token }) {
         ...form,
         deja_enregistre: Boolean(judokaMeta),
         judoka_id: judokaMeta?.id || null,
-        numero_carte: judokaMeta?.numero_carte || cardId.trim() || '',
+        // Les nouveaux (hors système) n'ont pas de n° de carte
+        numero_carte: judokaMeta ? (judokaMeta.numero_carte || cardId.trim() || '') : '',
       };
       await registerPublicCompetition(token, payload);
       setSuccessName(`${form.prenom} ${form.nom}`.trim());

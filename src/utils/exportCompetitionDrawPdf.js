@@ -33,7 +33,24 @@ function fighterLabel(f) {
   return f.label || `${f.prenom || ''} ${f.nom || ''}`.trim() || 'Exempt';
 }
 
+function shuffle(list) {
+  const arr = [...list];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
 function collectFighters(group) {
+  // Positionnement aléatoire dans la grille (y compris exempt)
+  if (group.seedOrder?.length) {
+    return shuffle(group.seedOrder.map((f) => ({
+      label: f.label || `${f.prenom || ''} ${f.nom || ''}`.trim(),
+      club: f.club || '',
+    })));
+  }
+
   const list = [];
   for (const fight of group.fights || []) {
     list.push({ label: fight.labelA, club: fight.a?.club || '' });
@@ -42,7 +59,7 @@ function collectFighters(group) {
   if (group.bye) {
     list.push({ label: group.bye.label, club: group.bye.club || '' });
   }
-  return list;
+  return shuffle(list);
 }
 
 function clipText(pdf, text, maxWidth) {
