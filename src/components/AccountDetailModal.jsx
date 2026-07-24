@@ -110,6 +110,22 @@ export default function AccountDetailModal({ account, onClose }) {
             )}
           </div>
 
+          {!isArbitre && account.type === 'club' && Array.isArray(account.comites) && account.comites.length > 0 && (
+            <div className="club-detail-section">
+              <h3>Comités ({account.comites.length})</h3>
+              <ul className="club-members-list">
+                {account.comites.map((c, idx) => (
+                  <li key={`acc-comite-${idx}`} className="club-member-item">
+                    <div>
+                      <span className="club-member-name">{c.nom || '—'}</span>
+                      {c.titre && <span className="club-member-meta">{c.titre}</span>}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {!isArbitre && account.type === 'club' && Object.keys(documents).length > 0 && (
             <div className="club-detail-section">
               <h3>Documents</h3>

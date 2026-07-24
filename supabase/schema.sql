@@ -20,6 +20,7 @@ create table if not exists users (
   grade text,
   telephone text default '',
   documents jsonb default '{}'::jsonb,
+  comites jsonb default '[]'::jsonb,
   statut text not null default 'actif' check (statut in ('pending', 'actif', 'rejete')),
   acces_systeme boolean default true,
   parent_id uuid references users(id) on delete set null,

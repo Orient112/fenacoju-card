@@ -43,9 +43,30 @@ function needsValidation(type) {
   return ['ligue', 'entente', 'club', 'entraineur'].includes(type);
 }
 
+function normalizeComites(raw) {
+  let list = raw;
+  if (typeof list === 'string') {
+    try {
+      list = JSON.parse(list);
+    } catch {
+      list = [];
+    }
+  }
+  if (!Array.isArray(list)) return [];
+  return list
+    .map((c) => ({
+      nom: String(c?.nom || '').trim(),
+      titre: String(c?.titre || '').trim(),
+    }))
+    .filter((c) => c.nom || c.titre);
+}
+
 export function sanitizeUser(user) {
   if (!user) return null;
   const { password, ...safe } = user;
+  if (safe.comites !== undefined) {
+    safe.comites = normalizeComites(safe.comites);
+  }
   return safe;
 }
 
@@ -281,6 +302,7 @@ export async function createUser(data, creator) {
     user.nom_club = enforced.nom_club?.trim();
     user.ville = enforced.ville?.trim() || '';
     user.responsable = enforced.responsable?.trim() || '';
+    user.comites = normalizeComites(enforced.comites);
     user.documents = enforced.documents || {};
   } else if (enforced.type === 'entraineur') {
     if (!enforced.club?.trim()) throw new Error('Le club est obligatoire');
@@ -296,7 +318,16 @@ export async function createUser(data, creator) {
 
   if (isSupabaseEnabled()) {
     const { error } = await getSupabase().from('users').insert(user);
-    if (error) throw new Error(error.message);
+    if (error) {
+      if (/comites|schema cache|column/i.test(error.message || '')) {
+        const { comites: _ignored, ...withoutComites } = user;
+        const retry = await getSupabase().from('users').insert(withoutComites);
+        if (retry.error) throw new Error(retry.error.message);
+        console.warn('Colonne users.comites absente — exécutez migration_club_comites.sql');
+      } else {
+        throw new Error(error.message);
+      }
+    }
   } else {
     users.push(user);
     writeUsersJson(users);
@@ -352,6 +383,7 @@ export async function updateUser(id, data, editor) {
     if (data.nom_club) updated.nom_club = data.nom_club.trim();
     if (data.ville !== undefined) updated.ville = data.ville?.trim() || '';
     if (data.responsable !== undefined) updated.responsable = data.responsable?.trim() || '';
+    if (data.comites !== undefined) updated.comites = normalizeComites(data.comites);
     if (data.documents) updated.documents = { ...(existing.documents || {}), ...data.documents };
   } else if (existing.type === 'entraineur') {
     if (data.club && !(await isClubRegistered(data.club))) {
@@ -367,8 +399,18 @@ export async function updateUser(id, data, editor) {
 
   if (isSupabaseEnabled()) {
     const { password, ...row } = updated;
-    const { error } = await getSupabase().from('users').update({ ...row, password: updated.password }).eq('id', id);
-    if (error) throw new Error(error.message);
+    const payload = { ...row, password: updated.password };
+    const { error } = await getSupabase().from('users').update(payload).eq('id', id);
+    if (error) {
+      if (/comites|schema cache|column/i.test(error.message || '') && 'comites' in payload) {
+        const { comites: _ignored, ...withoutComites } = payload;
+        const retry = await getSupabase().from('users').update(withoutComites).eq('id', id);
+        if (retry.error) throw new Error(retry.error.message);
+        console.warn('Colonne users.comites absente — exécutez migration_club_comites.sql');
+      } else {
+        throw new Error(error.message);
+      }
+    }
   } else {
     users[index] = updated;
     writeUsersJson(users);

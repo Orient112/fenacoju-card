@@ -276,8 +276,16 @@ export default function CompetitionSettings({ onBack, onToast }) {
   const handleTirageOpen = () => {
     const weighed = registrations.filter((r) => r.poids).length;
     const weighDone = registrations.length > 0 && weighed === registrations.length;
-    if (!weighDone) {
-      onToast?.('Le tirage au sort est disponible uniquement quand la pesée est terminée', 'error');
+    const inscriptionsOff = Boolean(settings?.configured) && !settings?.public_enabled;
+    if (registrations.length === 0) {
+      onToast?.('Aucun judoka inscrit pour le tirage', 'error');
+      return;
+    }
+    if (!weighDone && !inscriptionsOff) {
+      onToast?.(
+        'Le tirage est disponible quand la pesée est clôturée, ou après désactivation du lien (Off)',
+        'error'
+      );
       return;
     }
     setDrawResult(null);
@@ -346,6 +354,8 @@ export default function CompetitionSettings({ onBack, onToast }) {
   const canWeigh = configured && isPublic;
   const weighedCount = registrations.filter((r) => r.poids).length;
   const weighComplete = registrations.length > 0 && weighedCount === registrations.length;
+  // Tirage actif si pesée clôturée, ou si le lien d'inscription est Off
+  const tirageReady = registrations.length > 0 && (weighComplete || isClosed);
 
   return (
     <div className="competition-page">
@@ -551,11 +561,11 @@ export default function CompetitionSettings({ onBack, onToast }) {
                   type="button"
                   className="btn btn-tirage competition-action-btn"
                   onClick={handleTirageOpen}
-                  disabled={!weighComplete}
+                  disabled={!tirageReady}
                   title={
-                    weighComplete
+                    tirageReady
                       ? 'Lancer le tirage au sort'
-                      : 'Disponible uniquement quand tous les inscrits sont pesés'
+                      : 'Disponible si la pesée est clôturée, ou après Off du lien d\'inscription'
                   }
                 >
                   Tirage au sort

@@ -2938,6 +2938,46 @@ tbody tr:last-child td {
   grid-column: 1 / -1;
 }
 
+.club-comites-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.club-comites-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.club-comites-head label {
+  margin: 0;
+}
+
+.club-comites-empty {
+  margin: 0;
+}
+
+.club-comites-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.club-comite-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+@media (max-width: 640px) {
+  .club-comite-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 .competition-public-panel {
   display: flex;
   flex-direction: column;
@@ -3380,6 +3420,15 @@ tbody tr:last-child td {
   min-width: 0;
 }
 
+.competition-weigh-name {
+  font-size: 1rem;
+  line-height: 1.25;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .competition-weigh-num {
   width: 34px;
   height: 34px;
@@ -3394,9 +3443,9 @@ tbody tr:last-child td {
   flex-shrink: 0;
 }
 
-.competition-weigh-identity p {
-  color: var(--text-muted);
-  font-size: 0.86rem;
+.competition-weigh-identity p,
+.competition-weigh-identity .competition-weigh-meta {
+  display: none !important;
 }
 
 .competition-weigh-input {

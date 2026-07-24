@@ -134,6 +134,7 @@ async function main() {
     grade: u.grade || null,
     telephone: u.telephone || '',
     documents: rewriteDocuments(u.documents, urlMap),
+    comites: Array.isArray(u.comites) ? u.comites : [],
     created_at: u.created_at || new Date().toISOString(),
   }));
 

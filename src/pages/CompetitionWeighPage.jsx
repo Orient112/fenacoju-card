@@ -245,9 +245,7 @@ export default function CompetitionWeighPage({ token }) {
                 <div key={r.id} className={`competition-weigh-row ${done ? 'is-done' : ''}`}>
                   <div className="competition-weigh-identity">
                     <span className="competition-weigh-num">{originalIndex + 1}</span>
-                    <div>
-                      <strong>{`${r.prenom || ''} ${r.nom || ''}`.trim()}</strong>
-                    </div>
+                    <strong className="competition-weigh-name">{`${r.prenom || ''} ${r.nom || ''}`.trim()}</strong>
                   </div>
                   <div className="competition-weigh-input">
                     <input

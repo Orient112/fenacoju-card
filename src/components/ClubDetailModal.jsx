@@ -25,6 +25,24 @@ export default function ClubDetailModal({ club, judokas = [], entraineurs = [], 
             <p className="club-detail-value">{club.responsable || '—'}</p>
           </div>
 
+          <div className="club-detail-section">
+            <h3>Comités ({Array.isArray(club.comites) ? club.comites.length : 0})</h3>
+            {!Array.isArray(club.comites) || club.comites.length === 0 ? (
+              <p className="club-detail-empty">Aucun comité enregistré</p>
+            ) : (
+              <ul className="club-members-list">
+                {club.comites.map((c, idx) => (
+                  <li key={`comite-${idx}`} className="club-member-item">
+                    <div>
+                      <span className="club-member-name">{c.nom || '—'}</span>
+                      {c.titre && <span className="club-member-meta">{c.titre}</span>}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
           <div className="club-detail-grid">
             <div className="club-detail-item">
               <span className="club-detail-label">Province / Ville</span>

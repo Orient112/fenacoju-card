@@ -13,7 +13,7 @@ const emptyForms = {
   membre: { nom: '', prenom: '', email: '', telephone: '', fonction: '' },
   ligue: { nom_organisation: '', ville: '', responsable: '', email: '', telephone: '', password: '', confirmPassword: '' },
   entente: { nom_organisation: '', ville: '', responsable: '', email: '', telephone: '', password: '', confirmPassword: '' },
-  club: { nom_club: '', ville: '', responsable: '', email: '', telephone: '', password: '', confirmPassword: '' },
+  club: { nom_club: '', ville: '', responsable: '', email: '', telephone: '', password: '', confirmPassword: '', comites: [] },
   entraineur: { nom: '', prenom: '', club: '', grade: 'Noire 1er Dan', email: '', telephone: '' },
 };
 
@@ -33,6 +33,9 @@ function userToForm(user, type) {
     responsable: user.responsable || '',
     club: user.club || '',
     grade: user.grade || 'Noire 1er Dan',
+    comites: Array.isArray(user.comites) && user.comites.length
+      ? user.comites.map((c) => ({ nom: c.nom || '', titre: c.titre || '' }))
+      : [],
   };
 }
 
@@ -130,6 +133,65 @@ function TelephoneField({ form, onChange }) {
   );
 }
 
+function ClubComitesField({ comites, onChange }) {
+  const list = Array.isArray(comites) ? comites : [];
+
+  const updateRow = (index, field, value) => {
+    const next = list.map((row, i) => (i === index ? { ...row, [field]: value } : row));
+    onChange(next);
+  };
+
+  const addRow = () => {
+    onChange([...list, { nom: '', titre: '' }]);
+  };
+
+  const removeRow = (index) => {
+    onChange(list.filter((_, i) => i !== index));
+  };
+
+  return (
+    <div className="form-group form-group-full club-comites-field">
+      <div className="club-comites-head">
+        <label>Comités</label>
+        <button type="button" className="btn btn-outline btn-sm" onClick={addRow}>
+          + Ajouter
+        </button>
+      </div>
+      <p className="form-hint">Ajoutez autant de membres de comité que nécessaire (Nom et Titre).</p>
+      {list.length === 0 ? (
+        <p className="form-hint club-comites-empty">Aucun comité pour le moment.</p>
+      ) : (
+        <div className="club-comites-list">
+          {list.map((row, index) => (
+            <div key={`comite-${index}`} className="club-comite-row">
+              <input
+                value={row.nom}
+                onChange={(e) => updateRow(index, 'nom', e.target.value)}
+                placeholder="Nom"
+                aria-label={`Nom du comité ${index + 1}`}
+              />
+              <input
+                value={row.titre}
+                onChange={(e) => updateRow(index, 'titre', e.target.value)}
+                placeholder="Titre"
+                aria-label={`Titre du comité ${index + 1}`}
+              />
+              <button
+                type="button"
+                className="btn btn-danger btn-sm btn-icon"
+                title="Retirer"
+                onClick={() => removeRow(index)}
+              >
+                🗑️
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function OrgFields({ form, onChange, nameLabel }) {
   return (
     <>
@@ -220,6 +282,14 @@ export default function UserForm({ type, editingUser, currentUser, registeredClu
       const { confirmPassword, ...data } = form;
       if (!data.password) delete data.password;
 
+      if (type === 'club') {
+        data.comites = (Array.isArray(data.comites) ? data.comites : [])
+          .map((c) => ({ nom: (c.nom || '').trim(), titre: (c.titre || '').trim() }))
+          .filter((c) => c.nom || c.titre);
+      } else {
+        delete data.comites;
+      }
+
       let user;
       const hasNewDocs = type === 'club' && Object.values(clubDocs).some(Boolean);
 
@@ -228,7 +298,13 @@ export default function UserForm({ type, editingUser, currentUser, registeredClu
         user = await uploadClubDocuments(editingUser.id, clubDocs);
       } else if (hasNewDocs && !isEdit) {
         const formData = new FormData();
-        Object.entries(data).forEach(([key, value]) => formData.append(key, value ?? ''));
+        Object.entries(data).forEach(([key, value]) => {
+          if (key === 'comites') {
+            formData.append(key, JSON.stringify(value ?? []));
+          } else {
+            formData.append(key, value ?? '');
+          }
+        });
         formData.append('type', type);
         Object.entries(clubDocs).forEach(([key, file]) => {
           if (file) formData.append(key, file);
@@ -326,6 +402,10 @@ export default function UserForm({ type, editingUser, currentUser, registeredClu
               </div>
 
               <EmailField form={form} onChange={handleChange} />
+              <ClubComitesField
+                comites={form.comites}
+                onChange={(comites) => setForm((prev) => ({ ...prev, comites }))}
+              />
               <TelephoneField form={form} onChange={handleChange} />
 
               {CLUB_DOC_FIELDS.map(({ key, label }) => (
