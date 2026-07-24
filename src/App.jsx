@@ -368,8 +368,8 @@ export default function App() {
       await setCompetitionAccess(next);
       setCompetitionAccessState(next);
       showToast(next
-        ? 'Bouton Compétition activé pour le Directeur Compétition'
-        : 'Bouton Compétition désactivé');
+        ? 'Bouton Compétition activé — le Directeur peut créer une nouvelle compétition'
+        : 'Compétition désactivée — données et lien d\'inscription effacés');
     } catch (err) {
       showToast(err.message || 'Erreur', 'error');
     } finally {

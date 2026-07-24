@@ -324,6 +324,21 @@ export async function deleteCompetitionPublicLink() {
   return settings;
 }
 
+/** Efface toute la compétition (params, inscriptions, lien) — utilisé quand Admin/Coordon passe Off. */
+export async function resetCompetitionCompletely({ access_enabled = false } = {}) {
+  await clearCompetitionRegistrations();
+  return updateCompetitionSettings({
+    access_enabled: Boolean(access_enabled),
+    nom: '',
+    date_debut: '',
+    date_fin: '',
+    lieu: '',
+    description: '',
+    public_enabled: false,
+    public_token: uuidv4().replace(/-/g, '').slice(0, 16),
+  });
+}
+
 export function toPublicRegistration(row) {
   if (!row) return null;
   return {

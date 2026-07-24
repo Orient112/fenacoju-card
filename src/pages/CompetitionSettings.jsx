@@ -155,7 +155,20 @@ export default function CompetitionSettings({ onBack, onToast }) {
         fetchCompetitionRegistrations().catch(() => null),
       ]);
       setSettings((prev) => ({ ...prev, ...data }));
+      // Si Admin/Coordon a reset (Off), synchroniser le formulaire local
+      if (!data.configured || !data.nom) {
+        setForm({
+          nom: data.nom || '',
+          date_debut: data.date_debut || '',
+          date_fin: data.date_fin || '',
+          lieu: data.lieu || '',
+          description: data.description || '',
+        });
+        setDrawResult(null);
+        setShowParamsModal(false);
+      }
       if (regs) setRegistrations(regs);
+      else if (!data.configured) setRegistrations([]);
       setLiveTick((v) => !v);
     } catch {
       // silent

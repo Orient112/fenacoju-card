@@ -48,6 +48,37 @@ export default function CompetitionPublicForm({ token }) {
     return () => { cancelled = true; };
   }, [token]);
 
+  // Actualisation silencieuse (compteur d'inscrits) sans bloquer le formulaire
+  useEffect(() => {
+    if (loading) return undefined;
+    let cancelled = false;
+    const id = setInterval(async () => {
+      try {
+        const data = await fetchPublicCompetition(token);
+        if (cancelled) return;
+        setCompetition((prev) => {
+          if (!prev) return data;
+          return {
+            ...prev,
+            ...data,
+            registrations_count: data.registrations_count,
+            closed: data.closed,
+          };
+        });
+        setError('');
+      } catch (err) {
+        if (!cancelled) {
+          // Si le lien a été invalidé / compétition reset
+          setCompetition((prev) => (prev ? { ...prev, closed: true } : prev));
+        }
+      }
+    }, 1000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [token, loading]);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));

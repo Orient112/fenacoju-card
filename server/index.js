@@ -73,6 +73,7 @@ import {
   updateCompetitionRegistrationWeight,
   deleteCompetitionRegistration,
   deleteCompetitionPublicLink,
+  resetCompetitionCompletely,
   findDuplicateCompetitionRegistration,
   toPublicCompetition,
   toPublicRegistration,
@@ -443,10 +444,17 @@ app.put('/api/competition/access', async (req, res) => {
       return res.status(403).json({ error: 'Seul Admin ou Coordon peut activer la compétition' });
     }
     const enabled = Boolean(req.body?.access_enabled);
-    const settings = await updateCompetitionSettings({ access_enabled: enabled });
+
+    // Off : efface toute la compétition (params, inscrits, ancien lien)
+    // On : réactive l'accès pour une nouvelle compétition vide
+    const settings = enabled
+      ? await updateCompetitionSettings({ access_enabled: true })
+      : await resetCompetitionCompletely({ access_enabled: false });
+
     res.json({
       access_enabled: settings.access_enabled,
       configured: isCompetitionConfigured(settings),
+      reset: !enabled,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
