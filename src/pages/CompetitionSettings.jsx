@@ -8,6 +8,7 @@ import {
   competitionWeighUrl,
 } from '../api';
 import { exportCompetitionListToPdf } from '../utils/exportCompetitionListPdf';
+import { exportCompetitionDrawToPdf } from '../utils/exportCompetitionDrawPdf';
 import { buildWeightDraw, buildTeamDraw } from '../utils/competitionDraw';
 
 function formatDateFr(value) {
@@ -281,12 +282,17 @@ export default function CompetitionSettings({ onBack, onToast }) {
     setShowDrawModeModal(false);
   };
 
-  const handleTirageRelancer = () => {
-    if (!drawMode) {
-      setShowDrawModeModal(true);
+  const handleExportGrilleCombat = () => {
+    if (!drawResult?.groups?.length) {
+      onToast?.('Aucune grille de combat à exporter', 'error');
       return;
     }
-    handleTirageMode(drawMode);
+    try {
+      exportCompetitionDrawToPdf(drawResult, settings || {});
+      onToast?.('Grille de combat exportée en PDF');
+    } catch (err) {
+      onToast?.(err.message || 'Erreur lors de l\'export de la grille', 'error');
+    }
   };
 
   if (loading) {
@@ -636,10 +642,6 @@ export default function CompetitionSettings({ onBack, onToast }) {
                 Par Equipe
               </button>
             </div>
-            <p className="form-hint competition-draw-mode-hint">
-              Individuel : combats par poids (Garçons / Filles).<br />
-              Par Equipe : combats regroupés par club / équipe.
-            </p>
           </div>
         </div>
       )}
@@ -659,8 +661,8 @@ export default function CompetitionSettings({ onBack, onToast }) {
                 <button type="button" className="btn btn-outline" onClick={() => { setDrawResult(null); setShowDrawModeModal(true); }}>
                   Mode
                 </button>
-                <button type="button" className="btn btn-tirage" onClick={handleTirageRelancer}>
-                  Relancer
+                <button type="button" className="btn btn-tirage" onClick={handleExportGrilleCombat}>
+                  Grille de Combat
                 </button>
                 <button type="button" className="btn btn-outline btn-sm" onClick={() => setDrawResult(null)}>
                   Fermer

@@ -33,8 +33,6 @@ export function exportCompetitionListToPdf(registrations, competition = {}) {
     competition.lieu ? `Lieu : ${competition.lieu}` : null,
     competition.date_debut ? `Date : ${competition.date_debut}` : null,
     `Inscrits : ${sorted.length}`,
-    'Classement : poids · Garçons / Filles',
-    `Export : ${new Date().toLocaleString('fr-FR')}`,
   ].filter(Boolean);
   pdf.text(meta.join('  ·  '), marginX, y);
   y += 10;
