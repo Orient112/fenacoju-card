@@ -18,6 +18,16 @@ function isTeamRegistration(r) {
   return r?.mode_inscription === 'equipe' || String(r?.taille || '').startsWith('__mode_equipe__');
 }
 
+function groupTeamClubs(registrations) {
+  const map = new Map();
+  for (const r of registrations || []) {
+    const club = (r.club || '').trim() || 'Sans club';
+    if (!map.has(club)) map.set(club, { club, ids: [] });
+    map.get(club).ids.push(r.id);
+  }
+  return [...map.values()].sort((a, b) => a.club.localeCompare(b.club, 'fr'));
+}
+
 function formatDateFr(value) {
   if (!value) return '—';
   try {
@@ -27,7 +37,7 @@ function formatDateFr(value) {
   }
 }
 
-function RegistrationsTable({ registrations, onEdit, onDelete, showTeamRole = false }) {
+function RegistrationsTable({ registrations, onEdit, onDelete }) {
   if (!registrations.length) {
     return (
       <div className="competition-empty-regs">
@@ -41,30 +51,18 @@ function RegistrationsTable({ registrations, onEdit, onDelete, showTeamRole = fa
       <table className="data-table">
         <thead>
           <tr>
-            <th>#</th>
             <th>Nom</th>
             <th>Club</th>
-            {!showTeamRole && <th>N° carte</th>}
-            <th>Catégorie</th>
             <th>Poids</th>
-            {showTeamRole && <th>Rôle</th>}
-            {!showTeamRole && <th>Type</th>}
-            <th>Inscription</th>
+            <th>Type</th>
             <th>Actions</th>
           </tr>
         </thead>
         <tbody>
-          {registrations.map((r, idx) => (
+          {registrations.map((r) => (
             <tr key={r.id}>
-              <td data-label="#">{registrations.length - idx}</td>
               <td data-label="Nom">{`${r.prenom || ''} ${r.nom || ''}`.trim()}</td>
               <td data-label="Club">{r.club || '—'}</td>
-              {!showTeamRole && (
-                <td data-label="N° carte">
-                  {r.deja_enregistre ? (r.numero_carte || '—') : '—'}
-                </td>
-              )}
-              <td data-label="Catégorie">{r.categorie || '—'}</td>
               <td data-label="Poids">
                 {r.poids ? (
                   <span className="badge badge-actif">{r.poids} kg</span>
@@ -72,22 +70,10 @@ function RegistrationsTable({ registrations, onEdit, onDelete, showTeamRole = fa
                   <span className="badge badge-pending">À peser</span>
                 )}
               </td>
-              {showTeamRole && (
-                <td data-label="Rôle">
-                  <span className="badge badge-actif">
-                    {r.role_equipe === 'remplacant' || String(r.taille || '').includes('remplacant') ? 'Remplaçant' : 'Principal'}
-                  </span>
-                </td>
-              )}
-              {!showTeamRole && (
-                <td data-label="Type">
-                  <span className={`badge ${r.deja_enregistre ? 'badge-actif' : 'badge-pending'}`}>
-                    {r.deja_enregistre ? 'Système' : 'Nouveau'}
-                  </span>
-                </td>
-              )}
-              <td data-label="Inscription">
-                {r.created_at ? new Date(r.created_at).toLocaleString('fr-FR') : '—'}
+              <td data-label="Type">
+                <span className={`badge ${r.deja_enregistre ? 'badge-actif' : 'badge-pending'}`}>
+                  {r.deja_enregistre ? 'Système' : 'Nouveau'}
+                </span>
               </td>
               <td data-label="Actions">
                 <div className="actions-cell">
@@ -104,6 +90,48 @@ function RegistrationsTable({ registrations, onEdit, onDelete, showTeamRole = fa
                     className="btn btn-danger btn-sm btn-icon"
                     title="Supprimer"
                     onClick={() => onDelete(r)}
+                  >
+                    🗑️
+                  </button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function TeamClubsTable({ clubs, onDelete }) {
+  if (!clubs.length) {
+    return (
+      <div className="competition-empty-regs">
+        <p>Aucun club inscrit.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="table-wrap">
+      <table className="data-table">
+        <thead>
+          <tr>
+            <th>Club</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {clubs.map((team) => (
+            <tr key={team.club}>
+              <td data-label="Club">{team.club}</td>
+              <td data-label="Actions">
+                <div className="actions-cell">
+                  <button
+                    type="button"
+                    className="btn btn-danger btn-sm btn-icon"
+                    title="Supprimer l'équipe"
+                    onClick={() => onDelete(team)}
                   >
                     🗑️
                   </button>
@@ -282,6 +310,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
   const [drawAnimating, setDrawAnimating] = useState(false);
   const [actionMode, setActionMode] = useState(null);
   const [deleteRegTarget, setDeleteRegTarget] = useState(null);
+  const [deleteClubTarget, setDeleteClubTarget] = useState(null);
   const [editRegTarget, setEditRegTarget] = useState(null);
   const [editRegForm, setEditRegForm] = useState({ nom: '', prenom: '', poids: '' });
   const [form, setForm] = useState({
@@ -600,6 +629,24 @@ export default function CompetitionSettings({ onBack, onToast }) {
     }
   };
 
+  const handleDeleteClubTeam = async () => {
+    if (!deleteClubTarget?.ids?.length) return;
+    setSaving(true);
+    setError('');
+    try {
+      await Promise.all(deleteClubTarget.ids.map((id) => deleteCompetitionRegistration(id)));
+      const ids = new Set(deleteClubTarget.ids);
+      setRegistrations((prev) => prev.filter((r) => !ids.has(r.id)));
+      setDeleteClubTarget(null);
+      onToast?.('Équipe du club retirée de la compétition');
+    } catch (err) {
+      setError(err.message);
+      onToast?.(err.message, 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="page-loader">
@@ -840,16 +887,13 @@ export default function CompetitionSettings({ onBack, onToast }) {
                     registrations={registrations.filter((r) => !isTeamRegistration(r))}
                     onEdit={openEditRegistration}
                     onDelete={setDeleteRegTarget}
-                    showTeamRole={false}
                   />
                 </div>
                 <div className="competition-inscriptions-pane">
                   <h4>Par Équipe</h4>
-                  <RegistrationsTable
-                    registrations={registrations.filter((r) => isTeamRegistration(r))}
-                    onEdit={openEditRegistration}
-                    onDelete={setDeleteRegTarget}
-                    showTeamRole
+                  <TeamClubsTable
+                    clubs={groupTeamClubs(registrations.filter((r) => isTeamRegistration(r)))}
+                    onDelete={setDeleteClubTarget}
                   />
                 </div>
               </div>
@@ -920,6 +964,25 @@ export default function CompetitionSettings({ onBack, onToast }) {
                 Annuler
               </button>
               <button type="button" className="btn btn-danger" onClick={handleDeleteRegistration} disabled={saving}>
+                {saving ? 'Suppression...' : 'Supprimer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteClubTarget && (
+        <div className="confirm-overlay" onClick={() => setDeleteClubTarget(null)}>
+          <div className="confirm-dialog" onClick={(e) => e.stopPropagation()}>
+            <h3>Supprimer l&apos;équipe ?</h3>
+            <p>
+              Retirer le club <strong>{deleteClubTarget.club}</strong> et tous ses judokas d&apos;équipe ?
+            </p>
+            <div className="confirm-actions">
+              <button type="button" className="btn btn-outline" onClick={() => setDeleteClubTarget(null)}>
+                Annuler
+              </button>
+              <button type="button" className="btn btn-danger" onClick={handleDeleteClubTeam} disabled={saving}>
                 {saving ? 'Suppression...' : 'Supprimer'}
               </button>
             </div>

@@ -230,7 +230,10 @@ export default function CompetitionPublicForm({ token }) {
   const count = competition.registrations_count ?? 0;
   const allWeightCats = parseCategoriesPoids(competition.categories_poids);
   const weightCats = teamSexe ? categoriesForSexe(allWeightCats, teamSexe) : [];
-  const filledTeamCats = Object.values(teamRoster).filter((bucket) => bucket?.principal).length;
+  const filledTeamJudokas = Object.values(teamRoster).reduce(
+    (n, bucket) => n + (bucket?.principal ? 1 : 0) + (bucket?.remplacant ? 1 : 0),
+    0
+  );
   const boyCats = categoriesForSexe(allWeightCats, 'M');
   const girlCats = categoriesForSexe(allWeightCats, 'F');
 
@@ -312,8 +315,8 @@ export default function CompetitionPublicForm({ token }) {
           });
         }
       }
-      if (filledTeamCats < TEAM_MIN_CATEGORIES) {
-        throw new Error(`Inscrivez des judokas dans au moins ${TEAM_MIN_CATEGORIES} catégories de poids`);
+      if (members.length < 3) {
+        throw new Error('Inscrivez au moins 3 judokas pour enregistrer l\'équipe');
       }
       const result = await registerPublicCompetition(token, {
         mode_inscription: 'equipe',
@@ -445,7 +448,7 @@ export default function CompetitionPublicForm({ token }) {
                 )}
 
                 <div className="form-grid">
-                  <div className="form-group">
+                  <div className="form-group form-group-full">
                     <label htmlFor="club">Club *</label>
                     <input id="club" name="club" value={form.club} onChange={handleChange} required readOnly={Boolean(judokaMeta)} />
                   </div>
@@ -503,7 +506,7 @@ export default function CompetitionPublicForm({ token }) {
             )}
 
             {step === 'team' && (
-              <form className="competition-reg-form form-card" onSubmit={handleTeamSubmit}>
+              <form className="competition-reg-form form-card competition-team-form" onSubmit={handleTeamSubmit}>
                 <h2>Enregistrement Equipe · {sexeLabel(teamSexe)}</h2>
 
                 <div className="form-group">
@@ -641,7 +644,7 @@ export default function CompetitionPublicForm({ token }) {
                   <button
                     type="submit"
                     className="btn btn-primary"
-                    disabled={submitting || filledTeamCats < TEAM_MIN_CATEGORIES}
+                    disabled={submitting || filledTeamJudokas < 3}
                   >
                     {submitting ? 'Envoi...' : 'Enregistrer l\'équipe'}
                   </button>

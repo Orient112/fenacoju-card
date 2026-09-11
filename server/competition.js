@@ -467,9 +467,8 @@ export async function createCompetitionTeamRoster({ club, sexe = 'M', members = 
     }
   }
 
-  const filledCats = [...byCat.values()].filter((b) => b.principal).length;
-  if (filledCats < TEAM_MIN_CATEGORIES) {
-    throw new Error(`Le club doit inscrire des judokas dans au moins ${TEAM_MIN_CATEGORIES} catégories ${sexeLabel}`);
+  if (cleaned.length < 3) {
+    throw new Error('Le club doit inscrire au moins 3 judokas');
   }
 
   const created = [];

@@ -3044,6 +3044,17 @@ tbody tr:last-child td {
   grid-column: 1 / -1;
 }
 
+.competition-public-page .competition-team-form {
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+}
+
+.competition-public-desc,
+.competition-public-page .competition-team-form.form-card {
+  width: 100%;
+}
+
 .club-comites-field {
   display: flex;
   flex-direction: column;
