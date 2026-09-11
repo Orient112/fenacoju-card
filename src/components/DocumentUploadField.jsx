@@ -39,6 +39,7 @@ export default function DocumentUploadField({
   onClear,
   showCamera,
   onToggleCamera,
+  onCloseCamera,
   onCameraCapture,
 }) {
   const fileRef = useRef(null);
@@ -117,7 +118,7 @@ export default function DocumentUploadField({
           facingMode="environment"
           captureLabel="Capturer"
           onCapture={onCameraCapture}
-          onClose={onToggleCamera}
+          onClose={onCloseCamera || onToggleCamera}
         />
       )}
     </div>

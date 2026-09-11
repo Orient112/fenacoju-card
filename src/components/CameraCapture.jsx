@@ -58,15 +58,17 @@ export default function CameraCapture({
     if (!video) return;
 
     const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    canvas.width = video.videoWidth || 1280;
+    canvas.height = video.videoHeight || 720;
     canvas.getContext('2d').drawImage(video, 0, 0);
+
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    onClose();
 
     canvas.toBlob((blob) => {
       if (!blob) return;
-      const file = new File([blob], `photo-${Date.now()}.jpg`, { type: 'image/jpeg' });
+      const file = new File([blob], `scan-${Date.now()}.jpg`, { type: 'image/jpeg' });
       onCapture(file);
-      onClose();
     }, 'image/jpeg', 0.92);
   };
 

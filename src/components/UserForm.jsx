@@ -55,6 +55,7 @@ const FORM_COPY = {
     newTitle: 'Nouveau - Club',
     editSubtitle: 'Modifiez les informations de ce Club',
     newSubtitle: 'Le compte sera actif après validation du Coordon',
+    createLabel: 'Créer Club',
   },
   entraineur: {
     editTitle: 'Modifier - Entraineur',
@@ -424,8 +425,12 @@ export default function UserForm({ type, editingUser, currentUser, registeredClu
                         onFileChange={(file) => setClubDocument(key, file)}
                         onClear={() => clearClubDocument(key)}
                         showCamera={activeCamera === key}
-                        onToggleCamera={() => setActiveCamera((prev) => (prev === key ? null : key))}
-                        onCameraCapture={(file) => { setClubDocument(key, file); setActiveCamera(null); }}
+                        onToggleCamera={() => setActiveCamera(key)}
+                        onCloseCamera={() => setActiveCamera(null)}
+                        onCameraCapture={(file) => {
+                          setClubDocument(key, file);
+                          setActiveCamera(null);
+                        }}
                       />
                     ))}
                   </div>
