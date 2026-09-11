@@ -78,8 +78,13 @@ export default function CompetitionWeighPage({ token }) {
   }, [registrations]);
 
   const filtered = useMemo(() => {
+    const params = new URLSearchParams(window.location.search);
+    const mode = params.get('mode');
     const term = search.trim().toLowerCase();
     return registrations.filter((r) => {
+      const isTeam = r.mode_inscription === 'equipe' || String(r.taille || '').startsWith('__mode_equipe__');
+      if (mode === 'equipe' && !isTeam) return false;
+      if (mode === 'individuel' && isTeam) return false;
       if (filterClub && (r.club || '').trim() !== filterClub) return false;
       if (filterPoids && String(r.poids || '').trim() !== filterPoids) return false;
 
@@ -152,8 +157,8 @@ export default function CompetitionWeighPage({ token }) {
     );
   }
 
-  const weighed = registrations.filter((r) => r.poids).length;
-  const weighComplete = registrations.length > 0 && weighed === registrations.length;
+  const weighed = filtered.filter((r) => r.poids).length;
+  const weighComplete = filtered.length > 0 && weighed === filtered.length;
 
   return (
     <div className="competition-public-page">
@@ -163,10 +168,10 @@ export default function CompetitionWeighPage({ token }) {
           <div className="competition-public-brand-text">
             <p className="competition-public-kicker">Pesée · FENACOJU</p>
             <h1>{competition.nom}</h1>
-            <p>{competition.lieu} · {registrations.length} inscrit{registrations.length > 1 ? 's' : ''}</p>
+            <p>{competition.lieu} · {filtered.length} inscrit{filtered.length > 1 ? 's' : ''}</p>
           </div>
           <div className="competition-count-badge">
-            <strong>{weighed}/{registrations.length}</strong>
+            <strong>{weighed}/{filtered.length}</strong>
             <span>pesés</span>
           </div>
         </header>

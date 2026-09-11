@@ -3499,7 +3499,32 @@ tbody tr:last-child td {
 
 .competition-inscriptions-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
+}
+
+.competition-inscriptions-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+
+.competition-inscriptions-pane h4 {
+  margin: 0 0 0.65rem;
+  color: var(--primary);
+}
+
+.competition-team-swap {
+  justify-content: center !important;
+  background: transparent !important;
+  border: none !important;
+}
+
+@media (max-width: 1100px) {
+  .competition-inscriptions-split {
+    grid-template-columns: 1fr;
+  }
 }
 
 .btn.is-disabled {

@@ -3,7 +3,6 @@ import {
   fetchPublicCompetition,
   lookupPublicCompetitionJudoka,
   registerPublicCompetition,
-  GRADES,
   CATEGORIES,
 } from '../api';
 
@@ -16,15 +15,12 @@ import {
 } from '../utils/weightCategories';
 
 const emptyForm = () => ({
+  club: '',
   nom: '',
   prenom: '',
   date_naissance: '',
   sexe: 'M',
-  club: '',
-  grade: 'Blanche',
   categorie: '',
-  telephone: '',
-  email: '',
 });
 
 const TEAM_MIN_CATEGORIES = 3;
@@ -127,15 +123,12 @@ export default function CompetitionPublicForm({ token }) {
         numero_carte: judoka.numero_carte,
       });
       setForm({
+        club: judoka.club || '',
         nom: judoka.nom || '',
         prenom: judoka.prenom || '',
         date_naissance: judoka.date_naissance || '',
         sexe: judoka.sexe || 'M',
-        club: judoka.club || '',
-        grade: judoka.grade || 'Blanche',
         categorie: judoka.categorie || '',
-        telephone: judoka.telephone || '',
-        email: judoka.email || '',
       });
       setStep('form');
     } catch (err) {
@@ -453,12 +446,23 @@ export default function CompetitionPublicForm({ token }) {
 
                 <div className="form-grid">
                   <div className="form-group">
+                    <label htmlFor="club">Club *</label>
+                    <input id="club" name="club" value={form.club} onChange={handleChange} required readOnly={Boolean(judokaMeta)} />
+                  </div>
+                  <div className="form-group">
                     <label htmlFor="nom">Nom *</label>
                     <input id="nom" name="nom" value={form.nom} onChange={handleChange} required readOnly={Boolean(judokaMeta)} />
                   </div>
                   <div className="form-group">
                     <label htmlFor="prenom">Prénom *</label>
                     <input id="prenom" name="prenom" value={form.prenom} onChange={handleChange} required readOnly={Boolean(judokaMeta)} />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="sexe">Sexe *</label>
+                    <select id="sexe" name="sexe" value={form.sexe} onChange={handleChange} disabled={Boolean(judokaMeta)}>
+                      <option value="M">Masculin</option>
+                      <option value="F">Féminin</option>
+                    </select>
                   </div>
                   <div className="form-group">
                     <label htmlFor="date_naissance">Date de naissance *</label>
@@ -473,25 +477,6 @@ export default function CompetitionPublicForm({ token }) {
                     />
                   </div>
                   <div className="form-group">
-                    <label htmlFor="sexe">Sexe *</label>
-                    <select id="sexe" name="sexe" value={form.sexe} onChange={handleChange} disabled={Boolean(judokaMeta)}>
-                      <option value="M">Masculin</option>
-                      <option value="F">Féminin</option>
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label htmlFor="club">Club *</label>
-                    <input id="club" name="club" value={form.club} onChange={handleChange} required readOnly={Boolean(judokaMeta)} />
-                  </div>
-                  <div className="form-group">
-                    <label htmlFor="grade">Grade</label>
-                    <select id="grade" name="grade" value={form.grade} onChange={handleChange} disabled={Boolean(judokaMeta)}>
-                      {GRADES.map((g) => (
-                        <option key={g} value={g}>{g}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="form-group">
                     <label htmlFor="categorie">Catégorie</label>
                     <select id="categorie" name="categorie" value={form.categorie} onChange={handleChange}>
                       <option value="">— Sélectionner —</option>
@@ -499,14 +484,6 @@ export default function CompetitionPublicForm({ token }) {
                         <option key={c} value={c}>{c}</option>
                       ))}
                     </select>
-                  </div>
-                  <div className="form-group">
-                    <label htmlFor="telephone">Téléphone</label>
-                    <input id="telephone" name="telephone" value={form.telephone} onChange={handleChange} />
-                  </div>
-                  <div className="form-group">
-                    <label htmlFor="email">Email</label>
-                    <input id="email" type="email" name="email" value={form.email} onChange={handleChange} />
                   </div>
                 </div>
 
@@ -528,15 +505,6 @@ export default function CompetitionPublicForm({ token }) {
             {step === 'team' && (
               <form className="competition-reg-form form-card" onSubmit={handleTeamSubmit}>
                 <h2>Enregistrement Equipe · {sexeLabel(teamSexe)}</h2>
-                <p className="form-hint">
-                  Saisissez le nom du club, puis le nom complet, le rôle et le poids de chaque judoka.
-                  Cliquez sur Valider pour le classer automatiquement dans la catégorie correspondante.
-                  Recommencez pour les autres judokas, puis enregistrez l&apos;équipe.
-                  Participation : au moins {TEAM_MIN_CATEGORIES} catégories {sexeLabel(teamSexe)}.
-                </p>
-                <p className="form-hint">
-                  Catégories couvertes : <strong>{filledTeamCats}/{TEAM_MIN_CATEGORIES}</strong>
-                </p>
 
                 <div className="form-group">
                   <label htmlFor="team-club">Nom du club *</label>
@@ -637,6 +605,28 @@ export default function CompetitionPublicForm({ token }) {
                                 </button>
                               </li>
                             )}
+                            {bucket?.principal && bucket?.remplacant && (
+                              <li className="competition-team-swap">
+                                <button
+                                  type="button"
+                                  className="btn btn-outline btn-sm"
+                                  onClick={() => setTeamRoster((prev) => {
+                                    const cur = prev[cat.key];
+                                    if (!cur?.principal || !cur?.remplacant) return prev;
+                                    return {
+                                      ...prev,
+                                      [cat.key]: {
+                                        ...cur,
+                                        principal: cur.remplacant,
+                                        remplacant: cur.principal,
+                                      },
+                                    };
+                                  })}
+                                >
+                                  Permuter Principal / Remplaçant
+                                </button>
+                              </li>
+                            )}
                           </ul>
                         )}
                       </section>
@@ -648,7 +638,11 @@ export default function CompetitionPublicForm({ token }) {
                   <button type="button" className="btn btn-outline" onClick={resetFlow}>
                     Retour
                   </button>
-                  <button type="submit" className="btn btn-primary" disabled={submitting}>
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    disabled={submitting || filledTeamCats < TEAM_MIN_CATEGORIES}
+                  >
                     {submitting ? 'Envoi...' : 'Enregistrer l\'équipe'}
                   </button>
                 </div>

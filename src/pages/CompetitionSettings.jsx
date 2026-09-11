@@ -14,6 +14,10 @@ import { exportCompetitionDrawToPdf } from '../utils/exportCompetitionDrawPdf';
 import { buildWeightDraw, buildTeamDraw } from '../utils/competitionDraw';
 import DrawAnimation from '../components/DrawAnimation';
 
+function isTeamRegistration(r) {
+  return r?.mode_inscription === 'equipe' || String(r?.taille || '').startsWith('__mode_equipe__');
+}
+
 function formatDateFr(value) {
   if (!value) return '—';
   try {
@@ -21,6 +25,96 @@ function formatDateFr(value) {
   } catch {
     return value;
   }
+}
+
+function RegistrationsTable({ registrations, onEdit, onDelete, showTeamRole = false }) {
+  if (!registrations.length) {
+    return (
+      <div className="competition-empty-regs">
+        <p>Aucun inscrit.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="table-wrap">
+      <table className="data-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Nom</th>
+            <th>Club</th>
+            {!showTeamRole && <th>N° carte</th>}
+            <th>Catégorie</th>
+            <th>Poids</th>
+            {showTeamRole && <th>Rôle</th>}
+            {!showTeamRole && <th>Type</th>}
+            <th>Inscription</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {registrations.map((r, idx) => (
+            <tr key={r.id}>
+              <td data-label="#">{registrations.length - idx}</td>
+              <td data-label="Nom">{`${r.prenom || ''} ${r.nom || ''}`.trim()}</td>
+              <td data-label="Club">{r.club || '—'}</td>
+              {!showTeamRole && (
+                <td data-label="N° carte">
+                  {r.deja_enregistre ? (r.numero_carte || '—') : '—'}
+                </td>
+              )}
+              <td data-label="Catégorie">{r.categorie || '—'}</td>
+              <td data-label="Poids">
+                {r.poids ? (
+                  <span className="badge badge-actif">{r.poids} kg</span>
+                ) : (
+                  <span className="badge badge-pending">À peser</span>
+                )}
+              </td>
+              {showTeamRole && (
+                <td data-label="Rôle">
+                  <span className="badge badge-actif">
+                    {r.role_equipe === 'remplacant' || String(r.taille || '').includes('remplacant') ? 'Remplaçant' : 'Principal'}
+                  </span>
+                </td>
+              )}
+              {!showTeamRole && (
+                <td data-label="Type">
+                  <span className={`badge ${r.deja_enregistre ? 'badge-actif' : 'badge-pending'}`}>
+                    {r.deja_enregistre ? 'Système' : 'Nouveau'}
+                  </span>
+                </td>
+              )}
+              <td data-label="Inscription">
+                {r.created_at ? new Date(r.created_at).toLocaleString('fr-FR') : '—'}
+              </td>
+              <td data-label="Actions">
+                <div className="actions-cell">
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-sm"
+                    title="Modifier"
+                    onClick={() => onEdit(r)}
+                  >
+                    Modifier
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-danger btn-sm btn-icon"
+                    title="Supprimer"
+                    onClick={() => onDelete(r)}
+                  >
+                    🗑️
+                  </button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
 function ParamsFormFields({ form, onChange, onCategoriesChange }) {
@@ -184,9 +278,9 @@ export default function CompetitionSettings({ onBack, onToast }) {
   const [showParamsModal, setShowParamsModal] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const [showDrawModeModal, setShowDrawModeModal] = useState(false);
   const [drawResult, setDrawResult] = useState(null);
   const [drawAnimating, setDrawAnimating] = useState(false);
+  const [actionMode, setActionMode] = useState(null);
   const [deleteRegTarget, setDeleteRegTarget] = useState(null);
   const [editRegTarget, setEditRegTarget] = useState(null);
   const [editRegForm, setEditRegForm] = useState({ nom: '', prenom: '', poids: '' });
@@ -358,14 +452,15 @@ export default function CompetitionSettings({ onBack, onToast }) {
     }
   };
 
-  const handleExportList = async () => {
-    if (!registrations.length) {
-      onToast?.('Aucun inscrit à exporter', 'error');
+  const handleExportList = async (mode) => {
+    const list = registrations.filter((r) => (mode === 'equipe') === isTeamRegistration(r));
+    if (!list.length) {
+      onToast?.(mode === 'equipe' ? 'Aucun inscrit par équipe à exporter' : 'Aucun inscrit individuel à exporter', 'error');
       return;
     }
     setExporting(true);
     try {
-      exportCompetitionListToPdf(registrations, settings || {});
+      exportCompetitionListToPdf(list, { ...(settings || {}), cadre: mode === 'equipe' ? 'Par équipe' : 'Individuel' });
       onToast?.('Liste exportée en PDF');
     } catch (err) {
       onToast?.(err.message || 'Erreur lors de l\'export PDF', 'error');
@@ -374,7 +469,28 @@ export default function CompetitionSettings({ onBack, onToast }) {
     }
   };
 
-  const handleTirageOpen = () => {
+  const openActionMode = (action) => {
+    if (action === 'weigh') {
+      if (!canWeigh) {
+        onToast?.(
+          isClosed
+            ? 'La pesée est inactive tant que les inscriptions sont clôturées'
+            : 'Publiez d\'abord le formulaire de compétition',
+          'error'
+        );
+        return;
+      }
+      setActionMode('weigh');
+      return;
+    }
+    if (action === 'export') {
+      if (!registrations.length) {
+        onToast?.('Aucun inscrit à exporter', 'error');
+        return;
+      }
+      setActionMode('export');
+      return;
+    }
     const closed = Boolean(settings?.configured) && !settings?.public_enabled;
     if (registrations.length === 0) {
       onToast?.('Aucun judoka inscrit pour le tirage', 'error');
@@ -389,7 +505,22 @@ export default function CompetitionSettings({ onBack, onToast }) {
     }
     setDrawResult(null);
     setDrawAnimating(false);
-    setShowDrawModeModal(true);
+    setActionMode('draw');
+  };
+
+  const handleActionMode = (mode) => {
+    if (actionMode === 'weigh') {
+      const url = competitionWeighUrl(settings?.public_token, mode);
+      if (url) window.open(url, '_blank', 'noopener,noreferrer');
+      setActionMode(null);
+      return;
+    }
+    if (actionMode === 'export') {
+      setActionMode(null);
+      handleExportList(mode);
+      return;
+    }
+    handleTirageMode(mode);
   };
 
   const handleTirageMode = (mode) => {
@@ -479,7 +610,6 @@ export default function CompetitionSettings({ onBack, onToast }) {
   }
 
   const publicUrl = competitionPublicUrl(settings?.public_token);
-  const weighUrl = competitionWeighUrl(settings?.public_token);
   const accessBlocked = settings && !settings.access_ok && !settings.can_toggle_access;
   const configured = Boolean(settings?.configured);
   const isPublic = Boolean(settings?.public_enabled);
@@ -666,29 +796,17 @@ export default function CompetitionSettings({ onBack, onToast }) {
                 </p>
               </div>
               <div className="competition-inscriptions-actions">
-                <a
+                <button
+                  type="button"
                   className={`btn btn-primary competition-action-btn ${!canWeigh ? 'is-disabled' : ''}`}
-                  href={canWeigh ? weighUrl : undefined}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={(e) => {
-                    if (!canWeigh) {
-                      e.preventDefault();
-                      onToast?.(
-                        isClosed
-                          ? 'La pesée est inactive tant que les inscriptions sont clôturées'
-                          : 'Publiez d\'abord le formulaire de compétition',
-                        'error'
-                      );
-                    }
-                  }}
+                  onClick={() => openActionMode('weigh')}
                 >
                   Pesé
-                </a>
+                </button>
                 <button
                   type="button"
                   className="btn btn-outline competition-action-btn"
-                  onClick={handleExportList}
+                  onClick={() => openActionMode('export')}
                   disabled={exporting || registrations.length === 0}
                 >
                   {exporting ? 'Export...' : 'Exporter Liste'}
@@ -696,7 +814,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
                 <button
                   type="button"
                   className="btn btn-tirage competition-action-btn"
-                  onClick={handleTirageOpen}
+                  onClick={() => openActionMode('draw')}
                   disabled={!tirageReady}
                   title={
                     tirageReady
@@ -715,81 +833,25 @@ export default function CompetitionSettings({ onBack, onToast }) {
                 <p className="form-hint">Les nouvelles inscriptions apparaîtront ici automatiquement.</p>
               </div>
             ) : (
-              <div className="table-wrap">
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>Nom</th>
-                      <th>Club</th>
-                      <th>N° carte</th>
-                      <th>Catégorie</th>
-                      <th>Poids</th>
-                      <th>Cadre</th>
-                      <th>Type</th>
-                      <th>Inscription</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {registrations.map((r, idx) => (
-                      <tr key={r.id}>
-                        <td data-label="#">{registrations.length - idx}</td>
-                        <td data-label="Nom">{`${r.prenom || ''} ${r.nom || ''}`.trim()}</td>
-                        <td data-label="Club">{r.club || '—'}</td>
-                        <td data-label="N° carte">
-                          {r.deja_enregistre ? (r.numero_carte || '—') : '—'}
-                        </td>
-                        <td data-label="Catégorie">
-                          {r.categorie || '—'}
-                          {(r.mode_inscription === 'equipe' || String(r.taille || '').startsWith('__mode_equipe__')) && (
-                            <> · {r.role_equipe === 'remplacant' || String(r.categorie || '').toLowerCase().includes('rempl') || String(r.taille || '').includes('remplacant') ? 'Remplaçant' : 'Principal'}</>
-                          )}
-                        </td>
-                        <td data-label="Poids">
-                          {r.poids ? (
-                            <span className="badge badge-actif">{r.poids} kg</span>
-                          ) : (
-                            <span className="badge badge-pending">À peser</span>
-                          )}
-                        </td>
-                        <td data-label="Cadre">
-                          <span className="badge badge-actif">
-                            {r.mode_inscription === 'equipe' || String(r.taille || '').startsWith('__mode_equipe__') ? 'Équipe' : 'Individuel'}
-                          </span>
-                        </td>
-                        <td data-label="Type">
-                          <span className={`badge ${r.deja_enregistre ? 'badge-actif' : 'badge-pending'}`}>
-                            {r.deja_enregistre ? 'Système' : 'Nouveau'}
-                          </span>
-                        </td>
-                        <td data-label="Inscription">
-                          {r.created_at ? new Date(r.created_at).toLocaleString('fr-FR') : '—'}
-                        </td>
-                        <td data-label="Actions">
-                          <div className="actions-cell">
-                            <button
-                              type="button"
-                              className="btn btn-outline btn-sm"
-                              title="Modifier"
-                              onClick={() => openEditRegistration(r)}
-                            >
-                              Modifier
-                            </button>
-                            <button
-                              type="button"
-                              className="btn btn-danger btn-sm btn-icon"
-                              title="Supprimer"
-                              onClick={() => setDeleteRegTarget(r)}
-                            >
-                              🗑️
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="competition-inscriptions-split">
+                <div className="competition-inscriptions-pane">
+                  <h4>Individuel</h4>
+                  <RegistrationsTable
+                    registrations={registrations.filter((r) => !isTeamRegistration(r))}
+                    onEdit={openEditRegistration}
+                    onDelete={setDeleteRegTarget}
+                    showTeamRole={false}
+                  />
+                </div>
+                <div className="competition-inscriptions-pane">
+                  <h4>Par Équipe</h4>
+                  <RegistrationsTable
+                    registrations={registrations.filter((r) => isTeamRegistration(r))}
+                    onEdit={openEditRegistration}
+                    onDelete={setDeleteRegTarget}
+                    showTeamRole
+                  />
+                </div>
               </div>
             )}
           </section>
@@ -913,10 +975,10 @@ export default function CompetitionSettings({ onBack, onToast }) {
         </div>
       )}
 
-      {showDrawModeModal && (
+      {(actionMode || drawAnimating) && (
         <div className="confirm-overlay" onClick={() => {
           if (drawAnimating) return;
-          setShowDrawModeModal(false);
+          setActionMode(null);
         }}>
           <div
             className={drawAnimating ? 'competition-draw-modal' : 'competition-draw-mode-modal'}
@@ -926,31 +988,35 @@ export default function CompetitionSettings({ onBack, onToast }) {
               <DrawAnimation
                 items={
                   drawResult.mode === 'equipe'
-                    ? drawResult.groups.flatMap((g) => g.matches.flatMap((m) => [m.clubA, m.clubB]))
+                    ? drawResult.groups.flatMap((g) => (g.matches || []).flatMap((m) => [m.clubA, m.clubB]))
                     : drawResult.groups.flatMap((g) => (g.seedOrder || []).map((s) => s.label))
                 }
                 title={drawResult.mode === 'equipe' ? 'Tirage par équipes' : 'Tirage individuel'}
                 onDone={() => {
                   setDrawAnimating(false);
-                  setShowDrawModeModal(false);
+                  setActionMode(null);
                 }}
               />
             ) : (
               <>
                 <div className="competition-params-modal-head">
                   <div>
-                    <h3>Tirage au sort</h3>
-                    <p className="form-hint">Choisissez le mode de classement des combats.</p>
+                    <h3>
+                      {actionMode === 'weigh' && 'Pesé'}
+                      {actionMode === 'export' && 'Exporter Liste'}
+                      {actionMode === 'draw' && 'Tirage au sort'}
+                    </h3>
+                    <p className="form-hint">Choisissez Individuel ou Par équipe.</p>
                   </div>
-                  <button type="button" className="btn btn-outline btn-sm" onClick={() => setShowDrawModeModal(false)}>
+                  <button type="button" className="btn btn-outline btn-sm" onClick={() => setActionMode(null)}>
                     Fermer
                   </button>
                 </div>
                 <div className="competition-draw-mode-actions">
-                  <button type="button" className="btn btn-tirage competition-draw-mode-btn" onClick={() => handleTirageMode('individuel')}>
+                  <button type="button" className="btn btn-tirage competition-draw-mode-btn" onClick={() => handleActionMode('individuel')}>
                     Individuel
                   </button>
-                  <button type="button" className="btn btn-primary competition-draw-mode-btn" onClick={() => handleTirageMode('equipe')}>
+                  <button type="button" className="btn btn-primary competition-draw-mode-btn" onClick={() => handleActionMode('equipe')}>
                     Par Equipe
                   </button>
                 </div>
@@ -972,7 +1038,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
                 </p>
               </div>
               <div className="competition-inscriptions-actions">
-                <button type="button" className="btn btn-outline" onClick={() => { setDrawResult(null); setShowDrawModeModal(true); }}>
+                <button type="button" className="btn btn-outline" onClick={() => { setDrawResult(null); setActionMode('draw'); }}>
                   Mode
                 </button>
                 <button type="button" className="btn btn-tirage" onClick={handleExportGrilleCombat}>

@@ -518,9 +518,13 @@ export function competitionPublicUrl(token) {
   return `${window.location.origin}/competition/${token}`;
 }
 
-export function competitionWeighUrl(token) {
+export function competitionWeighUrl(token, mode) {
   if (!token) return '';
-  return `${window.location.origin}/competition/${token}/pese`;
+  const base = `${window.location.origin}/competition/${token}/pese`;
+  if (mode === 'equipe' || mode === 'individuel') {
+    return `${base}?mode=${encodeURIComponent(mode)}`;
+  }
+  return base;
 }
 
 export async function fetchPublicCompetitionRegistrations(token) {
