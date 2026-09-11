@@ -71,6 +71,7 @@ import {
   updateCompetitionSettings,
   getCompetitionRegistrations,
   createCompetitionRegistration,
+  updateCompetitionRegistration,
   updateCompetitionRegistrationWeight,
   deleteCompetitionRegistration,
   deleteCompetitionPublicLink,
@@ -230,6 +231,16 @@ app.get('/api/public/competition/:token', async (req, res) => {
     }
 
     const registrations = await getCompetitionRegistrations();
+    const teamCounts = {};
+    for (const r of registrations) {
+      const mode = r.mode_inscription === 'equipe' || r.taille === '__mode_equipe__' ? 'equipe' : 'individuel';
+      if (mode !== 'equipe') continue;
+      const club = (r.club || '').trim() || 'Sans club';
+      const poids = String(r.poids || '').trim();
+      if (!poids) continue;
+      if (!teamCounts[club]) teamCounts[club] = {};
+      teamCounts[club][poids] = (teamCounts[club][poids] || 0) + 1;
+    }
     const base = {
       nom: settings.nom,
       date_debut: settings.date_debut,
@@ -237,6 +248,8 @@ app.get('/api/public/competition/:token', async (req, res) => {
       lieu: settings.lieu,
       description: settings.description || '',
       public_token: settings.public_token,
+      categories_poids: settings.categories_poids || [],
+      team_counts: teamCounts,
       registrations_count: registrations.length,
       closed: !settings.public_enabled,
     };
@@ -248,6 +261,8 @@ app.get('/api/public/competition/:token', async (req, res) => {
     const pub = toPublicCompetition(settings, {
       registrations_count: registrations.length,
       closed: false,
+      categories_poids: settings.categories_poids || [],
+      team_counts: teamCounts,
     });
     if (!pub) return res.status(404).json({ error: 'Formulaire de compétition indisponible' });
     res.json(pub);
@@ -346,8 +361,20 @@ app.post('/api/public/competition/:token/register', async (req, res) => {
     }
 
     const body = req.body || {};
+    const modeInscription = body.mode_inscription === 'equipe' ? 'equipe' : 'individuel';
     let judokaId = body.judoka_id || null;
     let numeroCarte = body.numero_carte || '';
+
+    if (modeInscription === 'equipe') {
+      const cats = (settings.categories_poids || []).map((c) => String(c).trim());
+      if (!cats.length) {
+        return res.status(400).json({ error: 'Aucune catégorie de poids n\'est définie pour le mode Par équipe' });
+      }
+      const poids = String(body.poids || '').trim();
+      if (!poids || !cats.includes(poids)) {
+        return res.status(400).json({ error: 'Choisissez une catégorie de poids valide' });
+      }
+    }
 
     if (body.deja_enregistre) {
       const judoka = await getJudokaByCardNumber(body.numero_carte || body.judoka_id);
@@ -376,11 +403,12 @@ app.post('/api/public/competition/:token/register', async (req, res) => {
         club: body.club || judoka.club,
         grade: body.grade || judoka.grade,
         categorie: body.categorie || judoka.categorie,
-        poids: '',
+        poids: modeInscription === 'equipe' ? String(body.poids || '').trim() : '',
         taille: '',
         telephone: body.telephone || judoka.telephone,
         email: body.email || judoka.email,
         deja_enregistre: true,
+        mode_inscription: modeInscription,
       });
       return res.status(201).json(registration);
     }
@@ -401,9 +429,10 @@ app.post('/api/public/competition/:token/register', async (req, res) => {
       ...body,
       judoka_id: null,
       numero_carte: '',
-      poids: '',
+      poids: modeInscription === 'equipe' ? String(body.poids || '').trim() : '',
       taille: '',
       deja_enregistre: false,
+      mode_inscription: modeInscription,
     });
     res.status(201).json(registration);
   } catch (err) {
@@ -495,6 +524,12 @@ app.put('/api/competition', async (req, res) => {
     if (body.date_fin !== undefined) patch.date_fin = body.date_fin || '';
     if (body.lieu !== undefined) patch.lieu = String(body.lieu).trim();
     if (body.description !== undefined) patch.description = String(body.description).trim();
+    if (body.categories_poids !== undefined) {
+      const list = Array.isArray(body.categories_poids)
+        ? body.categories_poids
+        : String(body.categories_poids || '').split(/[;,]/);
+      patch.categories_poids = [...new Set(list.map((v) => String(v).replace(',', '.').trim()).filter(Boolean))];
+    }
     if (body.public_enabled !== undefined) {
       const next = { ...current, ...patch };
       if (body.public_enabled && !isCompetitionConfigured(next)) {
@@ -565,6 +600,26 @@ app.delete('/api/competition/registrations/:id', async (req, res) => {
     res.json(result);
   } catch (err) {
     const status = /introuvable/i.test(err.message || '') ? 404 : 500;
+    res.status(status).json({ error: err.message });
+  }
+});
+
+app.put('/api/competition/registrations/:id', async (req, res) => {
+  try {
+    const current = await getCompetitionSettings();
+    const canToggle = canToggleCompetitionAccess(req.user);
+    const isDirector = isDirecteurCompetition(req.user);
+    if (!canToggle && !(isDirector && current.access_enabled)) {
+      return res.status(403).json({ error: 'Accès non autorisé' });
+    }
+    const updated = await updateCompetitionRegistration(req.params.id, {
+      nom: req.body?.nom,
+      prenom: req.body?.prenom,
+      poids: req.body?.poids,
+    });
+    res.json(updated);
+  } catch (err) {
+    const status = /introuvable|obligatoire/i.test(err.message || '') ? 400 : 500;
     res.status(status).json({ error: err.message });
   }
 });

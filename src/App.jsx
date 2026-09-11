@@ -1020,6 +1020,7 @@ export default function App() {
                         showClub={dashboardTab === 'entraineurs' && (user.type === 'admin' || user.type === 'ligue' || user.type === 'entente')}
                         detailColumnLabel={dashboardTab === 'federation' ? 'Fonction / Rôle' : 'Détails'}
                         hideFonctionUnderName={dashboardTab === 'federation'}
+                        hideTypeColumn={dashboardTab === 'federation'}
                         showViewAction={
                           (dashboardTab === 'clubs' && canViewClubDetails)
                           || canValidateAccounts

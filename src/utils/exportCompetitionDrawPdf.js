@@ -43,6 +43,16 @@ function shuffle(list) {
 }
 
 function collectFighters(group) {
+  if (group.matches?.length) {
+    const list = [];
+    for (const match of group.matches) {
+      list.push({ label: match.clubA, club: match.clubA });
+      list.push({ label: match.clubB, club: match.clubB });
+    }
+    if (group.bye?.club) list.push({ label: group.bye.label, club: group.bye.club });
+    return shuffle(list);
+  }
+
   // Positionnement aléatoire dans la grille (y compris exempt)
   if (group.seedOrder?.length) {
     return shuffle(group.seedOrder.map((f) => ({
@@ -217,6 +227,87 @@ function drawBracketPage(pdf, group, competition, modeLabel) {
   pdf.rect(winnerBoxX, winnerY + 0.5, 28, 6.5, 'FD');
 }
 
+function drawTeamCategoryPage(pdf, group, competition, modeLabel) {
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  let y = 12;
+
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(14);
+  pdf.setTextColor(29, 67, 147);
+  pdf.text(competition.nom || 'Compétition FENACOJU', 10, y);
+  y += 7;
+
+  pdf.setFontSize(11);
+  pdf.setTextColor(15, 23, 42);
+  pdf.text(`Grille Par Équipe · ${modeLabel || ''} · ${group.title || ''}`, 10, y);
+  y += 8;
+
+  (group.matches || []).forEach((match, matchIdx) => {
+    if (y > 185) {
+      pdf.addPage('a4', 'landscape');
+      y = 14;
+    }
+    pdf.setFillColor(29, 67, 147);
+    pdf.rect(10, y - 5, pageWidth - 20, 10, 'F');
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(11);
+    pdf.text(
+      `${match.clubA}   vs   ${match.clubB}`,
+      pageWidth / 2,
+      y + 1.5,
+      { align: 'center' }
+    );
+    y += 10;
+    pdf.setTextColor(15, 23, 42);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(9);
+
+    const buckets = match.byWeight?.length
+      ? match.byWeight
+      : [{ poids: group.poids || '', fights: match.fights || [] }];
+
+    buckets.forEach((bucket) => {
+      if (bucket.poids) {
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(9);
+        pdf.setTextColor(29, 67, 147);
+        pdf.text(`${bucket.poids} kg`, 16, y + 1);
+        pdf.setTextColor(15, 23, 42);
+        y += 7;
+      }
+      (bucket.fights || []).forEach((fight, idx) => {
+        if (y > 195) {
+          pdf.addPage('a4', 'landscape');
+          y = 14;
+        }
+        pdf.setDrawColor(200, 200, 200);
+        pdf.setFillColor(255, 255, 255);
+        pdf.rect(12, y - 4, pageWidth - 24, 8, 'FD');
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(9);
+        pdf.text(`Combat ${idx + 1}`, 16, y + 1);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(
+          `${fight.labelA}  vs  ${fight.labelB}`,
+          pageWidth / 2,
+          y + 1,
+          { align: 'center' }
+        );
+        pdf.setFont('helvetica', 'normal');
+        y += 9;
+      });
+    });
+    y += 4;
+    void matchIdx;
+  });
+
+  if (group.bye?.label) {
+    pdf.setTextColor(100, 116, 139);
+    pdf.text(`Exempt : ${group.bye.label}`, 12, y);
+  }
+}
+
 export function exportCompetitionDrawToPdf(drawResult, competition = {}) {
   if (!drawResult?.groups?.length) {
     throw new Error('Aucune grille de combat à exporter');
@@ -226,6 +317,12 @@ export function exportCompetitionDrawToPdf(drawResult, competition = {}) {
   let first = true;
 
   drawResult.groups.forEach((group) => {
+    if (group.matches?.length) {
+      if (!first) pdf.addPage('a4', 'landscape');
+      first = false;
+      drawTeamCategoryPage(pdf, group, competition, drawResult.modeLabel);
+      return;
+    }
     if (!collectFighters(group).length) return;
     if (!first) pdf.addPage('a4', 'landscape');
     first = false;

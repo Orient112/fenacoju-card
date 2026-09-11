@@ -59,11 +59,18 @@ function weightSortValue(poids) {
   return Number.isFinite(n) ? n : Number.POSITIVE_INFINITY;
 }
 
+function getMode(r) {
+  if (r?.mode_inscription === 'equipe' || r?.taille === '__mode_equipe__') return 'equipe';
+  return 'individuel';
+}
+
 /**
  * Individuel : combats par poids, séparés Garçons / Filles.
  */
 export function buildWeightDraw(registrations) {
-  const weighed = (registrations || []).filter((r) => String(r.poids || '').trim());
+  const weighed = (registrations || []).filter((r) => (
+    getMode(r) === 'individuel' && String(r.poids || '').trim()
+  ));
   const buckets = new Map();
 
   for (const r of weighed) {
@@ -106,63 +113,105 @@ export function buildWeightDraw(registrations) {
 }
 
 /**
- * Par équipe : combats regroupés par club / équipe, séparés Garçons / Filles puis poids.
+ * Par équipe : appariement aléatoire Club X vs Club Y,
+ * puis combats judoka vs judoka par catégorie de poids.
+ * Un club n’entre dans une catégorie que s’il a au moins 5 judokas dans ce poids.
  */
-export function buildTeamDraw(registrations) {
-  const weighed = (registrations || []).filter((r) => String(r.poids || '').trim());
-  const byTeam = new Map();
+export function buildTeamDraw(registrations, { minPerClub = 5 } = {}) {
+  const teamRegs = (registrations || []).filter((r) => (
+    getMode(r) === 'equipe' && String(r.poids || '').trim()
+  ));
 
-  for (const r of weighed) {
-    const team = (r.club || '').trim() || 'Sans équipe';
-    if (!byTeam.has(team)) byTeam.set(team, []);
-    byTeam.get(team).push(r);
+  const clubsMap = new Map();
+  for (const r of teamRegs) {
+    const club = (r.club || '').trim() || 'Sans club';
+    const poids = normalizeWeight(r.poids);
+    if (!clubsMap.has(club)) clubsMap.set(club, new Map());
+    const byWeight = clubsMap.get(club);
+    if (!byWeight.has(poids)) byWeight.set(poids, []);
+    byWeight.get(poids).push(r);
   }
 
-  const groups = [];
+  const eligible = [...clubsMap.entries()]
+    .map(([club, byWeight]) => {
+      const weights = [...byWeight.entries()]
+        .filter(([, members]) => members.length >= minPerClub)
+        .map(([poids, members]) => ({ poids, members: shuffle(members) }));
+      return { club, weights, byWeight: new Map(weights.map((w) => [w.poids, w.members])) };
+    })
+    .filter((team) => team.weights.length > 0);
 
-  [...byTeam.entries()]
-    .sort((a, b) => a[0].localeCompare(b[0], 'fr'))
-    .forEach(([team, members]) => {
-      const genderBuckets = new Map();
-      for (const r of members) {
-        const sexe = r.sexe === 'F' ? 'F' : 'M';
-        const poids = normalizeWeight(r.poids);
-        const key = `${sexe}|${poids}`;
-        if (!genderBuckets.has(key)) genderBuckets.set(key, []);
-        genderBuckets.get(key).push(r);
-      }
+  const shuffledClubs = shuffle(eligible);
+  const matches = [];
+  let byeClub = null;
 
-      const subGroups = [...genderBuckets.entries()]
-        .map(([key, list]) => {
-          const [sexe, poids] = key.split('|');
-          const { fights, bye, seedOrder } = pairMembers(list, `${team}|${key}`);
-          return {
-            key: `${team}|${key}`,
-            mode: 'equipe',
-            title: `${team} · ${sexeLabel(sexe)} · ${poids} kg`,
-            team,
+  for (let i = 0; i < shuffledClubs.length; i += 2) {
+    if (i + 1 >= shuffledClubs.length) {
+      byeClub = shuffledClubs[i];
+      break;
+    }
+    const teamA = shuffledClubs[i];
+    const teamB = shuffledClubs[i + 1];
+    const poidsSet = new Set([
+      ...teamA.weights.map((w) => w.poids),
+      ...teamB.weights.map((w) => w.poids),
+    ]);
+    const byWeight = [...poidsSet]
+      .sort((a, b) => weightSortValue(a) - weightSortValue(b))
+      .map((poids) => {
+        const membersA = teamA.byWeight.get(poids) || [];
+        const membersB = teamB.byWeight.get(poids) || [];
+        if (membersA.length < minPerClub || membersB.length < minPerClub) return null;
+        const pairCount = Math.min(membersA.length, membersB.length);
+        const fights = [];
+        for (let j = 0; j < pairCount; j++) {
+          fights.push({
+            id: `${teamA.club}-${teamB.club}-${poids}-${j + 1}`,
+            a: membersA[j],
+            b: membersB[j],
+            labelA: judokaLabel(membersA[j]),
+            labelB: judokaLabel(membersB[j]),
             poids,
-            sexe,
-            sexeLabel: sexeLabel(sexe),
-            count: list.length,
-            fights,
-            bye,
-            seedOrder,
-          };
-        })
-        .sort((a, b) => {
-          if (a.sexe !== b.sexe) return a.sexe === 'M' ? -1 : 1;
-          return weightSortValue(a.poids) - weightSortValue(b.poids);
-        });
+          });
+        }
+        return { poids, fights: shuffle(fights) };
+      })
+      .filter(Boolean);
 
-      groups.push(...subGroups);
+    const flatFights = byWeight.flatMap((w) => w.fights);
+    if (!flatFights.length) continue;
+
+    matches.push({
+      id: `${teamA.club}-vs-${teamB.club}`,
+      clubA: teamA.club,
+      clubB: teamB.club,
+      labelA: teamA.club,
+      labelB: teamB.club,
+      byWeight,
+      fights: flatFights,
     });
+  }
+
+  const seedOrder = eligible.flatMap((t) => t.weights.flatMap((w) => w.members));
+  const groups = [{
+    key: 'equipe-rencontres',
+    mode: 'equipe',
+    title: 'Rencontres par équipe',
+    count: seedOrder.length,
+    matches: shuffle(matches),
+    fights: [],
+    bye: byeClub ? { label: byeClub.club, club: byeClub.club } : null,
+    seedOrder,
+  }].filter((g) => g.matches.length > 0 || g.bye);
 
   return {
     mode: 'equipe',
     modeLabel: 'Par Équipe',
-    totalJudokas: weighed.length,
-    totalFights: groups.reduce((sum, g) => sum + g.fights.length, 0),
+    totalJudokas: seedOrder.length,
+    totalFights: groups.reduce(
+      (sum, g) => sum + g.matches.reduce((n, m) => n + m.fights.length, 0),
+      0
+    ),
     groups,
   };
 }

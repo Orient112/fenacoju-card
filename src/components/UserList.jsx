@@ -21,6 +21,7 @@ export default function UserList({
   canValidate = false,
   detailColumnLabel = 'Détails',
   hideFonctionUnderName = false,
+  hideTypeColumn = false,
   showViewAction = false,
   onEdit,
   onDelete,
@@ -45,7 +46,7 @@ export default function UserList({
     <table className="data-table">
       <thead>
         <tr>
-          <th>Type</th>
+          {!hideTypeColumn && <th>Type</th>}
           <th>Nom</th>
           {showClub && <th>Club</th>}
           <th>Email / Identifiant</th>
@@ -61,11 +62,13 @@ export default function UserList({
           const needsValidation = ['ligue', 'entente', 'club', 'entraineur'].includes(u.type) && statut === 'pending';
           return (
             <tr key={u.id} className={needsValidation ? 'row-pending' : undefined}>
-              <td data-label="Type">
-                <span className="badge grade-badge">
-                  {USER_TYPES[u.type]?.label || u.type}
-                </span>
-              </td>
+              {!hideTypeColumn && (
+                <td data-label="Type">
+                  <span className="badge grade-badge">
+                    {USER_TYPES[u.type]?.label || u.type}
+                  </span>
+                </td>
+              )}
               <td data-label="Nom">
                 <div className="judoka-name">{displayName(u)}</div>
                 {u.fonction && !hideFonctionUnderName && (

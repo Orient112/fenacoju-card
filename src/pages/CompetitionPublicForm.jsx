@@ -17,13 +17,17 @@ const emptyForm = () => ({
   categorie: '',
   telephone: '',
   email: '',
+  poids: '',
 });
+
+const TEAM_MIN = 5;
 
 export default function CompetitionPublicForm({ token }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [competition, setCompetition] = useState(null);
-  const [step, setStep] = useState('choice');
+  const [step, setStep] = useState('mode');
+  const [inscriptionMode, setInscriptionMode] = useState('');
   const [cardId, setCardId] = useState('');
   const [lookupLoading, setLookupLoading] = useState(false);
   const [form, setForm] = useState(emptyForm());
@@ -63,6 +67,8 @@ export default function CompetitionPublicForm({ token }) {
             ...data,
             registrations_count: data.registrations_count,
             closed: data.closed,
+            categories_poids: data.categories_poids,
+            team_counts: data.team_counts,
           };
         });
         // Ne pas effacer les erreurs utilisateur (ex. « déjà inscrit »)
@@ -138,8 +144,9 @@ export default function CompetitionPublicForm({ token }) {
         ...form,
         deja_enregistre: Boolean(judokaMeta),
         judoka_id: judokaMeta?.id || null,
-        // Les nouveaux (hors système) n'ont pas de n° de carte
         numero_carte: judokaMeta ? (judokaMeta.numero_carte || cardId.trim() || '') : '',
+        mode_inscription: inscriptionMode || 'individuel',
+        poids: inscriptionMode === 'equipe' ? form.poids : '',
       };
       await registerPublicCompetition(token, payload);
       setSuccessName(`${form.prenom} ${form.nom}`.trim());
@@ -179,6 +186,22 @@ export default function CompetitionPublicForm({ token }) {
   }
 
   const count = competition.registrations_count ?? 0;
+  const weightCats = Array.isArray(competition.categories_poids) ? competition.categories_poids : [];
+  const teamCounts = competition.team_counts || {};
+  const clubKey = (form.club || '').trim();
+  const clubCatCount = clubKey && form.poids
+    ? (teamCounts[clubKey]?.[form.poids] || 0)
+    : 0;
+
+  const chooseMode = (mode) => {
+    setInscriptionMode(mode);
+    setError('');
+    if (mode === 'equipe' && !weightCats.length) {
+      setError('Le Directeur de Compétition n\'a pas encore défini les catégories de poids (Par équipe).');
+      return;
+    }
+    setStep('choice');
+  };
 
   return (
     <div className="competition-public-page">
@@ -220,16 +243,36 @@ export default function CompetitionPublicForm({ token }) {
           </div>
         ) : (
           <>
-            {step === 'choice' && (
+            {step === 'mode' && (
               <div className="competition-choice">
                 <h2>Inscription à la compétition</h2>
-                <p>Choisissez votre situation pour continuer.</p>
+                <p>Choisissez d&apos;abord le cadre de participation.</p>
+                <div className="competition-choice-actions">
+                  <button type="button" className="btn btn-primary competition-choice-btn" onClick={() => chooseMode('individuel')}>
+                    Individuel
+                  </button>
+                  <button type="button" className="btn btn-outline competition-choice-btn" onClick={() => chooseMode('equipe')}>
+                    Par équipe
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {step === 'choice' && (
+              <div className="competition-choice">
+                <h2>{inscriptionMode === 'equipe' ? 'Par équipe' : 'Individuel'}</h2>
+                <p>Le judoka est-il déjà enregistré dans le système FENACOJU ?</p>
                 <div className="competition-choice-actions">
                   <button type="button" className="btn btn-primary competition-choice-btn" onClick={startExisting}>
                     Déjà enregistré
                   </button>
                   <button type="button" className="btn btn-outline competition-choice-btn" onClick={startNew}>
                     Pas encore dans le Système
+                  </button>
+                </div>
+                <div className="form-actions" style={{ justifyContent: 'center' }}>
+                  <button type="button" className="btn btn-outline" onClick={() => { setStep('mode'); setError(''); }}>
+                    Retour
                   </button>
                 </div>
               </div>
@@ -267,7 +310,16 @@ export default function CompetitionPublicForm({ token }) {
                 {judokaMeta && (
                   <p className="form-hint">
                     Données importées depuis la carte <strong>{judokaMeta.numero_carte}</strong>.
-                    Vérifiez la catégorie si besoin. Le poids sera saisi à la pesée.
+                    Vérifiez la catégorie si besoin.
+                    {inscriptionMode === 'equipe'
+                      ? ' Choisissez la catégorie de poids de l\'équipe.'
+                      : ' Le poids sera saisi à la pesée.'}
+                  </p>
+                )}
+                {inscriptionMode === 'equipe' && (
+                  <p className="form-hint">
+                    Cadre <strong>Par équipe</strong> : le club doit inscrire au moins {TEAM_MIN} judokas
+                    dans la même catégorie de poids.
                   </p>
                 )}
 
@@ -320,6 +372,25 @@ export default function CompetitionPublicForm({ token }) {
                       ))}
                     </select>
                   </div>
+                  {inscriptionMode === 'equipe' && (
+                    <div className="form-group">
+                      <label htmlFor="poids">Catégorie de poids *</label>
+                      <select id="poids" name="poids" value={form.poids} onChange={handleChange} required>
+                        <option value="">— Sélectionner —</option>
+                        {weightCats.map((c) => (
+                          <option key={c} value={c}>{c} kg</option>
+                        ))}
+                      </select>
+                      {clubKey && form.poids && (
+                        <p className={`form-hint ${clubCatCount + 1 >= TEAM_MIN ? '' : ''}`}>
+                          Club {clubKey} · {form.poids} kg : {clubCatCount}/{TEAM_MIN} judoka{clubCatCount > 1 ? 's' : ''} déjà inscrits
+                          {clubCatCount < TEAM_MIN
+                            ? ` · encore ${TEAM_MIN - clubCatCount} pour le tirage`
+                            : ' · quota atteint pour le tirage'}
+                        </p>
+                      )}
+                    </div>
+                  )}
                   <div className="form-group">
                     <label htmlFor="telephone">Téléphone</label>
                     <input id="telephone" name="telephone" value={form.telephone} onChange={handleChange} />
@@ -356,7 +427,8 @@ export default function CompetitionPublicForm({ token }) {
                   type="button"
                   className="btn btn-primary"
                   onClick={() => {
-                    setStep('choice');
+                    setStep('mode');
+                    setInscriptionMode('');
                     setForm(emptyForm());
                     setJudokaMeta(null);
                     setCardId('');

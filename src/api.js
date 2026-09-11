@@ -457,6 +457,18 @@ export async function fetchCompetitionRegistrations() {
   return res.json();
 }
 
+export async function updateCompetitionRegistration(id, data) {
+  const res = await apiFetch(`/api/competition/registrations/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Erreur lors de la modification');
+  }
+  return res.json();
+}
+
 export async function deleteCompetitionRegistration(id) {
   const res = await apiFetch(`/api/competition/registrations/${encodeURIComponent(id)}`, {
     method: 'DELETE',
