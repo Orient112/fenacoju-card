@@ -552,6 +552,27 @@ export default function App() {
     }
   };
 
+  const handleExportJudokasListPdf = async () => {
+    if (!perms.export) {
+      showToast('Export non autorisé pour votre rôle', 'error');
+      return;
+    }
+    if (filteredJudokas.length === 0) {
+      showToast('Aucun judoka à exporter', 'error');
+      return;
+    }
+    setExportingPdf(true);
+    try {
+      const { exportJudokasListToPdf } = await import('./utils/exportJudokasListPdf.js');
+      exportJudokasListToPdf(filteredJudokas);
+      showToast(`${filteredJudokas.length} judoka(s) exporté(s) en PDF`);
+    } catch {
+      showToast('Impossible de générer le PDF de la liste', 'error');
+    } finally {
+      setExportingPdf(false);
+    }
+  };
+
   const handleLogout = async () => {
     await logoutUser();
     setUser(null);
@@ -726,7 +747,7 @@ export default function App() {
               Compétition
             </button>
           )}
-          {perms.export && (
+          {perms.export && !showCompetitionButton && (
             <button className="nav-btn" onClick={handleExport} disabled={!serverOnline}>
               Exporter
             </button>
@@ -947,7 +968,7 @@ export default function App() {
                         <button
                           type="button"
                           className="btn btn-export-green"
-                          onClick={handleExportCardsPdf}
+                          onClick={canManageCompetition ? handleExportJudokasListPdf : handleExportCardsPdf}
                           disabled={exportingPdf || !serverOnline || filteredJudokas.length === 0}
                         >
                           {exportingPdf ? 'Export...' : 'Exporter'}

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { fetchPublicCompetitionRegistrations, updatePublicCompetitionWeight } from '../api';
+import { parseCategoriesPoids } from '../utils/weightCategories';
 
 const FILTERS = [
   { key: 'all', label: 'Tous' },
@@ -9,7 +10,20 @@ const FILTERS = [
   { key: 'non_pese', label: 'Non pesé' },
 ];
 
+function isTeamRegistration(r) {
+  return r?.mode_inscription === 'equipe' || String(r?.taille || '').startsWith('__mode_equipe__');
+}
+
+function teamCategoryLabel(r) {
+  const raw = String(r?.categorie || '').trim();
+  if (raw && !/principal|rempl/i.test(raw)) return raw;
+  return String(r?.poids || '').trim() ? `${r.poids} kg` : '—';
+}
+
 export default function CompetitionWeighPage({ token }) {
+  const weighMode = useMemo(() => new URLSearchParams(window.location.search).get('mode'), []);
+  const isTeamMode = weighMode === 'equipe';
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [competition, setCompetition] = useState(null);
@@ -59,34 +73,49 @@ export default function CompetitionWeighPage({ token }) {
     return () => clearInterval(id);
   }, [loading, error, load]);
 
+  const modeRegistrations = useMemo(() => (
+    registrations.filter((r) => {
+      const isTeam = isTeamRegistration(r);
+      if (weighMode === 'equipe') return isTeam;
+      if (weighMode === 'individuel') return !isTeam;
+      return true;
+    })
+  ), [registrations, weighMode]);
+
   const clubs = useMemo(() => {
     const set = new Set();
-    for (const r of registrations) {
+    for (const r of modeRegistrations) {
       const club = (r.club || '').trim();
       if (club) set.add(club);
     }
     return [...set].sort((a, b) => a.localeCompare(b, 'fr'));
-  }, [registrations]);
+  }, [modeRegistrations]);
 
   const poidsOptions = useMemo(() => {
+    if (isTeamMode) {
+      const fromSettings = parseCategoriesPoids(competition?.categories_poids).map((c) => c.label);
+      const fromRegs = modeRegistrations.map((r) => teamCategoryLabel(r)).filter((l) => l && l !== '—');
+      return [...new Set([...fromSettings, ...fromRegs])].sort((a, b) => a.localeCompare(b, 'fr', { numeric: true }));
+    }
     const set = new Set();
-    for (const r of registrations) {
+    for (const r of modeRegistrations) {
       const p = String(r.poids || '').trim();
       if (p) set.add(p);
     }
     return [...set].sort((a, b) => Number(a) - Number(b) || a.localeCompare(b, 'fr'));
-  }, [registrations]);
+  }, [isTeamMode, competition, modeRegistrations]);
 
   const filtered = useMemo(() => {
-    const params = new URLSearchParams(window.location.search);
-    const mode = params.get('mode');
     const term = search.trim().toLowerCase();
-    return registrations.filter((r) => {
-      const isTeam = r.mode_inscription === 'equipe' || String(r.taille || '').startsWith('__mode_equipe__');
-      if (mode === 'equipe' && !isTeam) return false;
-      if (mode === 'individuel' && isTeam) return false;
+    return modeRegistrations.filter((r) => {
       if (filterClub && (r.club || '').trim() !== filterClub) return false;
-      if (filterPoids && String(r.poids || '').trim() !== filterPoids) return false;
+      if (filterPoids) {
+        if (isTeamMode) {
+          if (teamCategoryLabel(r) !== filterPoids) return false;
+        } else if (String(r.poids || '').trim() !== filterPoids) {
+          return false;
+        }
+      }
 
       if (activeFilter === 'garcon' && r.sexe === 'F') return false;
       if (activeFilter === 'fille' && r.sexe !== 'F') return false;
@@ -94,11 +123,24 @@ export default function CompetitionWeighPage({ token }) {
       if (activeFilter === 'non_pese' && r.poids) return false;
 
       if (!term) return true;
+      if (isTeamMode) {
+        return (r.club || '').toLowerCase().includes(term) || teamCategoryLabel(r).toLowerCase().includes(term);
+      }
       const full = `${r.prenom || ''} ${r.nom || ''}`.trim().toLowerCase();
       const reverse = `${r.nom || ''} ${r.prenom || ''}`.trim().toLowerCase();
       return full.includes(term) || reverse.includes(term) || (r.nom || '').toLowerCase().includes(term);
     });
-  }, [registrations, search, filterClub, filterPoids, activeFilter]);
+  }, [modeRegistrations, search, filterClub, filterPoids, activeFilter, isTeamMode]);
+
+  const clubGroups = useMemo(() => {
+    const map = new Map();
+    for (const r of filtered) {
+      const club = (r.club || '').trim() || 'Club';
+      if (!map.has(club)) map.set(club, []);
+      map.get(club).push(r);
+    }
+    return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0], 'fr'));
+  }, [filtered]);
 
   const handleWeightChange = (id, value) => {
     setWeights((prev) => ({ ...prev, [id]: value }));
@@ -117,11 +159,19 @@ export default function CompetitionWeighPage({ token }) {
       const updated = await updatePublicCompetitionWeight(token, registration.id, poids);
       setRegistrations((prev) => {
         const next = prev.map((r) => (r.id === updated.id ? { ...r, ...updated } : r));
-        const allDone = next.length > 0 && next.every((r) => r.poids);
+        const relevant = next.filter((r) => {
+          const isTeam = isTeamRegistration(r);
+          if (weighMode === 'equipe') return isTeam;
+          if (weighMode === 'individuel') return !isTeam;
+          return true;
+        });
+        const allDone = relevant.length > 0 && relevant.every((r) => r.poids);
         if (allDone) {
           setMessage('Pesé Clôturée');
         } else {
-          setMessage(`Poids validé pour ${updated.prenom} ${updated.nom}`);
+          setMessage(isTeamMode
+            ? `Poids validé · ${(updated.club || '').trim() || 'Club'} · ${teamCategoryLabel({ ...updated })}`
+            : `Poids validé pour ${updated.prenom} ${updated.nom}`);
         }
         return next;
       });
@@ -166,9 +216,16 @@ export default function CompetitionWeighPage({ token }) {
         <header className="competition-public-brand">
           <img src="/fenacoju-logo.png" alt="FENACOJU" width="56" height="56" />
           <div className="competition-public-brand-text">
-            <p className="competition-public-kicker">Pesée · FENACOJU</p>
+            <p className="competition-public-kicker">
+              Pesée · {isTeamMode ? 'Par équipe' : (weighMode === 'individuel' ? 'Individuel' : 'FENACOJU')}
+            </p>
             <h1>{competition.nom}</h1>
-            <p>{competition.lieu} · {filtered.length} inscrit{filtered.length > 1 ? 's' : ''}</p>
+            <p>
+              {competition.lieu}
+              {isTeamMode
+                ? ` · ${clubGroups.length} club${clubGroups.length > 1 ? 's' : ''}`
+                : ` · ${filtered.length} inscrit${filtered.length > 1 ? 's' : ''}`}
+            </p>
           </div>
           <div className="competition-count-badge">
             <strong>{weighed}/{filtered.length}</strong>
@@ -179,7 +236,11 @@ export default function CompetitionWeighPage({ token }) {
         {weighComplete && (
           <div className="competition-weigh-closed">
             <strong>Pesé Clôturée</strong>
-            <p>Tous les judokas inscrits ont été pesés. Le tirage au sort est disponible sur la page Compétition.</p>
+            <p>
+              {isTeamMode
+                ? 'Tous les clubs ont été pesés sur les catégories par équipe. Le tirage au sort est disponible sur la page Compétition.'
+                : 'Tous les judokas inscrits ont été pesés. Le tirage au sort est disponible sur la page Compétition.'}
+            </p>
           </div>
         )}
 
@@ -207,11 +268,11 @@ export default function CompetitionWeighPage({ token }) {
               </select>
             </label>
             <label>
-              <span>Poids</span>
+              <span>{isTeamMode ? 'Catégorie / Poids' : 'Poids'}</span>
               <select value={filterPoids} onChange={(e) => setFilterPoids(e.target.value)}>
-                <option value="">Tous les poids</option>
+                <option value="">{isTeamMode ? 'Toutes les catégories' : 'Tous les poids'}</option>
                 {poidsOptions.map((p) => (
-                  <option key={p} value={p}>{p} kg</option>
+                  <option key={p} value={p}>{isTeamMode ? p : `${p} kg`}</option>
                 ))}
               </select>
             </label>
@@ -224,22 +285,75 @@ export default function CompetitionWeighPage({ token }) {
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Rechercher par nom..."
-            aria-label="Rechercher un judoka par nom"
+            placeholder={isTeamMode ? 'Rechercher un club ou une catégorie...' : 'Rechercher par nom...'}
+            aria-label={isTeamMode ? 'Rechercher un club' : 'Rechercher un judoka par nom'}
           />
         </div>
 
         {message && !weighComplete && <div className="form-hint competition-weigh-msg">{message}</div>}
 
-        {registrations.length === 0 ? (
+        {modeRegistrations.length === 0 ? (
           <div className="empty-state">
-            <h3>Aucun inscrit</h3>
-            <p>Les judokas apparaîtront ici dès qu&apos;ils s&apos;inscrivent.</p>
+            <h3>{isTeamMode ? 'Aucun club inscrit' : 'Aucun inscrit'}</h3>
+            <p>
+              {isTeamMode
+                ? 'Les clubs inscrits en Par équipe apparaîtront ici avec leurs catégories de poids.'
+                : 'Les judokas apparaîtront ici dès qu\'ils s\'inscrivent.'}
+            </p>
           </div>
         ) : filtered.length === 0 ? (
           <div className="empty-state">
             <h3>Aucun résultat</h3>
-            <p>Aucun judoka ne correspond aux filtres / recherche.</p>
+            <p>{isTeamMode ? 'Aucun club ne correspond aux filtres / recherche.' : 'Aucun judoka ne correspond aux filtres / recherche.'}</p>
+          </div>
+        ) : isTeamMode ? (
+          <div className="competition-weigh-list">
+            {clubGroups.map(([club, members]) => (
+              <section key={club} className="competition-weigh-club">
+                <header className="competition-weigh-club-head">
+                  <h3>{club}</h3>
+                  <span>{members.length} catégorie{members.length > 1 ? 's' : ''}</span>
+                </header>
+                {members.map((r) => {
+                  const done = Boolean(r.poids);
+                  return (
+                    <div key={r.id} className={`competition-weigh-row ${done ? 'is-done' : ''}`}>
+                      <div className="competition-weigh-identity">
+                        <div>
+                          <strong className="competition-weigh-name">{teamCategoryLabel(r)}</strong>
+                          <span className="competition-weigh-cat-meta">
+                            {r.sexe === 'F' ? 'Fille' : 'Garçon'}
+                            {r.role_equipe === 'remplacant' || String(r.taille || '').includes('remplacant') ? ' · Remplaçant' : ' · Principal'}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="competition-weigh-input">
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          step="0.1"
+                          min="0"
+                          placeholder="Poids kg"
+                          value={weights[r.id] ?? ''}
+                          onChange={(e) => handleWeightChange(r.id, e.target.value)}
+                          aria-label={`Poids ${club} ${teamCategoryLabel(r)}`}
+                          readOnly={done}
+                          disabled={done}
+                        />
+                        <button
+                          type="button"
+                          className={`btn ${done ? 'btn-pese-done' : 'btn-primary'}`}
+                          disabled={done || savingId === r.id}
+                          onClick={() => handleValidate(r)}
+                        >
+                          {done ? 'Pesé' : (savingId === r.id ? '...' : 'Valider')}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </section>
+            ))}
           </div>
         ) : (
           <div className="competition-weigh-list">

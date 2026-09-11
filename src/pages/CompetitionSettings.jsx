@@ -565,6 +565,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
       );
       return;
     }
+    setActionMode(null);
     setDrawResult(result);
     setDrawAnimating(true);
   };
@@ -1038,54 +1039,46 @@ export default function CompetitionSettings({ onBack, onToast }) {
         </div>
       )}
 
-      {(actionMode || drawAnimating) && (
-        <div className="confirm-overlay" onClick={() => {
-          if (drawAnimating) return;
-          setActionMode(null);
-        }}>
-          <div
-            className={drawAnimating ? 'competition-draw-modal' : 'competition-draw-mode-modal'}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {drawAnimating && drawResult ? (
-              <DrawAnimation
-                items={
-                  drawResult.mode === 'equipe'
-                    ? drawResult.groups.flatMap((g) => (g.matches || []).flatMap((m) => [m.clubA, m.clubB]))
-                    : drawResult.groups.flatMap((g) => (g.seedOrder || []).map((s) => s.label))
-                }
-                title={drawResult.mode === 'equipe' ? 'Tirage par équipes' : 'Tirage individuel'}
-                onDone={() => {
-                  setDrawAnimating(false);
-                  setActionMode(null);
-                }}
-              />
-            ) : (
-              <>
-                <div className="competition-params-modal-head">
-                  <div>
-                    <h3>
-                      {actionMode === 'weigh' && 'Pesé'}
-                      {actionMode === 'export' && 'Exporter Liste'}
-                      {actionMode === 'draw' && 'Tirage au sort'}
-                    </h3>
-                    <p className="form-hint">Choisissez Individuel ou Par équipe.</p>
-                  </div>
-                  <button type="button" className="btn btn-outline btn-sm" onClick={() => setActionMode(null)}>
-                    Fermer
-                  </button>
-                </div>
-                <div className="competition-draw-mode-actions">
-                  <button type="button" className="btn btn-tirage competition-draw-mode-btn" onClick={() => handleActionMode('individuel')}>
-                    Individuel
-                  </button>
-                  <button type="button" className="btn btn-primary competition-draw-mode-btn" onClick={() => handleActionMode('equipe')}>
-                    Par Equipe
-                  </button>
-                </div>
-              </>
-            )}
+      {actionMode && !drawAnimating && (
+        <div className="confirm-overlay" onClick={() => setActionMode(null)}>
+          <div className="competition-draw-mode-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="competition-params-modal-head">
+              <div>
+                <h3>
+                  {actionMode === 'weigh' && 'Pesé'}
+                  {actionMode === 'export' && 'Exporter Liste'}
+                  {actionMode === 'draw' && 'Tirage au sort'}
+                </h3>
+                <p className="form-hint">Choisissez Individuel ou Par équipe.</p>
+              </div>
+              <button type="button" className="btn btn-outline btn-sm" onClick={() => setActionMode(null)}>
+                Fermer
+              </button>
+            </div>
+            <div className="competition-draw-mode-actions">
+              <button type="button" className="btn btn-tirage competition-draw-mode-btn" onClick={() => handleActionMode('individuel')}>
+                Individuel
+              </button>
+              <button type="button" className="btn btn-primary competition-draw-mode-btn" onClick={() => handleActionMode('equipe')}>
+                Par Equipe
+              </button>
+            </div>
           </div>
+        </div>
+      )}
+
+      {drawAnimating && drawResult && (
+        <div className="draw-animation-overlay" role="dialog" aria-modal="true" aria-label="Animation du tirage au sort">
+          <DrawAnimation
+            durationMs={10000}
+            items={
+              drawResult.mode === 'equipe'
+                ? drawResult.groups.flatMap((g) => (g.matches || []).flatMap((m) => [m.clubA, m.clubB]))
+                : drawResult.groups.flatMap((g) => (g.seedOrder || []).map((s) => s.label))
+            }
+            title={drawResult.mode === 'equipe' ? 'Tirage par équipes' : 'Tirage individuel'}
+            onDone={() => setDrawAnimating(false)}
+          />
         </div>
       )}
 
