@@ -1574,6 +1574,35 @@ tbody tr:last-child td {
   margin-bottom: 1.5rem;
 }
 
+.competition-team-edit-modal {
+  max-width: min(720px, 94vw);
+  text-align: left;
+  max-height: 90vh;
+  overflow: auto;
+}
+
+.competition-team-edit-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  margin: 1rem 0 1.25rem;
+}
+
+.competition-team-edit-row {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 0.85rem;
+  background: #f8fafc;
+}
+
+.competition-team-edit-row .form-hint {
+  margin: 0 0 0.55rem;
+}
+
+.competition-team-edit-modal .confirm-actions {
+  justify-content: flex-end;
+}
+
 .confirm-actions {
   display: flex;
   gap: 0.75rem;
@@ -3051,8 +3080,13 @@ tbody tr:last-child td {
 }
 
 .competition-public-desc,
-.competition-public-page .competition-team-form.form-card {
+.competition-public-page .competition-team-form.form-card,
+.competition-public-page .competition-lookup.form-card,
+.competition-public-page .competition-reg-form.form-card {
   width: 100%;
+  max-width: none;
+  margin: 0;
+  box-sizing: border-box;
 }
 
 .club-comites-field {

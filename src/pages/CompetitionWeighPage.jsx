@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { fetchPublicCompetitionRegistrations, updatePublicCompetitionWeight } from '../api';
-import { parseCategoriesPoids } from '../utils/weightCategories';
 
 const FILTERS = [
   { key: 'all', label: 'Tous' },
@@ -82,32 +81,46 @@ export default function CompetitionWeighPage({ token }) {
     })
   ), [registrations, weighMode]);
 
+  const chipFiltered = useMemo(() => (
+    modeRegistrations.filter((r) => {
+      if (activeFilter === 'garcon' && r.sexe === 'F') return false;
+      if (activeFilter === 'fille' && r.sexe !== 'F') return false;
+      if (activeFilter === 'deja_pese' && !r.poids) return false;
+      if (activeFilter === 'non_pese' && r.poids) return false;
+      return true;
+    })
+  ), [modeRegistrations, activeFilter]);
+
   const clubs = useMemo(() => {
     const set = new Set();
-    for (const r of modeRegistrations) {
+    for (const r of chipFiltered) {
       const club = (r.club || '').trim();
       if (club) set.add(club);
     }
     return [...set].sort((a, b) => a.localeCompare(b, 'fr'));
-  }, [modeRegistrations]);
+  }, [chipFiltered]);
 
   const poidsOptions = useMemo(() => {
     if (isTeamMode) {
-      const fromSettings = parseCategoriesPoids(competition?.categories_poids).map((c) => c.label);
-      const fromRegs = modeRegistrations.map((r) => teamCategoryLabel(r)).filter((l) => l && l !== '—');
-      return [...new Set([...fromSettings, ...fromRegs])].sort((a, b) => a.localeCompare(b, 'fr', { numeric: true }));
+      const fromRegs = chipFiltered.map((r) => teamCategoryLabel(r)).filter((l) => l && l !== '—');
+      return [...new Set(fromRegs)].sort((a, b) => a.localeCompare(b, 'fr', { numeric: true }));
     }
     const set = new Set();
-    for (const r of modeRegistrations) {
+    for (const r of chipFiltered) {
       const p = String(r.poids || '').trim();
       if (p) set.add(p);
     }
     return [...set].sort((a, b) => Number(a) - Number(b) || a.localeCompare(b, 'fr'));
-  }, [isTeamMode, competition, modeRegistrations]);
+  }, [isTeamMode, chipFiltered]);
+
+  useEffect(() => {
+    if (filterClub && !clubs.includes(filterClub)) setFilterClub('');
+    if (filterPoids && !poidsOptions.includes(filterPoids)) setFilterPoids('');
+  }, [clubs, poidsOptions, filterClub, filterPoids]);
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
-    return modeRegistrations.filter((r) => {
+    return chipFiltered.filter((r) => {
       if (filterClub && (r.club || '').trim() !== filterClub) return false;
       if (filterPoids) {
         if (isTeamMode) {
@@ -117,11 +130,6 @@ export default function CompetitionWeighPage({ token }) {
         }
       }
 
-      if (activeFilter === 'garcon' && r.sexe === 'F') return false;
-      if (activeFilter === 'fille' && r.sexe !== 'F') return false;
-      if (activeFilter === 'deja_pese' && !r.poids) return false;
-      if (activeFilter === 'non_pese' && r.poids) return false;
-
       if (!term) return true;
       if (isTeamMode) {
         return (r.club || '').toLowerCase().includes(term) || teamCategoryLabel(r).toLowerCase().includes(term);
@@ -130,7 +138,7 @@ export default function CompetitionWeighPage({ token }) {
       const reverse = `${r.nom || ''} ${r.prenom || ''}`.trim().toLowerCase();
       return full.includes(term) || reverse.includes(term) || (r.nom || '').toLowerCase().includes(term);
     });
-  }, [modeRegistrations, search, filterClub, filterPoids, activeFilter, isTeamMode]);
+  }, [chipFiltered, search, filterClub, filterPoids, isTeamMode]);
 
   const clubGroups = useMemo(() => {
     const map = new Map();
@@ -233,14 +241,10 @@ export default function CompetitionWeighPage({ token }) {
           </div>
         </header>
 
-        {weighComplete && (
+        {weighComplete && !isTeamMode && (
           <div className="competition-weigh-closed">
             <strong>Pesé Clôturée</strong>
-            <p>
-              {isTeamMode
-                ? 'Tous les clubs ont été pesés sur les catégories par équipe. Le tirage au sort est disponible sur la page Compétition.'
-                : 'Tous les judokas inscrits ont été pesés. Le tirage au sort est disponible sur la page Compétition.'}
-            </p>
+            <p>Tous les judokas inscrits ont été pesés. Le tirage au sort est disponible sur la page Compétition.</p>
           </div>
         )}
 

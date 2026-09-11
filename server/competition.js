@@ -541,13 +541,22 @@ export async function updateCompetitionRegistration(id, patch = {}) {
   if (patch.nom !== undefined) next.nom = String(patch.nom || '').trim();
   if (patch.prenom !== undefined) next.prenom = String(patch.prenom || '').trim();
   if (patch.poids !== undefined) next.poids = String(patch.poids ?? '').trim();
+  if (patch.club !== undefined) next.club = String(patch.club || '').trim();
+  if (patch.categorie !== undefined) next.categorie = String(patch.categorie || '').trim();
   if (!next.nom || !next.prenom) throw new Error('Nom et prénom obligatoires');
+  if (patch.club !== undefined && !next.club) throw new Error('Le nom du club est obligatoire');
 
   if (isSupabaseEnabled()) {
     try {
       const { data, error } = await getSupabase()
         .from('competition_registrations')
-        .update({ nom: next.nom, prenom: next.prenom, poids: next.poids })
+        .update({
+          nom: next.nom,
+          prenom: next.prenom,
+          poids: next.poids,
+          club: next.club,
+          categorie: next.categorie,
+        })
         .eq('id', id)
         .select('*')
         .maybeSingle();

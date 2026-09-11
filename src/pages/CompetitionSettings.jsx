@@ -22,8 +22,10 @@ function groupTeamClubs(registrations) {
   const map = new Map();
   for (const r of registrations || []) {
     const club = (r.club || '').trim() || 'Sans club';
-    if (!map.has(club)) map.set(club, { club, ids: [] });
-    map.get(club).ids.push(r.id);
+    if (!map.has(club)) map.set(club, { club, ids: [], members: [] });
+    const team = map.get(club);
+    team.ids.push(r.id);
+    team.members.push(r);
   }
   return [...map.values()].sort((a, b) => a.club.localeCompare(b.club, 'fr'));
 }
@@ -103,7 +105,7 @@ function RegistrationsTable({ registrations, onEdit, onDelete }) {
   );
 }
 
-function TeamClubsTable({ clubs, onDelete }) {
+function TeamClubsTable({ clubs, onEdit, onDelete }) {
   if (!clubs.length) {
     return (
       <div className="competition-empty-regs">
@@ -118,6 +120,7 @@ function TeamClubsTable({ clubs, onDelete }) {
         <thead>
           <tr>
             <th>Club</th>
+            <th>Judokas</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -125,8 +128,17 @@ function TeamClubsTable({ clubs, onDelete }) {
           {clubs.map((team) => (
             <tr key={team.club}>
               <td data-label="Club">{team.club}</td>
+              <td data-label="Judokas">{team.members?.length || team.ids.length}</td>
               <td data-label="Actions">
                 <div className="actions-cell">
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-sm btn-icon"
+                    title="Modifier"
+                    onClick={() => onEdit(team)}
+                  >
+                    ✏️
+                  </button>
                   <button
                     type="button"
                     className="btn btn-danger btn-sm btn-icon"
@@ -313,6 +325,9 @@ export default function CompetitionSettings({ onBack, onToast }) {
   const [deleteClubTarget, setDeleteClubTarget] = useState(null);
   const [editRegTarget, setEditRegTarget] = useState(null);
   const [editRegForm, setEditRegForm] = useState({ nom: '', prenom: '', poids: '' });
+  const [editTeamTarget, setEditTeamTarget] = useState(null);
+  const [editTeamClub, setEditTeamClub] = useState('');
+  const [editTeamMembers, setEditTeamMembers] = useState([]);
   const [form, setForm] = useState({
     nom: '',
     date_debut: '',
@@ -577,6 +592,54 @@ export default function CompetitionSettings({ onBack, onToast }) {
       prenom: reg.prenom || '',
       poids: reg.poids || '',
     });
+  };
+
+  const openEditTeam = (team) => {
+    setEditTeamTarget(team);
+    setEditTeamClub(team.club || '');
+    setEditTeamMembers((team.members || []).map((m) => ({
+      id: m.id,
+      nom: m.nom || '',
+      prenom: m.prenom || '',
+      poids: m.poids || '',
+      categorie: m.categorie || '',
+      sexe: m.sexe === 'F' ? 'F' : 'M',
+      role: String(m.role_equipe || '').includes('remplac') ? 'Remplaçant' : 'Principal',
+    })));
+  };
+
+  const handleSaveTeam = async (e) => {
+    e.preventDefault();
+    if (!editTeamTarget) return;
+    const club = editTeamClub.trim();
+    if (!club) {
+      onToast?.('Le nom du club est obligatoire', 'error');
+      return;
+    }
+    setSaving(true);
+    setError('');
+    try {
+      const updatedList = [];
+      for (const member of editTeamMembers) {
+        const updated = await updateCompetitionRegistration(member.id, {
+          club,
+          nom: member.nom,
+          prenom: member.prenom,
+          poids: member.poids,
+          categorie: member.categorie,
+        });
+        updatedList.push(updated);
+      }
+      const byId = new Map(updatedList.map((row) => [row.id, row]));
+      setRegistrations((prev) => prev.map((r) => (byId.has(r.id) ? { ...r, ...byId.get(r.id) } : r)));
+      setEditTeamTarget(null);
+      onToast?.('Équipe mise à jour');
+    } catch (err) {
+      setError(err.message);
+      onToast?.(err.message || 'Impossible de modifier l\'équipe', 'error');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleSaveRegistration = async (e) => {
@@ -894,6 +957,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
                   <h4>Par Équipe</h4>
                   <TeamClubsTable
                     clubs={groupTeamClubs(registrations.filter((r) => isTeamRegistration(r)))}
+                    onEdit={openEditTeam}
                     onDelete={setDeleteClubTarget}
                   />
                 </div>
@@ -1028,6 +1092,87 @@ export default function CompetitionSettings({ onBack, onToast }) {
               </div>
               <div className="confirm-actions">
                 <button type="button" className="btn btn-outline" onClick={() => setEditRegTarget(null)}>
+                  Annuler
+                </button>
+                <button type="submit" className="btn btn-primary" disabled={saving}>
+                  {saving ? 'Enregistrement...' : 'Enregistrer'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {editTeamTarget && (
+        <div className="confirm-overlay" onClick={() => setEditTeamTarget(null)}>
+          <div className="confirm-dialog competition-team-edit-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Modifier l&apos;équipe</h3>
+            <form onSubmit={handleSaveTeam}>
+              <div className="form-group">
+                <label htmlFor="edit-team-club">Nom du club</label>
+                <input
+                  id="edit-team-club"
+                  value={editTeamClub}
+                  onChange={(e) => setEditTeamClub(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="competition-team-edit-list">
+                {editTeamMembers.map((member, index) => (
+                  <div key={member.id} className="competition-team-edit-row">
+                    <p className="form-hint">
+                      {member.role} · {member.sexe === 'F' ? 'Fille' : 'Garçon'}
+                    </p>
+                    <div className="form-grid">
+                      <div className="form-group">
+                        <label htmlFor={`edit-team-prenom-${member.id}`}>Prénom</label>
+                        <input
+                          id={`edit-team-prenom-${member.id}`}
+                          value={member.prenom}
+                          onChange={(e) => setEditTeamMembers((prev) => prev.map((row, i) => (
+                            i === index ? { ...row, prenom: e.target.value } : row
+                          )))}
+                          required
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label htmlFor={`edit-team-nom-${member.id}`}>Nom</label>
+                        <input
+                          id={`edit-team-nom-${member.id}`}
+                          value={member.nom}
+                          onChange={(e) => setEditTeamMembers((prev) => prev.map((row, i) => (
+                            i === index ? { ...row, nom: e.target.value } : row
+                          )))}
+                          required
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label htmlFor={`edit-team-cat-${member.id}`}>Catégorie</label>
+                        <input
+                          id={`edit-team-cat-${member.id}`}
+                          value={member.categorie}
+                          onChange={(e) => setEditTeamMembers((prev) => prev.map((row, i) => (
+                            i === index ? { ...row, categorie: e.target.value } : row
+                          )))}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label htmlFor={`edit-team-poids-${member.id}`}>Poids (kg)</label>
+                        <input
+                          id={`edit-team-poids-${member.id}`}
+                          value={member.poids}
+                          onChange={(e) => setEditTeamMembers((prev) => prev.map((row, i) => (
+                            i === index ? { ...row, poids: e.target.value } : row
+                          )))}
+                          inputMode="decimal"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="confirm-actions">
+                <button type="button" className="btn btn-outline" onClick={() => setEditTeamTarget(null)}>
                   Annuler
                 </button>
                 <button type="submit" className="btn btn-primary" disabled={saving}>

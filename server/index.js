@@ -626,6 +626,8 @@ app.put('/api/competition/registrations/:id', async (req, res) => {
       nom: req.body?.nom,
       prenom: req.body?.prenom,
       poids: req.body?.poids,
+      club: req.body?.club,
+      categorie: req.body?.categorie,
     });
     res.json(updated);
   } catch (err) {
