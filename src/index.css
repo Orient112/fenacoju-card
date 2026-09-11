@@ -3020,6 +3020,26 @@ tbody tr:last-child td {
   gap: 1rem;
 }
 
+.competition-team-cats {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.competition-team-cat {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: #f8fafc;
+  padding: 0.9rem 1rem;
+}
+
+.competition-team-cat h3 {
+  margin: 0 0 0.75rem;
+  color: var(--primary);
+  font-size: 1rem;
+}
+
 .form-group-full {
   grid-column: 1 / -1;
 }

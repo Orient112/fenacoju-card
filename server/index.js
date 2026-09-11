@@ -71,6 +71,7 @@ import {
   updateCompetitionSettings,
   getCompetitionRegistrations,
   createCompetitionRegistration,
+  createCompetitionTeamRoster,
   updateCompetitionRegistration,
   updateCompetitionRegistrationWeight,
   deleteCompetitionRegistration,
@@ -233,7 +234,7 @@ app.get('/api/public/competition/:token', async (req, res) => {
     const registrations = await getCompetitionRegistrations();
     const teamCounts = {};
     for (const r of registrations) {
-      const mode = r.mode_inscription === 'equipe' || r.taille === '__mode_equipe__' ? 'equipe' : 'individuel';
+      const mode = r.mode_inscription === 'equipe' || String(r.taille || '').startsWith('__mode_equipe__') ? 'equipe' : 'individuel';
       if (mode !== 'equipe') continue;
       const club = (r.club || '').trim() || 'Sans club';
       const poids = String(r.poids || '').trim();
@@ -362,6 +363,16 @@ app.post('/api/public/competition/:token/register', async (req, res) => {
 
     const body = req.body || {};
     const modeInscription = body.mode_inscription === 'equipe' ? 'equipe' : 'individuel';
+
+    if (modeInscription === 'equipe' && Array.isArray(body.members)) {
+      const roster = await createCompetitionTeamRoster({
+        club: body.club,
+        members: body.members,
+        allowedCategories: settings.categories_poids || [],
+      });
+      return res.status(201).json(roster);
+    }
+
     let judokaId = body.judoka_id || null;
     let numeroCarte = body.numero_carte || '';
 

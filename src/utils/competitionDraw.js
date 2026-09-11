@@ -60,8 +60,19 @@ function weightSortValue(poids) {
 }
 
 function getMode(r) {
-  if (r?.mode_inscription === 'equipe' || r?.taille === '__mode_equipe__') return 'equipe';
+  const taille = String(r?.taille || '');
+  if (r?.mode_inscription === 'equipe' || taille === '__mode_equipe__' || taille.startsWith('__mode_equipe__:')) {
+    return 'equipe';
+  }
   return 'individuel';
+}
+
+function getTeamRole(r) {
+  if (r?.role_equipe === 'remplacant') return 'remplacant';
+  const taille = String(r?.taille || '');
+  if (taille.endsWith(':remplacant') || /remplacant/i.test(taille)) return 'remplacant';
+  if (String(r?.categorie || '').toLowerCase().includes('rempl')) return 'remplacant';
+  return 'principal';
 }
 
 /**
@@ -113,11 +124,11 @@ export function buildWeightDraw(registrations) {
 }
 
 /**
- * Par équipe : appariement aléatoire Club X vs Club Y,
- * puis combats judoka vs judoka par catégorie de poids.
- * Un club n’entre dans une catégorie que s’il a au moins 5 judokas dans ce poids.
+ * Par équipe : Club X vs Club Y (aléatoire), puis Principal vs Principal
+ * dans chaque catégorie de poids commune. Un club est éligible s’il a des
+ * judokas (au moins un Principal) dans au moins 3 catégories de poids.
  */
-export function buildTeamDraw(registrations, { minPerClub = 5 } = {}) {
+export function buildTeamDraw(registrations, { minCategories = 3 } = {}) {
   const teamRegs = (registrations || []).filter((r) => (
     getMode(r) === 'equipe' && String(r.poids || '').trim()
   ));
@@ -128,18 +139,25 @@ export function buildTeamDraw(registrations, { minPerClub = 5 } = {}) {
     const poids = normalizeWeight(r.poids);
     if (!clubsMap.has(club)) clubsMap.set(club, new Map());
     const byWeight = clubsMap.get(club);
-    if (!byWeight.has(poids)) byWeight.set(poids, []);
-    byWeight.get(poids).push(r);
+    if (!byWeight.has(poids)) byWeight.set(poids, { principal: null, remplacant: null, members: [] });
+    const bucket = byWeight.get(poids);
+    bucket.members.push(r);
+    const role = getTeamRole(r);
+    if (!bucket[role]) bucket[role] = r;
   }
 
   const eligible = [...clubsMap.entries()]
     .map(([club, byWeight]) => {
       const weights = [...byWeight.entries()]
-        .filter(([, members]) => members.length >= minPerClub)
-        .map(([poids, members]) => ({ poids, members: shuffle(members) }));
-      return { club, weights, byWeight: new Map(weights.map((w) => [w.poids, w.members])) };
+        .filter(([, bucket]) => bucket.principal)
+        .map(([poids, bucket]) => ({ poids, ...bucket }));
+      return {
+        club,
+        weights,
+        byWeight: new Map(weights.map((w) => [w.poids, w])),
+      };
     })
-    .filter((team) => team.weights.length > 0);
+    .filter((team) => team.weights.length >= minCategories);
 
   const shuffledClubs = shuffle(eligible);
   const matches = [];
@@ -159,22 +177,20 @@ export function buildTeamDraw(registrations, { minPerClub = 5 } = {}) {
     const byWeight = [...poidsSet]
       .sort((a, b) => weightSortValue(a) - weightSortValue(b))
       .map((poids) => {
-        const membersA = teamA.byWeight.get(poids) || [];
-        const membersB = teamB.byWeight.get(poids) || [];
-        if (membersA.length < minPerClub || membersB.length < minPerClub) return null;
-        const pairCount = Math.min(membersA.length, membersB.length);
-        const fights = [];
-        for (let j = 0; j < pairCount; j++) {
-          fights.push({
-            id: `${teamA.club}-${teamB.club}-${poids}-${j + 1}`,
-            a: membersA[j],
-            b: membersB[j],
-            labelA: judokaLabel(membersA[j]),
-            labelB: judokaLabel(membersB[j]),
+        const a = teamA.byWeight.get(poids);
+        const b = teamB.byWeight.get(poids);
+        if (!a?.principal || !b?.principal) return null;
+        return {
+          poids,
+          fights: [{
+            id: `${teamA.club}-${teamB.club}-${poids}`,
+            a: a.principal,
+            b: b.principal,
+            labelA: judokaLabel(a.principal),
+            labelB: judokaLabel(b.principal),
             poids,
-          });
-        }
-        return { poids, fights: shuffle(fights) };
+          }],
+        };
       })
       .filter(Boolean);
 

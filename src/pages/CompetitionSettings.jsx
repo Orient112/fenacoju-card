@@ -98,7 +98,8 @@ function ParamsFormFields({ form, onChange, onCategoriesChange }) {
           </button>
         </div>
         <p className="form-hint">
-          Chaque club devra inscrire au moins 5 judokas par catégorie pour le tirage par équipe.
+          Chaque club inscrit un Principal et un Remplaçant par catégorie.
+          Pour le tirage, le club doit couvrir au moins 3 catégories de poids.
         </p>
         {cats.length === 0 ? (
           <p className="form-hint">Aucune catégorie pour le moment.</p>
@@ -355,7 +356,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
     if (!result.groups.length) {
       onToast?.(
         mode === 'equipe'
-          ? 'Aucun combat par équipe : chaque club doit avoir au moins 5 judokas dans une catégorie de poids'
+          ? 'Aucun combat par équipe : chaque club doit avoir des judokas dans au moins 3 catégories de poids'
           : 'Aucun combat individuel possible (vérifiez les pesées)',
         'error'
       );
@@ -706,7 +707,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
                         </td>
                         <td data-label="Cadre">
                           <span className="badge badge-actif">
-                            {r.mode_inscription === 'equipe' || r.taille === '__mode_equipe__' ? 'Équipe' : 'Individuel'}
+                            {r.mode_inscription === 'equipe' || String(r.taille || '').startsWith('__mode_equipe__') ? 'Équipe' : 'Individuel'}
                           </span>
                         </td>
                         <td data-label="Type">
