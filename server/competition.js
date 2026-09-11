@@ -29,14 +29,27 @@ function toNumber(value) {
   return Number.isFinite(n) ? n : null;
 }
 
-export function parseWeightCategory(raw) {
+function normalizeSexe(value) {
+  const s = String(value || '').trim().toUpperCase();
+  if (s === 'F' || s.startsWith('F')) return 'F';
+  return 'M';
+}
+
+function defaultLabel(min, max) {
+  if (min === max) return String(max);
+  return `-${max}`;
+}
+
+export function parseWeightCategory(raw, fallbackSexe = 'M') {
   if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
     const min = toNumber(raw.min);
     const max = toNumber(raw.max);
     if (min == null || max == null) return null;
     const lo = Math.min(min, max);
     const hi = Math.max(min, max);
-    return { min: lo, max: hi, label: `${lo}–${hi}`, key: `${lo}-${hi}` };
+    const sexe = normalizeSexe(raw.sexe || fallbackSexe);
+    const label = String(raw.label || raw.nom || raw.categorie || '').trim() || defaultLabel(lo, hi);
+    return { sexe, label, min: lo, max: hi, key: `${sexe}|${label}` };
   }
 
   const s = String(raw || '').trim().replace(',', '.');
@@ -45,40 +58,62 @@ export function parseWeightCategory(raw) {
   if (range) {
     const lo = Math.min(Number(range[1]), Number(range[2]));
     const hi = Math.max(Number(range[1]), Number(range[2]));
-    return { min: lo, max: hi, label: `${lo}–${hi}`, key: `${lo}-${hi}` };
+    const sexe = normalizeSexe(fallbackSexe);
+    const label = defaultLabel(lo, hi);
+    return { sexe, label, min: lo, max: hi, key: `${sexe}|${label}` };
   }
   const n = toNumber(s);
   if (n == null) return null;
-  return { min: n, max: n, label: String(n), key: String(n) };
+  const sexe = normalizeSexe(fallbackSexe);
+  const label = String(raw).trim().startsWith('-') ? String(raw).trim() : `-${n}`;
+  return { sexe, label, min: n, max: n, key: `${sexe}|${label}` };
 }
 
 export function parseCategoriesPoids(raw) {
   let list = [];
-  if (Array.isArray(raw)) list = raw;
-  else if (typeof raw === 'string' && raw.trim()) {
+  const fallbackSexe = 'M';
+
+  if (raw && typeof raw === 'object' && !Array.isArray(raw) && (raw.M || raw.F || raw.garcon || raw.fille)) {
+    const boys = Array.isArray(raw.M) ? raw.M : (Array.isArray(raw.garcon) ? raw.garcon : []);
+    const girls = Array.isArray(raw.F) ? raw.F : (Array.isArray(raw.fille) ? raw.fille : []);
+    list = [
+      ...boys.map((item) => ({ ...(typeof item === 'object' ? item : { label: item, min: item, max: item }), sexe: 'M' })),
+      ...girls.map((item) => ({ ...(typeof item === 'object' ? item : { label: item, min: item, max: item }), sexe: 'F' })),
+    ];
+  } else if (Array.isArray(raw)) {
+    list = raw;
+  } else if (typeof raw === 'string' && raw.trim()) {
     try {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) list = parsed;
-      else list = raw.split(/[;,]/);
+      return parseCategoriesPoids(parsed);
     } catch {
       list = raw.split(/[;,]/);
     }
   }
+
   const seen = new Set();
   const cats = [];
   for (const item of list) {
-    const cat = parseWeightCategory(item);
+    const cat = parseWeightCategory(item, fallbackSexe);
     if (!cat || seen.has(cat.key)) continue;
     seen.add(cat.key);
     cats.push(cat);
   }
-  return cats.sort((a, b) => a.min - b.min || a.max - b.max);
+  return cats.sort((a, b) => {
+    if (a.sexe !== b.sexe) return a.sexe === 'M' ? -1 : 1;
+    return a.max - b.max || a.min - b.min || a.label.localeCompare(b.label, 'fr');
+  });
 }
 
-export function findCategoryForWeight(categories, poids) {
+export function categoriesForSexe(categories, sexe) {
+  const wanted = normalizeSexe(sexe);
+  return parseCategoriesPoids(categories).filter((c) => c.sexe === wanted);
+}
+
+export function findCategoryForWeight(categories, poids, sexe) {
   const n = toNumber(poids);
   if (n == null) return null;
-  return parseCategoriesPoids(categories).find((c) => n >= c.min && n <= c.max) || null;
+  return categoriesForSexe(categories, sexe).find((c) => n >= c.min && n <= c.max) || null;
 }
 
 function splitFullName(fullName) {
@@ -370,20 +405,24 @@ export async function createCompetitionRegistration(payload) {
   return row;
 }
 
-export async function createCompetitionTeamRoster({ club, members = [], allowedCategories = [] } = {}) {
+export async function createCompetitionTeamRoster({ club, sexe = 'M', members = [], allowedCategories = [] } = {}) {
   const clubName = String(club || '').trim();
   if (!clubName) throw new Error('Le nom du club est obligatoire');
+  const teamSexe = String(sexe).toUpperCase().startsWith('F') ? 'F' : 'M';
+  const sexeLabel = teamSexe === 'F' ? 'Fille' : 'Garçon';
 
-  const cats = parseCategoriesPoids(allowedCategories);
+  const cats = categoriesForSexe(allowedCategories, teamSexe);
   if (cats.length < TEAM_MIN_CATEGORIES) {
-    throw new Error('Au moins 3 catégories de poids (avec seuil min / max) doivent être définies pour le mode Par équipe');
+    throw new Error(`Au moins 3 catégories de poids ${sexeLabel} doivent être définies pour le mode Par équipe`);
   }
 
   const existing = (await getCompetitionRegistrations()).filter((r) => (
-    getRegistrationMode(r) === 'equipe' && norm(r.club) === norm(clubName)
+    getRegistrationMode(r) === 'equipe'
+    && norm(r.club) === norm(clubName)
+    && (r.sexe === 'F' ? 'F' : 'M') === teamSexe
   ));
   if (existing.length) {
-    throw new Error('Ce club est déjà inscrit en équipe à cette compétition');
+    throw new Error(`Ce club a déjà une équipe ${sexeLabel} inscrite à cette compétition`);
   }
 
   const cleaned = [];
@@ -401,20 +440,21 @@ export async function createCompetitionTeamRoster({ club, members = [], allowedC
     const role = raw?.role_equipe === 'remplacant' ? 'remplacant' : 'principal';
     if (!nom && !prenom) continue;
     if (!nom || !prenom) throw new Error('Le nom complet est obligatoire pour chaque judoka');
-    const cat = findCategoryForWeight(cats, poidsReel);
+    const cat = findCategoryForWeight(cats, poidsReel, teamSexe);
     if (!cat) {
-      throw new Error(`Aucun seuil de catégorie ne correspond au poids ${poidsReel || '—'} kg`);
+      throw new Error(`Aucun seuil de catégorie ${sexeLabel} ne correspond au poids ${poidsReel || '—'} kg`);
     }
     if (!byCat.has(cat.key)) byCat.set(cat.key, { cat, principal: null, remplacant: null });
     const bucket = byCat.get(cat.key);
     if (bucket[role]) {
-      throw new Error(`Un ${role === 'principal' ? 'Principal' : 'Remplaçant'} est déjà classé en ${cat.label} kg`);
+      throw new Error(`Un ${role === 'principal' ? 'Principal' : 'Remplaçant'} est déjà classé en ${cat.label}`);
     }
     const member = {
       nom,
       prenom,
       poids: poidsReel,
       categorie: cat.label,
+      sexe: teamSexe,
       role_equipe: role,
     };
     bucket[role] = member;
@@ -423,13 +463,13 @@ export async function createCompetitionTeamRoster({ club, members = [], allowedC
 
   for (const bucket of byCat.values()) {
     if (bucket.remplacant && !bucket.principal) {
-      throw new Error(`Indiquez le Principal avant le Remplaçant en ${bucket.cat.label} kg`);
+      throw new Error(`Indiquez le Principal avant le Remplaçant en ${bucket.cat.label}`);
     }
   }
 
   const filledCats = [...byCat.values()].filter((b) => b.principal).length;
   if (filledCats < TEAM_MIN_CATEGORIES) {
-    throw new Error(`Le club doit inscrire des judokas dans au moins ${TEAM_MIN_CATEGORIES} catégories de poids`);
+    throw new Error(`Le club doit inscrire des judokas dans au moins ${TEAM_MIN_CATEGORIES} catégories ${sexeLabel}`);
   }
 
   const created = [];
@@ -438,7 +478,7 @@ export async function createCompetitionTeamRoster({ club, members = [], allowedC
       nom: member.nom,
       prenom: member.prenom,
       date_naissance: '',
-      sexe: 'M',
+      sexe: member.sexe,
       club: clubName,
       grade: '',
       categorie: member.categorie,
@@ -451,7 +491,7 @@ export async function createCompetitionTeamRoster({ club, members = [], allowedC
     });
     created.push(row);
   }
-  return { club: clubName, count: created.length, registrations: created };
+  return { club: clubName, sexe: teamSexe, count: created.length, registrations: created };
 }
 
 export async function getCompetitionRegistrationById(id) {

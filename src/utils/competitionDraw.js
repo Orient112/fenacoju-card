@@ -135,100 +135,108 @@ export function buildTeamDraw(registrations, { minCategories = 3 } = {}) {
 
   const clubsMap = new Map();
   for (const r of teamRegs) {
+    const sexe = r.sexe === 'F' ? 'F' : 'M';
     const club = (r.club || '').trim() || 'Sans club';
+    const clubKey = `${sexe}::${club}`;
     const poids = teamCategoryKey(r);
     if (!poids) continue;
-    if (!clubsMap.has(club)) clubsMap.set(club, new Map());
-    const byWeight = clubsMap.get(club);
-    if (!byWeight.has(poids)) byWeight.set(poids, { principal: null, remplacant: null, members: [] });
-    const bucket = byWeight.get(poids);
+    if (!clubsMap.has(clubKey)) clubsMap.set(clubKey, { club, sexe, byWeight: new Map() });
+    const team = clubsMap.get(clubKey);
+    if (!team.byWeight.has(poids)) team.byWeight.set(poids, { principal: null, remplacant: null, members: [] });
+    const bucket = team.byWeight.get(poids);
     bucket.members.push(r);
     const role = getTeamRole(r);
     if (!bucket[role]) bucket[role] = r;
   }
 
-  const eligible = [...clubsMap.entries()]
-    .map(([club, byWeight]) => {
-      const weights = [...byWeight.entries()]
+  const eligible = [...clubsMap.values()]
+    .map((team) => {
+      const weights = [...team.byWeight.entries()]
         .filter(([, bucket]) => bucket.principal)
         .map(([poids, bucket]) => ({ poids, ...bucket }));
       return {
-        club,
+        club: team.club,
+        sexe: team.sexe,
         weights,
         byWeight: new Map(weights.map((w) => [w.poids, w])),
       };
     })
     .filter((team) => team.weights.length >= minCategories);
 
-  const shuffledClubs = shuffle(eligible);
-  const matches = [];
-  let byeClub = null;
+  const groups = [];
+  let totalFights = 0;
+  const seedOrder = [];
 
-  for (let i = 0; i < shuffledClubs.length; i += 2) {
-    if (i + 1 >= shuffledClubs.length) {
-      byeClub = shuffledClubs[i];
-      break;
+  for (const sexe of ['M', 'F']) {
+    const pool = shuffle(eligible.filter((t) => t.sexe === sexe));
+    const matches = [];
+    let byeClub = null;
+    seedOrder.push(...pool.flatMap((t) => t.weights.flatMap((w) => w.members)));
+
+    for (let i = 0; i < pool.length; i += 2) {
+      if (i + 1 >= pool.length) {
+        byeClub = pool[i];
+        break;
+      }
+      const teamA = pool[i];
+      const teamB = pool[i + 1];
+      const poidsSet = new Set([
+        ...teamA.weights.map((w) => w.poids),
+        ...teamB.weights.map((w) => w.poids),
+      ]);
+      const byWeight = [...poidsSet]
+        .sort((a, b) => a.localeCompare(b, 'fr'))
+        .map((poids) => {
+          const a = teamA.byWeight.get(poids);
+          const b = teamB.byWeight.get(poids);
+          if (!a?.principal || !b?.principal) return null;
+          return {
+            poids: String(poids).split('|').slice(1).join('|') || poids,
+            fights: [{
+              id: `${teamA.club}-${teamB.club}-${poids}`,
+              a: a.principal,
+              b: b.principal,
+              labelA: judokaLabel(a.principal),
+              labelB: judokaLabel(b.principal),
+              poids,
+            }],
+          };
+        })
+        .filter(Boolean);
+
+      const flatFights = byWeight.flatMap((w) => w.fights);
+      if (!flatFights.length) continue;
+      totalFights += flatFights.length;
+      matches.push({
+        id: `${sexe}-${teamA.club}-vs-${teamB.club}`,
+        clubA: teamA.club,
+        clubB: teamB.club,
+        labelA: teamA.club,
+        labelB: teamB.club,
+        byWeight,
+        fights: flatFights,
+      });
     }
-    const teamA = shuffledClubs[i];
-    const teamB = shuffledClubs[i + 1];
-    const poidsSet = new Set([
-      ...teamA.weights.map((w) => w.poids),
-      ...teamB.weights.map((w) => w.poids),
-    ]);
-    const byWeight = [...poidsSet]
-      .sort((a, b) => weightSortValue(a) - weightSortValue(b))
-      .map((poids) => {
-        const a = teamA.byWeight.get(poids);
-        const b = teamB.byWeight.get(poids);
-        if (!a?.principal || !b?.principal) return null;
-        return {
-          poids,
-          fights: [{
-            id: `${teamA.club}-${teamB.club}-${poids}`,
-            a: a.principal,
-            b: b.principal,
-            labelA: judokaLabel(a.principal),
-            labelB: judokaLabel(b.principal),
-            poids,
-          }],
-        };
-      })
-      .filter(Boolean);
 
-    const flatFights = byWeight.flatMap((w) => w.fights);
-    if (!flatFights.length) continue;
-
-    matches.push({
-      id: `${teamA.club}-vs-${teamB.club}`,
-      clubA: teamA.club,
-      clubB: teamB.club,
-      labelA: teamA.club,
-      labelB: teamB.club,
-      byWeight,
-      fights: flatFights,
-    });
+    if (matches.length || byeClub) {
+      groups.push({
+        key: `equipe-${sexe}`,
+        mode: 'equipe',
+        title: sexe === 'F' ? 'Filles' : 'Garçons',
+        count: pool.reduce((n, t) => n + t.weights.reduce((m, w) => m + w.members.length, 0), 0),
+        matches: shuffle(matches),
+        fights: [],
+        bye: byeClub ? { label: byeClub.club, club: byeClub.club } : null,
+        seedOrder: pool.flatMap((t) => t.weights.flatMap((w) => w.members)),
+      });
+    }
   }
-
-  const seedOrder = eligible.flatMap((t) => t.weights.flatMap((w) => w.members));
-  const groups = [{
-    key: 'equipe-rencontres',
-    mode: 'equipe',
-    title: 'Rencontres par équipe',
-    count: seedOrder.length,
-    matches: shuffle(matches),
-    fights: [],
-    bye: byeClub ? { label: byeClub.club, club: byeClub.club } : null,
-    seedOrder,
-  }].filter((g) => g.matches.length > 0 || g.bye);
 
   return {
     mode: 'equipe',
     modeLabel: 'Par Équipe',
     totalJudokas: seedOrder.length,
-    totalFights: groups.reduce(
-      (sum, g) => sum + g.matches.reduce((n, m) => n + m.fights.length, 0),
-      0
-    ),
+    totalFights,
     groups,
   };
 }

@@ -29,14 +29,79 @@ function ParamsFormFields({ form, onChange, onCategoriesChange }) {
   const updateCat = (index, field, value) => {
     const next = cats.map((c, i) => {
       if (i !== index) return c;
-      const current = (c && typeof c === 'object') ? c : { min: c, max: c };
+      const current = (c && typeof c === 'object') ? c : { min: c, max: c, label: c };
       return { ...current, [field]: value };
     });
     onCategoriesChange(next);
   };
 
-  const addCat = () => onCategoriesChange([...cats, { min: '', max: '' }]);
+  const addCat = (sexe) => onCategoriesChange([...cats, { sexe, label: '', min: '', max: '' }]);
   const removeCat = (index) => onCategoriesChange(cats.filter((_, i) => i !== index));
+
+  const renderSexGroup = (sexe, title) => {
+    const rows = cats
+      .map((value, index) => ({ value, index }))
+      .filter(({ value }) => {
+        const current = (value && typeof value === 'object') ? value : {};
+        const s = String(current.sexe || 'M').toUpperCase().startsWith('F') ? 'F' : 'M';
+        return s === sexe;
+      });
+
+    return (
+      <div className="competition-cat-sex-group">
+        <div className="club-comites-head">
+          <label>{title}</label>
+          <button type="button" className="btn btn-outline btn-sm" onClick={() => addCat(sexe)}>
+            + Ajouter
+          </button>
+        </div>
+        {rows.length === 0 ? (
+          <p className="form-hint">Aucune catégorie {title.toLowerCase()} pour le moment.</p>
+        ) : (
+          <div className="club-comites-list">
+            {rows.map(({ value, index }) => {
+              const cat = (value && typeof value === 'object') ? value : { label: value, min: value, max: value };
+              return (
+                <div key={`poids-${sexe}-${index}`} className="club-comite-row club-comite-row-cat">
+                  <input
+                    value={cat.label ?? ''}
+                    onChange={(e) => updateCat(index, 'label', e.target.value)}
+                    placeholder="Ex. -60"
+                    aria-label={`Catégorie ${title} ${index + 1}`}
+                  />
+                  <span className="form-hint" style={{ margin: 0 }}>de</span>
+                  <input
+                    value={cat.min ?? ''}
+                    onChange={(e) => updateCat(index, 'min', e.target.value)}
+                    placeholder="Ex. 0"
+                    inputMode="decimal"
+                    aria-label={`Poids minimum ${title} ${index + 1}`}
+                  />
+                  <span className="form-hint" style={{ margin: 0 }}>à</span>
+                  <input
+                    value={cat.max ?? ''}
+                    onChange={(e) => updateCat(index, 'max', e.target.value)}
+                    placeholder="Ex. 60"
+                    inputMode="decimal"
+                    aria-label={`Poids maximum ${title} ${index + 1}`}
+                  />
+                  <span className="form-hint" style={{ margin: 0 }}>kg</span>
+                  <button
+                    type="button"
+                    className="btn btn-danger btn-sm btn-icon"
+                    title="Retirer"
+                    onClick={() => removeCat(index)}
+                  >
+                    🗑️
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="form-grid">
@@ -95,55 +160,15 @@ function ParamsFormFields({ form, onChange, onCategoriesChange }) {
         />
       </div>
       <div className="form-group form-group-full">
-        <div className="club-comites-head">
-          <label>Catégories de poids (Par équipe)</label>
-          <button type="button" className="btn btn-outline btn-sm" onClick={addCat}>
-            + Ajouter
-          </button>
-        </div>
+        <label>Catégories de poids (Par équipe)</label>
         <p className="form-hint">
-          Indiquez le seuil de chaque catégorie (de tel poids à tel poids).
-          Les judokas d&apos;équipe seront classés automatiquement selon leur poids.
-          Un club doit couvrir au moins 3 catégories pour le tirage.
+          Garçons et Filles ont chacun leurs catégories. Saisissez le libellé (ex. -60)
+          et le seuil (de tel poids à tel poids). L&apos;inscription d&apos;équipe n&apos;affiche que
+          les catégories ; le classement se fait automatiquement selon le poids.
+          Chaque équipe (garçons ou filles) doit couvrir au moins 3 catégories.
         </p>
-        {cats.length === 0 ? (
-          <p className="form-hint">Aucune catégorie pour le moment.</p>
-        ) : (
-          <div className="club-comites-list">
-            {cats.map((value, index) => {
-              const cat = (value && typeof value === 'object') ? value : { min: value, max: value };
-              return (
-                <div key={`poids-${index}`} className="club-comite-row club-comite-row-range">
-                  <label className="form-hint" style={{ margin: 0 }}>De</label>
-                  <input
-                    value={cat.min ?? ''}
-                    onChange={(e) => updateCat(index, 'min', e.target.value)}
-                    placeholder="Ex. 50"
-                    inputMode="decimal"
-                    aria-label={`Poids minimum ${index + 1}`}
-                  />
-                  <label className="form-hint" style={{ margin: 0 }}>à</label>
-                  <input
-                    value={cat.max ?? ''}
-                    onChange={(e) => updateCat(index, 'max', e.target.value)}
-                    placeholder="Ex. 60"
-                    inputMode="decimal"
-                    aria-label={`Poids maximum ${index + 1}`}
-                  />
-                  <span className="form-hint" style={{ margin: 0 }}>kg</span>
-                  <button
-                    type="button"
-                    className="btn btn-danger btn-sm btn-icon"
-                    title="Retirer"
-                    onClick={() => removeCat(index)}
-                  >
-                    🗑️
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        )}
+        {renderSexGroup('M', 'Garçon')}
+        {renderSexGroup('F', 'Fille')}
       </div>
     </div>
   );
@@ -374,7 +399,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
     if (!result.groups.length) {
       onToast?.(
         mode === 'equipe'
-          ? 'Aucun combat par équipe : chaque club doit avoir des judokas dans au moins 3 catégories de poids'
+          ? 'Aucun combat par équipe : chaque club doit avoir des judokas dans au moins 3 catégories du même sexe'
           : 'Aucun combat individuel possible (vérifiez les pesées)',
         'error'
       );

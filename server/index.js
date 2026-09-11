@@ -368,6 +368,7 @@ app.post('/api/public/competition/:token/register', async (req, res) => {
     if (modeInscription === 'equipe' && Array.isArray(body.members)) {
       const roster = await createCompetitionTeamRoster({
         club: body.club,
+        sexe: body.sexe,
         members: body.members,
         allowedCategories: settings.categories_poids || [],
       });

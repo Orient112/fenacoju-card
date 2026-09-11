@@ -9,8 +9,10 @@ import {
 
 import {
   parseCategoriesPoids,
+  categoriesForSexe,
   findCategoryForWeight,
   splitFullName,
+  sexeLabel,
 } from '../utils/weightCategories';
 
 const emptyForm = () => ({
@@ -40,6 +42,8 @@ export default function CompetitionPublicForm({ token }) {
   const [teamClub, setTeamClub] = useState('');
   const [teamRoster, setTeamRoster] = useState({});
   const [teamEntry, setTeamEntry] = useState(emptyTeamEntry());
+  const [teamSexe, setTeamSexe] = useState('');
+  const [showTeamSexModal, setShowTeamSexModal] = useState(false);
   const [judokaMeta, setJudokaMeta] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [successName, setSuccessName] = useState('');
@@ -180,18 +184,18 @@ export default function CompetitionPublicForm({ token }) {
       setError('Saisissez le poids du judoka');
       return;
     }
-    const cat = findCategoryForWeight(weightCats, poids);
+    const cat = findCategoryForWeight(weightCats, poids, teamSexe);
     if (!cat) {
       setError(`Aucun seuil de catégorie ne correspond au poids ${poids} kg`);
       return;
     }
     const current = teamRoster[cat.key] || { cat, principal: null, remplacant: null };
     if (current[role]) {
-      setError(`Un ${role === 'principal' ? 'Principal' : 'Remplaçant'} est déjà classé en ${cat.label} kg`);
+      setError(`Un ${role === 'principal' ? 'Principal' : 'Remplaçant'} est déjà classé en ${cat.label}`);
       return;
     }
     if (role === 'remplacant' && !current.principal) {
-      setError(`Classez d'abord le Principal de la catégorie ${cat.label} kg`);
+      setError(`Classez d'abord le Principal de la catégorie ${cat.label}`);
       return;
     }
     setTeamRoster((prev) => ({
@@ -231,8 +235,11 @@ export default function CompetitionPublicForm({ token }) {
   }
 
   const count = competition.registrations_count ?? 0;
-  const weightCats = parseCategoriesPoids(competition.categories_poids);
+  const allWeightCats = parseCategoriesPoids(competition.categories_poids);
+  const weightCats = teamSexe ? categoriesForSexe(allWeightCats, teamSexe) : [];
   const filledTeamCats = Object.values(teamRoster).filter((bucket) => bucket?.principal).length;
+  const boyCats = categoriesForSexe(allWeightCats, 'M');
+  const girlCats = categoriesForSexe(allWeightCats, 'F');
 
   const resetFlow = () => {
     setStep('mode');
@@ -241,6 +248,8 @@ export default function CompetitionPublicForm({ token }) {
     setTeamClub('');
     setTeamRoster({});
     setTeamEntry(emptyTeamEntry());
+    setTeamSexe('');
+    setShowTeamSexModal(false);
     setJudokaMeta(null);
     setCardId('');
     setSuccessName('');
@@ -251,17 +260,34 @@ export default function CompetitionPublicForm({ token }) {
     setInscriptionMode(mode);
     setError('');
     if (mode === 'equipe') {
-      if (weightCats.length < TEAM_MIN_CATEGORIES) {
-        setError('Le Directeur de Compétition doit définir au moins 3 catégories de poids (avec seuil min / max) pour le mode Par équipe.');
+      if (boyCats.length < TEAM_MIN_CATEGORIES && girlCats.length < TEAM_MIN_CATEGORIES) {
+        setError('Le Directeur de Compétition doit définir au moins 3 catégories Garçon ou Fille pour le mode Par équipe.');
         return;
       }
       setTeamClub('');
       setTeamRoster({});
       setTeamEntry(emptyTeamEntry());
-      setStep('team');
+      setTeamSexe('');
+      setShowTeamSexModal(true);
       return;
     }
+    setShowTeamSexModal(false);
     setStep('choice');
+  };
+
+  const selectTeamSexe = (sexe) => {
+    const cats = categoriesForSexe(allWeightCats, sexe);
+    if (cats.length < TEAM_MIN_CATEGORIES) {
+      setError(`Au moins ${TEAM_MIN_CATEGORIES} catégories ${sexeLabel(sexe)} doivent être définies.`);
+      return;
+    }
+    setError('');
+    setTeamSexe(sexe);
+    setShowTeamSexModal(false);
+    setTeamClub('');
+    setTeamRoster({});
+    setTeamEntry(emptyTeamEntry());
+    setStep('team');
   };
 
   const handleTeamSubmit = async (e) => {
@@ -282,7 +308,7 @@ export default function CompetitionPublicForm({ token }) {
         }
         if (bucket.remplacant) {
           if (!bucket.principal) {
-            throw new Error(`Indiquez le Principal avant le Remplaçant en ${bucket.cat?.label || ''} kg`);
+            throw new Error(`Indiquez le Principal avant le Remplaçant en ${bucket.cat?.label || ''}`);
           }
           const names = splitFullName(bucket.remplacant.nom_complet);
           members.push({
@@ -299,6 +325,7 @@ export default function CompetitionPublicForm({ token }) {
       const result = await registerPublicCompetition(token, {
         mode_inscription: 'equipe',
         club: teamClub.trim(),
+        sexe: teamSexe,
         members,
       });
       setSuccessName(teamClub.trim());
@@ -500,12 +527,12 @@ export default function CompetitionPublicForm({ token }) {
 
             {step === 'team' && (
               <form className="competition-reg-form form-card" onSubmit={handleTeamSubmit}>
-                <h2>Enregistrement Equipe</h2>
+                <h2>Enregistrement Equipe · {sexeLabel(teamSexe)}</h2>
                 <p className="form-hint">
                   Saisissez le nom du club, puis le nom complet, le rôle et le poids de chaque judoka.
-                  Cliquez sur Valider pour le classer automatiquement dans la catégorie correspondant à son poids.
+                  Cliquez sur Valider pour le classer automatiquement dans la catégorie correspondante.
                   Recommencez pour les autres judokas, puis enregistrez l&apos;équipe.
-                  Participation : au moins {TEAM_MIN_CATEGORIES} catégories couvertes.
+                  Participation : au moins {TEAM_MIN_CATEGORIES} catégories {sexeLabel(teamSexe)}.
                 </p>
                 <p className="form-hint">
                   Catégories couvertes : <strong>{filledTeamCats}/{TEAM_MIN_CATEGORIES}</strong>
@@ -569,7 +596,7 @@ export default function CompetitionPublicForm({ token }) {
                     const bucket = teamRoster[cat.key];
                     return (
                       <section key={cat.key} className="competition-team-cat">
-                        <h3>{cat.label} kg <span className="form-hint">({cat.min} à {cat.max} kg)</span></h3>
+                        <h3>{cat.label}</h3>
                         {!bucket?.principal && !bucket?.remplacant ? (
                           <p className="form-hint">Aucun judoka classé dans cette catégorie pour le moment.</p>
                         ) : (
@@ -643,6 +670,43 @@ export default function CompetitionPublicForm({ token }) {
               </div>
             )}
           </>
+        )}
+
+        {showTeamSexModal && (
+          <div
+            className="confirm-overlay"
+            onClick={() => setShowTeamSexModal(false)}
+          >
+            <div className="competition-draw-mode-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="competition-params-modal-head">
+                <div>
+                  <h3>Sexe</h3>
+                  <p className="form-hint">Choisissez le sexe de l&apos;équipe à enregistrer.</p>
+                </div>
+                <button type="button" className="btn btn-outline btn-sm" onClick={() => setShowTeamSexModal(false)}>
+                  Fermer
+                </button>
+              </div>
+              <div className="competition-draw-mode-actions">
+                <button
+                  type="button"
+                  className="btn btn-primary competition-draw-mode-btn"
+                  disabled={boyCats.length < TEAM_MIN_CATEGORIES}
+                  onClick={() => selectTeamSexe('M')}
+                >
+                  Garçon
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-outline competition-draw-mode-btn"
+                  disabled={girlCats.length < TEAM_MIN_CATEGORIES}
+                  onClick={() => selectTeamSexe('F')}
+                >
+                  Fille
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>
