@@ -1588,6 +1588,17 @@ tbody tr:last-child td {
   margin: 1rem 0 1.25rem;
 }
 
+.competition-team-edit-cat h4 {
+  margin: 0 0 0.45rem;
+  color: var(--primary);
+  font-size: 1rem;
+}
+
+.competition-team-edit-cat h4 span {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
 .competition-team-edit-row {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -3665,6 +3676,23 @@ tbody tr:last-child td {
   margin-top: 0.15rem;
   color: var(--text-muted);
   font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.competition-weigh-cat-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.competition-weigh-cat-block h4 {
+  margin: 0.35rem 0 0;
+  font-size: 0.92rem;
+  color: var(--primary);
+}
+
+.competition-weigh-cat-block h4 span {
+  color: var(--text-muted);
   font-weight: 600;
 }
 

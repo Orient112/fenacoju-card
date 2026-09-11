@@ -18,6 +18,40 @@ function isTeamRegistration(r) {
   return r?.mode_inscription === 'equipe' || String(r?.taille || '').startsWith('__mode_equipe__');
 }
 
+function teamMemberRole(m) {
+  if (m?.role === 'remplacant' || m?.role_equipe === 'remplacant') return 'remplacant';
+  const raw = String(m?.role || m?.role_equipe || m?.taille || '').toLowerCase();
+  if (raw.includes('remplac')) return 'remplacant';
+  return 'principal';
+}
+
+function teamMemberCategory(m) {
+  const raw = String(m?.categorie || '').trim();
+  if (raw && !/principal|rempl/i.test(raw)) return raw;
+  return 'Sans catégorie';
+}
+
+function groupEditMembersByCategory(members) {
+  const map = new Map();
+  for (const m of members || []) {
+    const cat = teamMemberCategory(m);
+    const sexe = m.sexe === 'F' ? 'F' : 'M';
+    const key = `${sexe}|${cat}`;
+    if (!map.has(key)) {
+      map.set(key, { key, cat, sexe, principal: null, remplacant: null });
+    }
+    const bucket = map.get(key);
+    const role = teamMemberRole(m);
+    if (role === 'remplacant' && !bucket.remplacant) bucket.remplacant = m;
+    else if (!bucket.principal) bucket.principal = m;
+    else if (!bucket.remplacant) bucket.remplacant = m;
+  }
+  return [...map.values()].sort((a, b) => {
+    if (a.sexe !== b.sexe) return a.sexe === 'M' ? -1 : 1;
+    return a.cat.localeCompare(b.cat, 'fr', { numeric: true });
+  });
+}
+
 function groupTeamClubs(registrations) {
   const map = new Map();
   for (const r of registrations || []) {
@@ -604,7 +638,9 @@ export default function CompetitionSettings({ onBack, onToast }) {
       poids: m.poids || '',
       categorie: m.categorie || '',
       sexe: m.sexe === 'F' ? 'F' : 'M',
-      role: String(m.role_equipe || '').includes('remplac') ? 'Remplaçant' : 'Principal',
+      role: teamMemberRole(m),
+      role_equipe: m.role_equipe,
+      taille: m.taille,
     })));
   };
 
@@ -626,7 +662,6 @@ export default function CompetitionSettings({ onBack, onToast }) {
           nom: member.nom,
           prenom: member.prenom,
           poids: member.poids,
-          categorie: member.categorie,
         });
         updatedList.push(updated);
       }
@@ -1118,57 +1153,57 @@ export default function CompetitionSettings({ onBack, onToast }) {
                 />
               </div>
               <div className="competition-team-edit-list">
-                {editTeamMembers.map((member, index) => (
-                  <div key={member.id} className="competition-team-edit-row">
-                    <p className="form-hint">
-                      {member.role} · {member.sexe === 'F' ? 'Fille' : 'Garçon'}
-                    </p>
-                    <div className="form-grid">
-                      <div className="form-group">
-                        <label htmlFor={`edit-team-prenom-${member.id}`}>Prénom</label>
-                        <input
-                          id={`edit-team-prenom-${member.id}`}
-                          value={member.prenom}
-                          onChange={(e) => setEditTeamMembers((prev) => prev.map((row, i) => (
-                            i === index ? { ...row, prenom: e.target.value } : row
-                          )))}
-                          required
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label htmlFor={`edit-team-nom-${member.id}`}>Nom</label>
-                        <input
-                          id={`edit-team-nom-${member.id}`}
-                          value={member.nom}
-                          onChange={(e) => setEditTeamMembers((prev) => prev.map((row, i) => (
-                            i === index ? { ...row, nom: e.target.value } : row
-                          )))}
-                          required
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label htmlFor={`edit-team-cat-${member.id}`}>Catégorie</label>
-                        <input
-                          id={`edit-team-cat-${member.id}`}
-                          value={member.categorie}
-                          onChange={(e) => setEditTeamMembers((prev) => prev.map((row, i) => (
-                            i === index ? { ...row, categorie: e.target.value } : row
-                          )))}
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label htmlFor={`edit-team-poids-${member.id}`}>Poids (kg)</label>
-                        <input
-                          id={`edit-team-poids-${member.id}`}
-                          value={member.poids}
-                          onChange={(e) => setEditTeamMembers((prev) => prev.map((row, i) => (
-                            i === index ? { ...row, poids: e.target.value } : row
-                          )))}
-                          inputMode="decimal"
-                        />
-                      </div>
-                    </div>
-                  </div>
+                {groupEditMembersByCategory(editTeamMembers).map((bucket) => (
+                  <section key={bucket.key} className="competition-team-edit-cat">
+                    <h4>
+                      {bucket.cat}
+                      <span> · {bucket.sexe === 'F' ? 'Fille' : 'Garçon'}</span>
+                    </h4>
+                    {['principal', 'remplacant'].map((role) => {
+                      const member = bucket[role];
+                      if (!member) return null;
+                      return (
+                        <div key={member.id} className="competition-team-edit-row">
+                          <p className="form-hint">{role === 'principal' ? 'Principal' : 'Remplaçant'}</p>
+                          <div className="form-grid">
+                            <div className="form-group">
+                              <label htmlFor={`edit-team-prenom-${member.id}`}>Prénom</label>
+                              <input
+                                id={`edit-team-prenom-${member.id}`}
+                                value={member.prenom}
+                                onChange={(e) => setEditTeamMembers((prev) => prev.map((row) => (
+                                  row.id === member.id ? { ...row, prenom: e.target.value } : row
+                                )))}
+                                required
+                              />
+                            </div>
+                            <div className="form-group">
+                              <label htmlFor={`edit-team-nom-${member.id}`}>Nom</label>
+                              <input
+                                id={`edit-team-nom-${member.id}`}
+                                value={member.nom}
+                                onChange={(e) => setEditTeamMembers((prev) => prev.map((row) => (
+                                  row.id === member.id ? { ...row, nom: e.target.value } : row
+                                )))}
+                                required
+                              />
+                            </div>
+                            <div className="form-group form-group-full">
+                              <label htmlFor={`edit-team-poids-${member.id}`}>Poids (kg)</label>
+                              <input
+                                id={`edit-team-poids-${member.id}`}
+                                value={member.poids}
+                                onChange={(e) => setEditTeamMembers((prev) => prev.map((row) => (
+                                  row.id === member.id ? { ...row, poids: e.target.value } : row
+                                )))}
+                                inputMode="decimal"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </section>
                 ))}
               </div>
               <div className="confirm-actions">
