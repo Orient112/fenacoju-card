@@ -1,10 +1,4 @@
-import { resolveMediaUrl } from '../api';
-
-const CLUB_DOCUMENT_LABELS = {
-  doc_affiliation: "Document d'affiliation",
-  doc_statuts: 'Statuts du club',
-  doc_agrement: 'Agrément / Autorisation',
-};
+import { CLUB_DOCUMENT_LABELS, resolveMediaUrl } from '../api';
 
 export default function ClubDetailModal({ club, judokas = [], entraineurs = [], onClose }) {
   if (!club) return null;

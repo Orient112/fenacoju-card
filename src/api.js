@@ -65,16 +65,38 @@ async function apiFetch(url, options = {}) {
   return res;
 }
 
+async function readApiError(res, fallback) {
+  const text = await res.text();
+  if (text) {
+    try {
+      const data = JSON.parse(text);
+      if (data.error) return data.error;
+    } catch {
+      // Réponse HTML (proxy / Cloudflare) ou texte brut
+    }
+  }
+  if (res.status === 401) return 'Identifiant ou mot de passe incorrect';
+  if (res.status === 429 || res.status >= 500) {
+    return 'Serveur indisponible. Réessayez dans un instant.';
+  }
+  return fallback;
+}
+
 export async function loginUser(identifier, password) {
-  const res = await fetchWithTimeout(apiUrl('/api/auth/login'), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ identifier, password }),
-  });
+  let res;
+  try {
+    res = await fetchWithTimeout(apiUrl('/api/auth/login'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identifier, password }),
+    });
+  } catch (err) {
+    if (err.message.includes('trop de temps')) throw err;
+    throw new Error('Impossible de joindre le serveur. Vérifiez votre connexion.');
+  }
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || 'Erreur de connexion');
+    throw new Error(await readApiError(res, 'Erreur de connexion'));
   }
 
   const data = await res.json();
@@ -536,6 +558,19 @@ export const FEDERATION_ACCOUNT_FONCTIONS = FEDERATION_FONCTIONS.filter((f) => f
 export const MEMBRE_FONCTIONS = FEDERATION_FONCTIONS.filter((f) => f !== 'Coordon');
 
 export const ARBITRE_NIVEAUX = ['National', 'Intercontinental', 'International'];
+
+export const CLUB_DOC_FIELDS = [
+  { key: 'doc_diplome_responsable', label: 'Diplôme du Responsable' },
+  { key: 'doc_pv_entente', label: 'PV Entente' },
+  { key: 'doc_affiliation', label: 'Affiliation' },
+  { key: 'doc_autorisation_exploitation', label: "Autorisation d'Exploitation" },
+  { key: 'doc_statuts', label: 'Statut du Club' },
+];
+
+export const CLUB_DOCUMENT_LABELS = {
+  ...Object.fromEntries(CLUB_DOC_FIELDS.map((f) => [f.key, f.label])),
+  doc_agrement: "Autorisation d'Exploitation",
+};
 
 export const USER_TYPES = {
   federation: { label: 'Compte Fédération', description: 'Compte connecté avec identifiant et mot de passe' },

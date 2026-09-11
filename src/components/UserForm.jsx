@@ -1,12 +1,22 @@
 import { useState, useEffect } from 'react';
-import { createUser, updateUser, uploadClubDocuments, GRADES, USER_TYPES, FEDERATION_ACCOUNT_FONCTIONS, getUserClub } from '../api';
+import { createUser, updateUser, uploadClubDocuments, GRADES, USER_TYPES, FEDERATION_ACCOUNT_FONCTIONS, getUserClub, CLUB_DOC_FIELDS } from '../api';
 import DocumentUploadField from './DocumentUploadField';
 
-const CLUB_DOC_FIELDS = [
-  { key: 'doc_affiliation', label: "Document d'affiliation" },
-  { key: 'doc_statuts', label: 'Statuts du club' },
-  { key: 'doc_agrement', label: 'Agrément / Autorisation' },
-];
+function emptyClubDocs() {
+  return Object.fromEntries(CLUB_DOC_FIELDS.map((f) => [f.key, null]));
+}
+
+function emptyClubDocPreviews(user) {
+  const docs = user?.documents || {};
+  const next = emptyClubDocs();
+  for (const field of CLUB_DOC_FIELDS) {
+    next[field.key] = docs[field.key] || null;
+  }
+  if (!next.doc_autorisation_exploitation && docs.doc_agrement) {
+    next.doc_autorisation_exploitation = docs.doc_agrement;
+  }
+  return next;
+}
 
 const emptyForms = {
   federation: { nom: '', prenom: '', email: '', telephone: '', fonction: '', password: '', confirmPassword: '' },
@@ -36,19 +46,6 @@ function userToForm(user, type) {
     comites: Array.isArray(user.comites) && user.comites.length
       ? user.comites.map((c) => ({ nom: c.nom || '', titre: c.titre || '' }))
       : [],
-  };
-}
-
-function emptyClubDocs() {
-  return { doc_affiliation: null, doc_statuts: null, doc_agrement: null };
-}
-
-function emptyClubDocPreviews(user) {
-  const docs = user?.documents || {};
-  return {
-    doc_affiliation: docs.doc_affiliation || null,
-    doc_statuts: docs.doc_statuts || null,
-    doc_agrement: docs.doc_agrement || null,
   };
 }
 
@@ -249,7 +246,11 @@ export default function UserForm({ type, editingUser, currentUser, registeredClu
 
   const setClubDocument = (key, file) => {
     setClubDocs((prev) => ({ ...prev, [key]: file }));
-    setClubDocPreviews((prev) => ({ ...prev, [key]: URL.createObjectURL(file) }));
+    setClubDocPreviews((prev) => {
+      const previous = prev[key];
+      if (previous && String(previous).startsWith('blob:')) URL.revokeObjectURL(previous);
+      return { ...prev, [key]: URL.createObjectURL(file) };
+    });
   };
 
   const clearClubDocument = (key) => {

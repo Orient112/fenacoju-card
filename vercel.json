@@ -2,9 +2,15 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "framework": "vite",
+  "functions": {
+    "api/index.js": {
+      "maxDuration": 30,
+      "includeFiles": "server/**"
+    }
+  },
   "rewrites": [
-    { "source": "/api/:path*", "destination": "https://fenacoju-card-api.onrender.com/api/:path*" },
-    { "source": "/uploads/:path*", "destination": "https://fenacoju-card-api.onrender.com/uploads/:path*" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/api/(.*)", "destination": "/api" },
+    { "source": "/uploads/(.*)", "destination": "/api" },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }

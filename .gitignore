@@ -17,3 +17,6 @@ android/.idea/
 *.apk
 *.aab
 Fenacoju-App.apk
+.vercel
+.env*
+!.env.example

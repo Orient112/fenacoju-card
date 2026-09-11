@@ -1,4 +1,4 @@
-import { ACCOUNT_STATUT_LABELS, USER_TYPES, resolveMediaUrl } from '../api';
+import { ACCOUNT_STATUT_LABELS, CLUB_DOCUMENT_LABELS, USER_TYPES, resolveMediaUrl } from '../api';
 
 function Field({ label, value }) {
   return (
@@ -132,7 +132,7 @@ export default function AccountDetailModal({ account, onClose }) {
               <ul className="club-documents-list">
                 {Object.entries(documents).map(([key, url]) => (
                   <li key={key}>
-                    <span>{key}</span>
+                    <span>{CLUB_DOCUMENT_LABELS[key] || key}</span>
                     <a href={resolveMediaUrl(url)} target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-sm">
                       Voir
                     </a>

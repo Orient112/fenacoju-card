@@ -1,15 +1,8 @@
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import { v4 as uuidv4 } from 'uuid';
 import { getSupabase, isSupabaseEnabled, STORAGE_BUCKET } from './supabase.js';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const uploadsDir = path.join(__dirname, '..', 'uploads');
-
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
+import { uploadsDir } from './paths.js';
 
 function getExtension(file) {
   const fromName = path.extname(file.originalname || '');
@@ -74,7 +67,7 @@ export async function deleteStoredFile(fileUrl) {
   }
 
   if (fileUrl.startsWith('/uploads/')) {
-    const localPath = path.join(__dirname, '..', fileUrl);
+    const localPath = path.join(uploadsDir, path.basename(fileUrl));
     if (fs.existsSync(localPath)) fs.unlinkSync(localPath);
   }
 }

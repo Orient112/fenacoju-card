@@ -1,15 +1,11 @@
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import { v4 as uuidv4 } from 'uuid';
 import { getSupabase, isSupabaseEnabled } from './supabase.js';
+import { dataDir } from './paths.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const dataDir = path.join(__dirname, '..', 'data');
 const settingsPath = path.join(dataDir, 'competition.json');
 const registrationsPath = path.join(dataDir, 'competition_registrations.json');
-
-if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
 const DEFAULT_SETTINGS = {
   access_enabled: false,

@@ -65,6 +65,7 @@ import {
 } from './arbitres.js';
 import { saveUploadedFile, deleteStoredFile } from './storage.js';
 import { isSupabaseEnabled } from './supabase.js';
+import { uploadsDir } from './paths.js';
 import {
   getCompetitionSettings,
   updateCompetitionSettings,
@@ -84,8 +85,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-const uploadsDir = path.join(__dirname, '..', 'uploads');
-if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
 const memoryStorage = multer.memoryStorage();
 
@@ -124,7 +123,10 @@ const docUpload = multer({
 });
 
 const clubDocFields = [
+  { name: 'doc_diplome_responsable', maxCount: 1 },
+  { name: 'doc_pv_entente', maxCount: 1 },
   { name: 'doc_affiliation', maxCount: 1 },
+  { name: 'doc_autorisation_exploitation', maxCount: 1 },
   { name: 'doc_statuts', maxCount: 1 },
   { name: 'doc_agrement', maxCount: 1 },
 ];
@@ -152,17 +154,26 @@ async function extractClubDocuments(files) {
   return documents;
 }
 
-const corsOrigins = process.env.CORS_ORIGIN
-  ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim())
-  : ['http://localhost:5173', 'http://localhost:4173'];
+const corsOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173,http://localhost:4173,https://fenacoju-card.vercel.app')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
 
-app.use(cors({ origin: corsOrigins, credentials: true }));
+app.use(cors({
+  origin(origin, cb) {
+    if (!origin) return cb(null, true);
+    if (corsOrigins.includes(origin)) return cb(null, true);
+    if (/^https:\/\/fenacoju-card(-[a-z0-9-]+)?\.vercel\.app$/i.test(origin)) return cb(null, true);
+    return cb(null, false);
+  },
+  credentials: true,
+}));
 app.use(express.json({ limit: '12mb' }));
 app.use(express.urlencoded({ extended: true, limit: '12mb' }));
 app.use('/uploads', express.static(uploadsDir));
 
 const distPath = path.join(__dirname, '..', 'dist');
-if (fs.existsSync(distPath)) app.use(express.static(distPath));
+if (!process.env.VERCEL && fs.existsSync(distPath)) app.use(express.static(distPath));
 
 app.get('/api/health', (_req, res) => {
   res.json({
@@ -179,6 +190,7 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(400).json({ error: 'Identifiant et mot de passe requis' });
     }
 
+    await ensureAdminExists();
     const result = await login(loginId, password);
     if (!result) return res.status(401).json({ error: 'Identifiant ou mot de passe incorrect' });
 
@@ -1078,7 +1090,7 @@ app.delete('/api/judokas/:id', async (req, res) => {
   }
 });
 
-if (fs.existsSync(distPath)) {
+if (!process.env.VERCEL && fs.existsSync(distPath)) {
   app.get('*', (_req, res) => {
     res.sendFile(path.join(distPath, 'index.html'));
   });
@@ -1105,4 +1117,12 @@ async function startServer() {
   }
 }
 
-startServer();
+export default app;
+
+if (!process.env.VERCEL) {
+  startServer();
+} else {
+  ensureAdminExists().catch((err) => {
+    console.error('Erreur initialisation admin:', err.message);
+  });
+}

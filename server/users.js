@@ -1,7 +1,6 @@
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import { v4 as uuidv4 } from 'uuid';
 import {
   enforceCreateUser,
@@ -12,14 +11,11 @@ import {
   NO_LOGIN_TYPES,
 } from './permissions.js';
 import { getSupabase, isSupabaseEnabled } from './supabase.js';
+import { dataDir } from './paths.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const dataDir = path.join(__dirname, '..', 'data');
 const usersPath = path.join(dataDir, 'users.json');
 const sessionsPath = path.join(dataDir, 'sessions.json');
 const SESSION_DURATION_MS = 24 * 60 * 60 * 1000;
-
-if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
 function hashPassword(password) {
   return crypto.createHash('sha256').update(password).digest('hex');

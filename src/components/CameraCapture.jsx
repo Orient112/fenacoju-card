@@ -1,6 +1,12 @@
 import { useRef, useEffect, useState } from 'react';
 
-export default function CameraCapture({ onCapture, onClose }) {
+export default function CameraCapture({
+  onCapture,
+  onClose,
+  title = 'Prendre une photo',
+  facingMode = 'user',
+  captureLabel = 'Capturer',
+}) {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const [error, setError] = useState('');
@@ -11,10 +17,20 @@ export default function CameraCapture({ onCapture, onClose }) {
 
     async function startCamera() {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+        const constraints = {
+          video: {
+            facingMode: { ideal: facingMode },
+            width: { ideal: facingMode === 'environment' ? 1920 : 640 },
+            height: { ideal: facingMode === 'environment' ? 1080 : 480 },
+          },
           audio: false,
-        });
+        };
+        let stream;
+        try {
+          stream = await navigator.mediaDevices.getUserMedia(constraints);
+        } catch {
+          stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        }
         if (!mounted) {
           stream.getTracks().forEach((t) => t.stop());
           return;
@@ -35,7 +51,7 @@ export default function CameraCapture({ onCapture, onClose }) {
       mounted = false;
       streamRef.current?.getTracks().forEach((t) => t.stop());
     };
-  }, []);
+  }, [facingMode]);
 
   const handleCapture = () => {
     const video = videoRef.current;
@@ -57,7 +73,7 @@ export default function CameraCapture({ onCapture, onClose }) {
   return (
     <div className="camera-overlay" onClick={onClose}>
       <div className="camera-modal" onClick={(e) => e.stopPropagation()}>
-        <h3>Prendre une photo</h3>
+        <h3>{title}</h3>
         {error ? (
           <p className="camera-error">{error}</p>
         ) : (
@@ -68,7 +84,7 @@ export default function CameraCapture({ onCapture, onClose }) {
         <div className="camera-actions">
           <button type="button" className="btn btn-outline" onClick={onClose}>Annuler</button>
           <button type="button" className="btn btn-primary" onClick={handleCapture} disabled={!ready || !!error}>
-            Capturer
+            {captureLabel}
           </button>
         </div>
       </div>

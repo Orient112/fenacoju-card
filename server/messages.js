@@ -1,13 +1,12 @@
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import { v4 as uuidv4 } from 'uuid';
 import { canMessageUser } from './permissions.js';
 import { getUserById } from './users.js';
 import { getSupabase, isSupabaseEnabled } from './supabase.js';
+import { dataDir } from './paths.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const messagesPath = path.join(__dirname, '..', 'data', 'messages.json');
+const messagesPath = path.join(dataDir, 'messages.json');
 
 function readMessagesJson() {
   if (!fs.existsSync(messagesPath)) {
