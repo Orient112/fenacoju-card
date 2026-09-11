@@ -22,20 +22,70 @@ const DEFAULT_SETTINGS = {
 
 const META_RE = /\n?<!--FENACOJU_META:([\s\S]*?)-->\s*$/;
 const TEAM_MODE_MARK = '__mode_equipe__';
+const TEAM_MIN_CATEGORIES = 3;
 
-function parseCategoriesPoids(raw) {
-  if (Array.isArray(raw)) {
-    return raw.map((v) => String(v).replace(',', '.').trim()).filter(Boolean);
+function toNumber(value) {
+  const n = Number(String(value ?? '').replace(',', '.').trim());
+  return Number.isFinite(n) ? n : null;
+}
+
+export function parseWeightCategory(raw) {
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    const min = toNumber(raw.min);
+    const max = toNumber(raw.max);
+    if (min == null || max == null) return null;
+    const lo = Math.min(min, max);
+    const hi = Math.max(min, max);
+    return { min: lo, max: hi, label: `${lo}–${hi}`, key: `${lo}-${hi}` };
   }
-  if (typeof raw === 'string' && raw.trim()) {
+
+  const s = String(raw || '').trim().replace(',', '.');
+  if (!s) return null;
+  const range = s.match(/^(\d+(?:\.\d+)?)\s*[-–àa:]+\s*(\d+(?:\.\d+)?)$/i);
+  if (range) {
+    const lo = Math.min(Number(range[1]), Number(range[2]));
+    const hi = Math.max(Number(range[1]), Number(range[2]));
+    return { min: lo, max: hi, label: `${lo}–${hi}`, key: `${lo}-${hi}` };
+  }
+  const n = toNumber(s);
+  if (n == null) return null;
+  return { min: n, max: n, label: String(n), key: String(n) };
+}
+
+export function parseCategoriesPoids(raw) {
+  let list = [];
+  if (Array.isArray(raw)) list = raw;
+  else if (typeof raw === 'string' && raw.trim()) {
     try {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parseCategoriesPoids(parsed);
+      if (Array.isArray(parsed)) list = parsed;
+      else list = raw.split(/[;,]/);
     } catch {
-      return raw.split(/[;,]/).map((v) => v.trim()).filter(Boolean);
+      list = raw.split(/[;,]/);
     }
   }
-  return [];
+  const seen = new Set();
+  const cats = [];
+  for (const item of list) {
+    const cat = parseWeightCategory(item);
+    if (!cat || seen.has(cat.key)) continue;
+    seen.add(cat.key);
+    cats.push(cat);
+  }
+  return cats.sort((a, b) => a.min - b.min || a.max - b.max);
+}
+
+export function findCategoryForWeight(categories, poids) {
+  const n = toNumber(poids);
+  if (n == null) return null;
+  return parseCategoriesPoids(categories).find((c) => n >= c.min && n <= c.max) || null;
+}
+
+function splitFullName(fullName) {
+  const parts = String(fullName || '').trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return { prenom: '', nom: '' };
+  if (parts.length === 1) return { prenom: parts[0], nom: parts[0] };
+  return { prenom: parts[0], nom: parts.slice(1).join(' ') };
 }
 
 export function getRegistrationMode(row) {
@@ -320,15 +370,13 @@ export async function createCompetitionRegistration(payload) {
   return row;
 }
 
-const TEAM_MIN_CATEGORIES = 3;
-
 export async function createCompetitionTeamRoster({ club, members = [], allowedCategories = [] } = {}) {
   const clubName = String(club || '').trim();
   if (!clubName) throw new Error('Le nom du club est obligatoire');
 
-  const cats = (allowedCategories || []).map((c) => String(c).trim()).filter(Boolean);
+  const cats = parseCategoriesPoids(allowedCategories);
   if (cats.length < TEAM_MIN_CATEGORIES) {
-    throw new Error('Au moins 3 catégories de poids doivent être définies pour le mode Par équipe');
+    throw new Error('Au moins 3 catégories de poids (avec seuil min / max) doivent être définies pour le mode Par équipe');
   }
 
   const existing = (await getCompetitionRegistrations()).filter((r) => (
@@ -339,32 +387,47 @@ export async function createCompetitionTeamRoster({ club, members = [], allowedC
   }
 
   const cleaned = [];
-  const byWeight = new Map();
+  const byCat = new Map();
 
   for (const raw of members) {
-    const nom = String(raw?.nom || '').trim();
-    const prenom = String(raw?.prenom || '').trim();
-    const poids = String(raw?.poids || '').trim();
+    let nom = String(raw?.nom || '').trim();
+    let prenom = String(raw?.prenom || '').trim();
+    if ((!nom || !prenom) && raw?.nom_complet) {
+      const split = splitFullName(raw.nom_complet);
+      prenom = prenom || split.prenom;
+      nom = nom || split.nom;
+    }
+    const poidsReel = String(raw?.poids || '').trim();
     const role = raw?.role_equipe === 'remplacant' ? 'remplacant' : 'principal';
     if (!nom && !prenom) continue;
-    if (!nom || !prenom) throw new Error('Nom et prénom sont obligatoires pour chaque judoka renseigné');
-    if (!cats.includes(poids)) throw new Error(`Catégorie de poids invalide : ${poids || '—'}`);
-    if (!byWeight.has(poids)) byWeight.set(poids, { principal: null, remplacant: null });
-    const bucket = byWeight.get(poids);
+    if (!nom || !prenom) throw new Error('Le nom complet est obligatoire pour chaque judoka');
+    const cat = findCategoryForWeight(cats, poidsReel);
+    if (!cat) {
+      throw new Error(`Aucun seuil de catégorie ne correspond au poids ${poidsReel || '—'} kg`);
+    }
+    if (!byCat.has(cat.key)) byCat.set(cat.key, { cat, principal: null, remplacant: null });
+    const bucket = byCat.get(cat.key);
     if (bucket[role]) {
-      throw new Error(`Un ${role === 'principal' ? 'Principal' : 'Remplaçant'} est déjà saisi en ${poids} kg`);
+      throw new Error(`Un ${role === 'principal' ? 'Principal' : 'Remplaçant'} est déjà classé en ${cat.label} kg`);
     }
-    bucket[role] = { nom, prenom, poids, role_equipe: role };
-    cleaned.push(bucket[role]);
+    const member = {
+      nom,
+      prenom,
+      poids: poidsReel,
+      categorie: cat.label,
+      role_equipe: role,
+    };
+    bucket[role] = member;
+    cleaned.push(member);
   }
 
-  for (const [poids, bucket] of byWeight.entries()) {
+  for (const bucket of byCat.values()) {
     if (bucket.remplacant && !bucket.principal) {
-      throw new Error(`Indiquez le Principal avant le Remplaçant en ${poids} kg`);
+      throw new Error(`Indiquez le Principal avant le Remplaçant en ${bucket.cat.label} kg`);
     }
   }
 
-  const filledCats = [...byWeight.entries()].filter(([, b]) => b.principal).length;
+  const filledCats = [...byCat.values()].filter((b) => b.principal).length;
   if (filledCats < TEAM_MIN_CATEGORIES) {
     throw new Error(`Le club doit inscrire des judokas dans au moins ${TEAM_MIN_CATEGORIES} catégories de poids`);
   }
@@ -378,7 +441,7 @@ export async function createCompetitionTeamRoster({ club, members = [], allowedC
       sexe: 'M',
       club: clubName,
       grade: '',
-      categorie: member.role_equipe === 'remplacant' ? 'Remplaçant' : 'Principal',
+      categorie: member.categorie,
       poids: member.poids,
       telephone: '',
       email: '',

@@ -80,6 +80,7 @@ import {
   findDuplicateCompetitionRegistration,
   toPublicCompetition,
   toPublicRegistration,
+  parseCategoriesPoids,
   isCompetitionConfigured,
 } from './competition.js';
 
@@ -536,10 +537,7 @@ app.put('/api/competition', async (req, res) => {
     if (body.lieu !== undefined) patch.lieu = String(body.lieu).trim();
     if (body.description !== undefined) patch.description = String(body.description).trim();
     if (body.categories_poids !== undefined) {
-      const list = Array.isArray(body.categories_poids)
-        ? body.categories_poids
-        : String(body.categories_poids || '').split(/[;,]/);
-      patch.categories_poids = [...new Set(list.map((v) => String(v).replace(',', '.').trim()).filter(Boolean))];
+      patch.categories_poids = parseCategoriesPoids(body.categories_poids);
     }
     if (body.public_enabled !== undefined) {
       const next = { ...current, ...patch };

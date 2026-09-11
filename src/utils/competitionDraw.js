@@ -1,3 +1,5 @@
+import { teamCategoryKey } from './weightCategories';
+
 function normalizeWeight(poids) {
   const n = Number(String(poids).replace(',', '.').trim());
   if (!Number.isFinite(n)) return String(poids || '').trim();
@@ -129,14 +131,13 @@ export function buildWeightDraw(registrations) {
  * judokas (au moins un Principal) dans au moins 3 catégories de poids.
  */
 export function buildTeamDraw(registrations, { minCategories = 3 } = {}) {
-  const teamRegs = (registrations || []).filter((r) => (
-    getMode(r) === 'equipe' && String(r.poids || '').trim()
-  ));
+  const teamRegs = (registrations || []).filter((r) => getMode(r) === 'equipe');
 
   const clubsMap = new Map();
   for (const r of teamRegs) {
     const club = (r.club || '').trim() || 'Sans club';
-    const poids = normalizeWeight(r.poids);
+    const poids = teamCategoryKey(r);
+    if (!poids) continue;
     if (!clubsMap.has(club)) clubsMap.set(club, new Map());
     const byWeight = clubsMap.get(club);
     if (!byWeight.has(poids)) byWeight.set(poids, { principal: null, remplacant: null, members: [] });

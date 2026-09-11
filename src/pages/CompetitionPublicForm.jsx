@@ -7,6 +7,12 @@ import {
   CATEGORIES,
 } from '../api';
 
+import {
+  parseCategoriesPoids,
+  findCategoryForWeight,
+  splitFullName,
+} from '../utils/weightCategories';
+
 const emptyForm = () => ({
   nom: '',
   prenom: '',
@@ -20,22 +26,7 @@ const emptyForm = () => ({
 });
 
 const TEAM_MIN_CATEGORIES = 3;
-
-function emptySlot() {
-  return { nom: '', prenom: '' };
-}
-
-function emptyRoster(cats) {
-  const next = {};
-  (cats || []).forEach((cat) => {
-    next[cat] = { principal: emptySlot(), remplacant: emptySlot() };
-  });
-  return next;
-}
-
-function slotFilled(slot) {
-  return Boolean(String(slot?.nom || '').trim() && String(slot?.prenom || '').trim());
-}
+const emptyTeamEntry = () => ({ nom_complet: '', role: 'principal', poids: '' });
 
 export default function CompetitionPublicForm({ token }) {
   const [loading, setLoading] = useState(true);
@@ -48,6 +39,7 @@ export default function CompetitionPublicForm({ token }) {
   const [form, setForm] = useState(emptyForm());
   const [teamClub, setTeamClub] = useState('');
   const [teamRoster, setTeamRoster] = useState({});
+  const [teamEntry, setTeamEntry] = useState(emptyTeamEntry());
   const [judokaMeta, setJudokaMeta] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [successName, setSuccessName] = useState('');
@@ -175,17 +167,43 @@ export default function CompetitionPublicForm({ token }) {
     }
   };
 
-  const updateTeamSlot = (cat, role, field, value) => {
+  const classifyTeamEntry = () => {
+    setError('');
+    const nomComplet = String(teamEntry.nom_complet || '').trim();
+    const poids = String(teamEntry.poids || '').trim();
+    const role = teamEntry.role === 'remplacant' ? 'remplacant' : 'principal';
+    if (!nomComplet) {
+      setError('Saisissez le nom complet du judoka');
+      return;
+    }
+    if (!poids) {
+      setError('Saisissez le poids du judoka');
+      return;
+    }
+    const cat = findCategoryForWeight(weightCats, poids);
+    if (!cat) {
+      setError(`Aucun seuil de catégorie ne correspond au poids ${poids} kg`);
+      return;
+    }
+    const current = teamRoster[cat.key] || { cat, principal: null, remplacant: null };
+    if (current[role]) {
+      setError(`Un ${role === 'principal' ? 'Principal' : 'Remplaçant'} est déjà classé en ${cat.label} kg`);
+      return;
+    }
+    if (role === 'remplacant' && !current.principal) {
+      setError(`Classez d'abord le Principal de la catégorie ${cat.label} kg`);
+      return;
+    }
     setTeamRoster((prev) => ({
       ...prev,
-      [cat]: {
-        ...(prev[cat] || { principal: emptySlot(), remplacant: emptySlot() }),
-        [role]: {
-          ...(prev[cat]?.[role] || emptySlot()),
-          [field]: value,
-        },
+      [cat.key]: {
+        cat,
+        principal: current.principal,
+        remplacant: current.remplacant,
+        [role]: { nom_complet: nomComplet, poids },
       },
     }));
+    setTeamEntry(emptyTeamEntry());
   };
 
   if (loading) {
@@ -213,8 +231,8 @@ export default function CompetitionPublicForm({ token }) {
   }
 
   const count = competition.registrations_count ?? 0;
-  const weightCats = Array.isArray(competition.categories_poids) ? competition.categories_poids : [];
-  const filledTeamCats = weightCats.filter((cat) => slotFilled(teamRoster[cat]?.principal)).length;
+  const weightCats = parseCategoriesPoids(competition.categories_poids);
+  const filledTeamCats = Object.values(teamRoster).filter((bucket) => bucket?.principal).length;
 
   const resetFlow = () => {
     setStep('mode');
@@ -222,6 +240,7 @@ export default function CompetitionPublicForm({ token }) {
     setForm(emptyForm());
     setTeamClub('');
     setTeamRoster({});
+    setTeamEntry(emptyTeamEntry());
     setJudokaMeta(null);
     setCardId('');
     setSuccessName('');
@@ -233,11 +252,12 @@ export default function CompetitionPublicForm({ token }) {
     setError('');
     if (mode === 'equipe') {
       if (weightCats.length < TEAM_MIN_CATEGORIES) {
-        setError('Le Directeur de Compétition doit définir au moins 3 catégories de poids pour le mode Par équipe.');
+        setError('Le Directeur de Compétition doit définir au moins 3 catégories de poids (avec seuil min / max) pour le mode Par équipe.');
         return;
       }
       setTeamClub('');
-      setTeamRoster(emptyRoster(weightCats));
+      setTeamRoster({});
+      setTeamEntry(emptyTeamEntry());
       setStep('team');
       return;
     }
@@ -250,25 +270,25 @@ export default function CompetitionPublicForm({ token }) {
     setError('');
     try {
       const members = [];
-      for (const cat of weightCats) {
-        const principal = teamRoster[cat]?.principal;
-        const remplacant = teamRoster[cat]?.remplacant;
-        if (slotFilled(remplacant) && !slotFilled(principal)) {
-          throw new Error(`Indiquez le Principal avant le Remplaçant en ${cat} kg`);
-        }
-        if (slotFilled(principal)) {
+      for (const bucket of Object.values(teamRoster)) {
+        if (bucket.principal) {
+          const names = splitFullName(bucket.principal.nom_complet);
           members.push({
-            nom: principal.nom.trim(),
-            prenom: principal.prenom.trim(),
-            poids: cat,
+            ...names,
+            nom_complet: bucket.principal.nom_complet,
+            poids: bucket.principal.poids,
             role_equipe: 'principal',
           });
         }
-        if (slotFilled(remplacant)) {
+        if (bucket.remplacant) {
+          if (!bucket.principal) {
+            throw new Error(`Indiquez le Principal avant le Remplaçant en ${bucket.cat?.label || ''} kg`);
+          }
+          const names = splitFullName(bucket.remplacant.nom_complet);
           members.push({
-            nom: remplacant.nom.trim(),
-            prenom: remplacant.prenom.trim(),
-            poids: cat,
+            ...names,
+            nom_complet: bucket.remplacant.nom_complet,
+            poids: bucket.remplacant.poids,
             role_equipe: 'remplacant',
           });
         }
@@ -482,8 +502,10 @@ export default function CompetitionPublicForm({ token }) {
               <form className="competition-reg-form form-card" onSubmit={handleTeamSubmit}>
                 <h2>Enregistrement Equipe</h2>
                 <p className="form-hint">
-                  Saisissez le nom du club, puis un Principal et un Remplaçant par catégorie de poids.
-                  Le club peut participer s&apos;il a des judokas dans au moins {TEAM_MIN_CATEGORIES} catégories.
+                  Saisissez le nom du club, puis le nom complet, le rôle et le poids de chaque judoka.
+                  Cliquez sur Valider pour le classer automatiquement dans la catégorie correspondant à son poids.
+                  Recommencez pour les autres judokas, puis enregistrez l&apos;équipe.
+                  Participation : au moins {TEAM_MIN_CATEGORIES} catégories couvertes.
                 </p>
                 <p className="form-hint">
                   Catégories couvertes : <strong>{filledTeamCats}/{TEAM_MIN_CATEGORIES}</strong>
@@ -501,46 +523,98 @@ export default function CompetitionPublicForm({ token }) {
                   />
                 </div>
 
+                <div className="competition-team-entry">
+                  <h3>Ajouter un judoka</h3>
+                  <div className="form-grid">
+                    <div className="form-group form-group-full">
+                      <label htmlFor="team-nom-complet">Nom complet</label>
+                      <input
+                        id="team-nom-complet"
+                        value={teamEntry.nom_complet}
+                        onChange={(e) => setTeamEntry((prev) => ({ ...prev, nom_complet: e.target.value }))}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); classifyTeamEntry(); } }}
+                        placeholder="Ex. Jean Mukendi"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label htmlFor="team-role">Rôle</label>
+                      <select
+                        id="team-role"
+                        value={teamEntry.role}
+                        onChange={(e) => setTeamEntry((prev) => ({ ...prev, role: e.target.value }))}
+                      >
+                        <option value="principal">Principal</option>
+                        <option value="remplacant">Remplaçant</option>
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label htmlFor="team-poids">Poids (kg)</label>
+                      <input
+                        id="team-poids"
+                        value={teamEntry.poids}
+                        onChange={(e) => setTeamEntry((prev) => ({ ...prev, poids: e.target.value }))}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); classifyTeamEntry(); } }}
+                        placeholder="Ex. 57"
+                        inputMode="decimal"
+                      />
+                    </div>
+                  </div>
+                  <button type="button" className="btn btn-outline" onClick={classifyTeamEntry}>
+                    Valider
+                  </button>
+                </div>
+
                 <div className="competition-team-cats">
-                  {weightCats.map((cat) => (
-                    <section key={cat} className="competition-team-cat">
-                      <h3>{cat} kg</h3>
-                      <div className="form-grid">
-                        <div className="form-group">
-                          <label htmlFor={`p-nom-${cat}`}>Principal · Nom</label>
-                          <input
-                            id={`p-nom-${cat}`}
-                            value={teamRoster[cat]?.principal?.nom || ''}
-                            onChange={(e) => updateTeamSlot(cat, 'principal', 'nom', e.target.value)}
-                          />
-                        </div>
-                        <div className="form-group">
-                          <label htmlFor={`p-prenom-${cat}`}>Principal · Prénom</label>
-                          <input
-                            id={`p-prenom-${cat}`}
-                            value={teamRoster[cat]?.principal?.prenom || ''}
-                            onChange={(e) => updateTeamSlot(cat, 'principal', 'prenom', e.target.value)}
-                          />
-                        </div>
-                        <div className="form-group">
-                          <label htmlFor={`r-nom-${cat}`}>Remplaçant · Nom</label>
-                          <input
-                            id={`r-nom-${cat}`}
-                            value={teamRoster[cat]?.remplacant?.nom || ''}
-                            onChange={(e) => updateTeamSlot(cat, 'remplacant', 'nom', e.target.value)}
-                          />
-                        </div>
-                        <div className="form-group">
-                          <label htmlFor={`r-prenom-${cat}`}>Remplaçant · Prénom</label>
-                          <input
-                            id={`r-prenom-${cat}`}
-                            value={teamRoster[cat]?.remplacant?.prenom || ''}
-                            onChange={(e) => updateTeamSlot(cat, 'remplacant', 'prenom', e.target.value)}
-                          />
-                        </div>
-                      </div>
-                    </section>
-                  ))}
+                  {weightCats.map((cat) => {
+                    const bucket = teamRoster[cat.key];
+                    return (
+                      <section key={cat.key} className="competition-team-cat">
+                        <h3>{cat.label} kg <span className="form-hint">({cat.min} à {cat.max} kg)</span></h3>
+                        {!bucket?.principal && !bucket?.remplacant ? (
+                          <p className="form-hint">Aucun judoka classé dans cette catégorie pour le moment.</p>
+                        ) : (
+                          <ul className="competition-team-classified">
+                            {bucket?.principal && (
+                              <li>
+                                <strong>Principal</strong> · {bucket.principal.nom_complet} ({bucket.principal.poids} kg)
+                                <button
+                                  type="button"
+                                  className="btn btn-outline btn-sm"
+                                  onClick={() => setTeamRoster((prev) => {
+                                    const next = { ...prev };
+                                    const cur = { ...next[cat.key], principal: null };
+                                    if (!cur.principal && !cur.remplacant) delete next[cat.key];
+                                    else next[cat.key] = cur;
+                                    return next;
+                                  })}
+                                >
+                                  Retirer
+                                </button>
+                              </li>
+                            )}
+                            {bucket?.remplacant && (
+                              <li>
+                                <strong>Remplaçant</strong> · {bucket.remplacant.nom_complet} ({bucket.remplacant.poids} kg)
+                                <button
+                                  type="button"
+                                  className="btn btn-outline btn-sm"
+                                  onClick={() => setTeamRoster((prev) => {
+                                    const next = { ...prev };
+                                    const cur = { ...next[cat.key], remplacant: null };
+                                    if (!cur.principal && !cur.remplacant) delete next[cat.key];
+                                    else next[cat.key] = cur;
+                                    return next;
+                                  })}
+                                >
+                                  Retirer
+                                </button>
+                              </li>
+                            )}
+                          </ul>
+                        )}
+                      </section>
+                    );
+                  })}
                 </div>
 
                 <div className="form-actions">

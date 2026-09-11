@@ -26,12 +26,16 @@ function formatDateFr(value) {
 function ParamsFormFields({ form, onChange, onCategoriesChange }) {
   const cats = Array.isArray(form.categories_poids) ? form.categories_poids : [];
 
-  const updateCat = (index, value) => {
-    const next = cats.map((c, i) => (i === index ? value : c));
+  const updateCat = (index, field, value) => {
+    const next = cats.map((c, i) => {
+      if (i !== index) return c;
+      const current = (c && typeof c === 'object') ? c : { min: c, max: c };
+      return { ...current, [field]: value };
+    });
     onCategoriesChange(next);
   };
 
-  const addCat = () => onCategoriesChange([...cats, '']);
+  const addCat = () => onCategoriesChange([...cats, { min: '', max: '' }]);
   const removeCat = (index) => onCategoriesChange(cats.filter((_, i) => i !== index));
 
   return (
@@ -98,32 +102,46 @@ function ParamsFormFields({ form, onChange, onCategoriesChange }) {
           </button>
         </div>
         <p className="form-hint">
-          Chaque club inscrit un Principal et un Remplaçant par catégorie.
-          Pour le tirage, le club doit couvrir au moins 3 catégories de poids.
+          Indiquez le seuil de chaque catégorie (de tel poids à tel poids).
+          Les judokas d&apos;équipe seront classés automatiquement selon leur poids.
+          Un club doit couvrir au moins 3 catégories pour le tirage.
         </p>
         {cats.length === 0 ? (
           <p className="form-hint">Aucune catégorie pour le moment.</p>
         ) : (
           <div className="club-comites-list">
-            {cats.map((value, index) => (
-              <div key={`poids-${index}`} className="club-comite-row">
-                <input
-                  value={value}
-                  onChange={(e) => updateCat(index, e.target.value)}
-                  placeholder="Ex. 60"
-                  aria-label={`Catégorie de poids ${index + 1}`}
-                />
-                <span className="form-hint" style={{ margin: 0 }}>kg</span>
-                <button
-                  type="button"
-                  className="btn btn-danger btn-sm btn-icon"
-                  title="Retirer"
-                  onClick={() => removeCat(index)}
-                >
-                  🗑️
-                </button>
-              </div>
-            ))}
+            {cats.map((value, index) => {
+              const cat = (value && typeof value === 'object') ? value : { min: value, max: value };
+              return (
+                <div key={`poids-${index}`} className="club-comite-row club-comite-row-range">
+                  <label className="form-hint" style={{ margin: 0 }}>De</label>
+                  <input
+                    value={cat.min ?? ''}
+                    onChange={(e) => updateCat(index, 'min', e.target.value)}
+                    placeholder="Ex. 50"
+                    inputMode="decimal"
+                    aria-label={`Poids minimum ${index + 1}`}
+                  />
+                  <label className="form-hint" style={{ margin: 0 }}>à</label>
+                  <input
+                    value={cat.max ?? ''}
+                    onChange={(e) => updateCat(index, 'max', e.target.value)}
+                    placeholder="Ex. 60"
+                    inputMode="decimal"
+                    aria-label={`Poids maximum ${index + 1}`}
+                  />
+                  <span className="form-hint" style={{ margin: 0 }}>kg</span>
+                  <button
+                    type="button"
+                    className="btn btn-danger btn-sm btn-icon"
+                    title="Retirer"
+                    onClick={() => removeCat(index)}
+                  >
+                    🗑️
+                  </button>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -697,7 +715,12 @@ export default function CompetitionSettings({ onBack, onToast }) {
                         <td data-label="N° carte">
                           {r.deja_enregistre ? (r.numero_carte || '—') : '—'}
                         </td>
-                        <td data-label="Catégorie">{r.categorie || '—'}</td>
+                        <td data-label="Catégorie">
+                          {r.categorie || '—'}
+                          {(r.mode_inscription === 'equipe' || String(r.taille || '').startsWith('__mode_equipe__')) && (
+                            <> · {r.role_equipe === 'remplacant' || String(r.categorie || '').toLowerCase().includes('rempl') || String(r.taille || '').includes('remplacant') ? 'Remplaçant' : 'Principal'}</>
+                          )}
+                        </td>
                         <td data-label="Poids">
                           {r.poids ? (
                             <span className="badge badge-actif">{r.poids} kg</span>
