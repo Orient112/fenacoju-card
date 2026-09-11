@@ -3828,65 +3828,159 @@ a.competition-action-btn,
   align-items: center;
   justify-content: center;
   padding: 1.25rem;
-  background:
-    radial-gradient(ellipse at 50% 18%, rgba(234, 179, 8, 0.28), transparent 42%),
-    radial-gradient(ellipse at 20% 80%, rgba(29, 67, 147, 0.45), transparent 50%),
-    linear-gradient(180deg, #020617 0%, #0f172a 45%, #1d4393 100%);
+  background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 55%, var(--primary-light) 100%);
+  box-shadow: inset 0 -4px 0 0 transparent;
+  border-bottom: 4px solid transparent;
+  border-image: linear-gradient(90deg, var(--primary) 0%, var(--accent) 45%, var(--gold) 100%) 1;
 }
 
 .draw-animation-full {
-  width: min(980px, 100%);
+  width: min(920px, 100%);
   text-align: center;
   color: #fff;
 }
 
-.draw-animation-full .draw-animation-kicker {
-  color: #fde68a;
-  letter-spacing: 0.22em;
-}
-
 .draw-animation-full h3 {
   color: #fff;
-  font-size: clamp(1.6rem, 4vw, 2.6rem);
-  margin: 0.4rem 0 0.85rem;
+  font-size: clamp(1.45rem, 3.4vw, 2.2rem);
+  margin: 0 0 1.1rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.draw-stage {
+  position: relative;
+  width: min(78vmin, 540px);
+  height: min(78vmin, 540px);
+  margin: 0 auto 1.1rem;
+  overflow: hidden;
+}
+
+.draw-stage-glow {
+  position: absolute;
+  inset: 14%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(245, 197, 24, 0.28) 0%, transparent 68%);
+  animation: draw-pulse 1.6s ease-in-out infinite;
+}
+
+.draw-ring {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.draw-ring-outer {
+  inset: 0;
+  border: 3px solid rgba(255, 255, 255, 0.22);
+  box-shadow: 0 0 0 10px rgba(245, 197, 24, 0.12), inset 0 0 40px rgba(18, 45, 102, 0.35);
+  animation: draw-spin 12s linear infinite;
+}
+
+.draw-ring-inner {
+  inset: 22%;
+  border: 2px dashed rgba(245, 197, 24, 0.55);
+  animation: draw-spin-rev 7s linear infinite;
+}
+
+.draw-orbit {
+  position: absolute;
+  inset: 0;
+}
+
+.draw-orbit-chip {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  max-width: 130px;
+  padding: 0.28rem 0.62rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--primary-dark);
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transform:
+    translate(-50%, -50%)
+    rotate(calc(360deg * var(--i) / var(--n)))
+    translateY(calc(min(32vmin, 220px) * -1))
+    rotate(calc(-360deg * var(--i) / var(--n)));
+  box-shadow: 0 6px 16px rgba(18, 45, 102, 0.22);
+}
+
+.draw-orbit-chip.is-hot {
+  background: var(--gold);
+  color: #1c1917;
+  box-shadow: 0 0 0 3px rgba(245, 197, 24, 0.45);
+}
+
+.draw-focus {
+  position: absolute;
+  inset: 28%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  border-radius: 50%;
+  background: linear-gradient(180deg, rgba(18, 45, 102, 0.55), rgba(29, 67, 147, 0.88));
+  border: 2px solid rgba(245, 197, 24, 0.65);
+  box-shadow: 0 18px 40px rgba(18, 45, 102, 0.35);
+}
+
+.draw-focus-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 700;
+}
+
+.draw-focus strong {
+  display: block;
+  margin-top: 0.35rem;
+  max-width: 88%;
+  font-size: clamp(1rem, 3.2vw, 1.55rem);
+  line-height: 1.2;
+  color: #fff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .draw-animation-timer {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 4.4rem;
-  margin-bottom: 1rem;
-  padding: 0.2rem 0.85rem;
+  min-width: 4.2rem;
+  margin-bottom: 0.75rem;
+  padding: 0.15rem 0.8rem;
   border-radius: 999px;
-  background: rgba(234, 179, 8, 0.18);
-  border: 1px solid rgba(253, 224, 71, 0.45);
-  color: #facc15;
-  font-size: 2.1rem;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(245, 197, 24, 0.55);
+  color: var(--gold);
+  font-size: 1.85rem;
   font-weight: 800;
   letter-spacing: 0.04em;
 }
 
-.draw-animation-full .draw-animation-bowl {
-  min-height: min(58vh, 520px);
-  animation: draw-bowl-spin 10s linear infinite;
+.draw-progress {
+  width: min(360px, 78%);
+  height: 7px;
+  margin: 0 auto;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  overflow: hidden;
 }
 
-.draw-animation-full .draw-chip {
-  max-width: 42%;
-  font-size: 0.92rem;
-  padding: 0.42rem 0.85rem;
-}
-
-.draw-animation-full .draw-animation-status {
-  color: rgba(255, 255, 255, 0.78);
-  font-size: 1.05rem;
-}
-
-@keyframes draw-bowl-spin {
-  0% { filter: hue-rotate(0deg) saturate(1); }
-  50% { filter: hue-rotate(18deg) saturate(1.15); }
-  100% { filter: hue-rotate(0deg) saturate(1); }
+.draw-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--gold), #fff);
+  transition: width 0.1s linear;
 }
 
 .draw-animation {
@@ -3894,67 +3988,42 @@ a.competition-action-btn,
   padding: 0.5rem 0 0.25rem;
 }
 
-.draw-animation-kicker {
-  margin: 0;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  font-size: 0.72rem;
-  color: #b45309;
-  font-weight: 700;
-}
-
 .draw-animation h3 {
   margin: 0.35rem 0 1rem;
-  color: var(--primary);
-}
-
-.draw-animation-bowl {
-  position: relative;
-  min-height: 220px;
-  border-radius: 50% / 42%;
-  background:
-    radial-gradient(ellipse at 50% 20%, rgba(255, 255, 255, 0.55), transparent 55%),
-    linear-gradient(180deg, #1d4393 0%, #0f172a 100%);
-  overflow: hidden;
-  display: flex;
-  flex-wrap: wrap;
-  align-content: center;
-  justify-content: center;
-  gap: 0.45rem;
-  padding: 1.6rem 1.2rem;
-  box-shadow: inset 0 0 0 6px rgba(234, 179, 8, 0.35), 0 12px 30px rgba(15, 23, 42, 0.28);
-}
-
-.draw-chip {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  max-width: 46%;
-  padding: 0.28rem 0.55rem;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.9);
-  color: #0f172a;
-  font-size: 0.78rem;
-  font-weight: 700;
-  animation: draw-chip-float 1.6s ease-in-out infinite;
-}
-
-.draw-chip.is-hot {
-  background: #eab308;
-  color: #1c1917;
-  transform: scale(1.08);
-  box-shadow: 0 0 0 3px rgba(234, 179, 8, 0.35);
+  color: #fff;
 }
 
 .draw-animation-status {
-  margin: 0.9rem 0 0;
-  color: var(--text-muted);
+  margin: 0.85rem 0 0;
+  color: rgba(255, 255, 255, 0.82);
   font-weight: 600;
 }
 
-@keyframes draw-chip-float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-7px); }
+@keyframes draw-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes draw-spin-rev {
+  from { transform: rotate(360deg); }
+  to { transform: rotate(0deg); }
+}
+
+@keyframes draw-pulse {
+  0%, 100% { opacity: 0.55; transform: scale(0.96); }
+  50% { opacity: 1; transform: scale(1.05); }
+}
+
+@media (max-width: 640px) {
+  .draw-orbit-chip {
+    max-width: 96px;
+    font-size: 0.64rem;
+    padding: 0.2rem 0.42rem;
+  }
+
+  .draw-focus {
+    inset: 30%;
+  }
 }
 
 .competition-draw-team-matches {

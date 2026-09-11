@@ -12,13 +12,14 @@ function shuffle(list) {
 export default function DrawAnimation({ items = [], title = 'Tirage au sort', durationMs = 10000, onDone }) {
   const sourceKey = (items || []).filter(Boolean).join('\u0001');
   const chips = useMemo(
-    () => shuffle(sourceKey ? sourceKey.split('\u0001') : []).slice(0, 36),
+    () => shuffle(sourceKey ? sourceKey.split('\u0001') : []).slice(0, 16),
     [sourceKey]
   );
   const [tick, setTick] = useState(0);
   const onDoneRef = useRef(onDone);
   onDoneRef.current = onDone;
   const secondsLeft = Math.max(0, Math.ceil((durationMs - tick * 100) / 1000));
+  const progress = Math.min(100, (tick * 100 / durationMs) * 100);
 
   useEffect(() => {
     const spin = setInterval(() => setTick((n) => n + 1), 100);
@@ -29,25 +30,37 @@ export default function DrawAnimation({ items = [], title = 'Tirage au sort', du
     };
   }, [durationMs]);
 
-  const highlight = chips.length ? chips[tick % chips.length] : '';
+  const highlight = chips.length ? chips[tick % chips.length] : '…';
+  const count = Math.max(chips.length, 1);
 
   return (
     <div className="draw-animation draw-animation-full">
-      <p className="draw-animation-kicker">Fédération Internationale de Judo · Tirage au sort</p>
       <h3>{title}</h3>
-      <div className="draw-animation-timer" aria-live="polite">{secondsLeft}s</div>
-      <div className="draw-animation-bowl" aria-hidden="true">
-        {chips.map((label, idx) => (
-          <span
-            key={`${label}-${idx}`}
-            className={`draw-chip ${label === highlight ? 'is-hot' : ''}`}
-            style={{ animationDelay: `${(idx % 10) * 0.06}s` }}
-          >
-            {label}
-          </span>
-        ))}
+      <div className="draw-stage" aria-hidden="true">
+        <div className="draw-stage-glow" />
+        <div className="draw-ring draw-ring-outer" />
+        <div className="draw-ring draw-ring-inner" />
+        <div className="draw-orbit">
+          {chips.map((label, idx) => (
+            <span
+              key={`${label}-${idx}`}
+              className={`draw-orbit-chip ${label === highlight ? 'is-hot' : ''}`}
+              style={{ '--i': idx, '--n': count }}
+            >
+              {label}
+            </span>
+          ))}
+        </div>
+        <div className="draw-focus">
+          <span className="draw-focus-label">En cours</span>
+          <strong>{highlight}</strong>
+        </div>
       </div>
-      <p className="draw-animation-status">Mélange officiel des participants…</p>
+      <div className="draw-animation-timer" aria-live="polite">{secondsLeft}s</div>
+      <div className="draw-progress" aria-hidden="true">
+        <span style={{ width: `${progress}%` }} />
+      </div>
+      <p className="draw-animation-status">Mélange des participants…</p>
     </div>
   );
 }
