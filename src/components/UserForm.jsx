@@ -409,19 +409,28 @@ export default function UserForm({ type, editingUser, currentUser, registeredClu
               />
               <TelephoneField form={form} onChange={handleChange} />
 
-              {CLUB_DOC_FIELDS.map(({ key, label }) => (
-                <DocumentUploadField
-                  key={key}
-                  label={label}
-                  file={clubDocs[key]}
-                  preview={clubDocPreviews[key]}
-                  onFileChange={(file) => setClubDocument(key, file)}
-                  onClear={() => clearClubDocument(key)}
-                  showCamera={activeCamera === key}
-                  onToggleCamera={() => setActiveCamera((prev) => (prev === key ? null : key))}
-                  onCameraCapture={(file) => { setClubDocument(key, file); setActiveCamera(null); }}
-                />
-              ))}
+              <div className="form-group-full club-docs-block">
+                <div className="club-form-separator" role="separator" />
+                <div className="club-docs-panel">
+                  <h3 className="club-docs-title">Documents du club</h3>
+                  <p className="club-docs-hint">Importez un fichier ou scannez chaque pièce avec la caméra.</p>
+                  <div className="club-docs-list">
+                    {CLUB_DOC_FIELDS.map(({ key, label }) => (
+                      <DocumentUploadField
+                        key={key}
+                        label={label}
+                        file={clubDocs[key]}
+                        preview={clubDocPreviews[key]}
+                        onFileChange={(file) => setClubDocument(key, file)}
+                        onClear={() => clearClubDocument(key)}
+                        showCamera={activeCamera === key}
+                        onToggleCamera={() => setActiveCamera((prev) => (prev === key ? null : key))}
+                        onCameraCapture={(file) => { setClubDocument(key, file); setActiveCamera(null); }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
             </>
           )}
 
