@@ -989,7 +989,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
 
         {!accessBlocked && (
           <div className="competition-stats-strip">
-            <div className="competition-stat competition-stat-inscrits">
+            <div className="competition-stat competition-stat-emphasis">
               <strong>{registrations.length}</strong>
               <span>Judokas inscrits</span>
               <div className="competition-stat-split" aria-label="Répartition Individuel et Par équipe">
@@ -1001,10 +1001,17 @@ export default function CompetitionSettings({ onBack, onToast }) {
                 </span>
               </div>
             </div>
-            <div className="competition-stat">
+            <div className="competition-stat competition-stat-emphasis">
               <strong>{weighedCount}</strong>
               <span>Pesés</span>
-              <small>Individuel {individualWeighed} · Par équipe {teamWeighed}</small>
+              <div className="competition-stat-split" aria-label="Pesés Individuel et Par équipe">
+                <span className="competition-stat-chip competition-stat-chip-indiv">
+                  Individuel <b>{individualWeighed}</b>
+                </span>
+                <span className="competition-stat-chip competition-stat-chip-team">
+                  Par équipe <b>{teamWeighed}</b>
+                </span>
+              </div>
             </div>
             <div className="competition-stat">
               <strong>{isPublic ? 'Ouvertes' : (configured ? 'Clôturées' : 'Non')}</strong>
