@@ -115,6 +115,15 @@ function getRoleLabel(user) {
   return USER_TYPES[user.type]?.label || user.type;
 }
 
+function isAdminOrCoordon(user) {
+  return user?.type === 'admin' || (user?.type === 'federation' && user?.fonction === 'Coordon');
+}
+
+function hasFullDashboardCards(user) {
+  return isAdminOrCoordon(user)
+    || (user?.type === 'federation' && ['Coordon Adjoint', 'Secrétaire Général'].includes(user.fonction));
+}
+
 function canUseQrScan(user, perms) {
   return perms.scanQr === true;
 }
@@ -418,6 +427,16 @@ export default function App() {
       );
     });
   }, [members, dashboardTab, searchTerm]);
+
+  const filteredArbitres = useMemo(() => {
+    if (!searchTerm) return arbitres;
+    return arbitres.filter((a) =>
+      matchesSearch(`${a.prenom} ${a.nom}`, searchTerm) ||
+      matchesSearch(a.club, searchTerm) ||
+      matchesSearch(a.niveau, searchTerm)
+    );
+  }, [arbitres, searchTerm]);
+
   const showJudokasTab = perms.viewJudokas !== false && tabs.includes('judokas');
   const showStatsJudokas = perms.viewStats && perms.viewJudokas !== false;
   const showStatsEntraineurs = perms.viewStats && (user?.type === 'admin' || perms.viewJudokas !== false);
@@ -514,11 +533,36 @@ export default function App() {
     await loadData();
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     if (!perms.export) {
       showToast('Export non autorisé pour votre rôle', 'error');
       return;
     }
+
+    if (isAdminOrCoordon(user)) {
+      const tab = dashboardTab || 'judokas';
+      const rows = tab === 'judokas'
+        ? filteredJudokas
+        : tab === 'arbitres'
+          ? filteredArbitres
+          : tabUsers;
+      if (!rows.length) {
+        showToast('Aucune donnée à exporter pour cet onglet', 'error');
+        return;
+      }
+      setExportingPdf(true);
+      try {
+        const { exportDashboardListToPdf } = await import('./utils/exportDashboardListPdf.js');
+        exportDashboardListToPdf(tab, rows);
+        showToast(`${rows.length} enregistrement(s) exporté(s) en PDF`);
+      } catch {
+        showToast('Impossible de générer le PDF de la liste', 'error');
+      } finally {
+        setExportingPdf(false);
+      }
+      return;
+    }
+
     if (filteredJudokas.length === 0) {
       showToast('Aucune donnée à exporter', 'error');
       return;
@@ -748,8 +792,13 @@ export default function App() {
             </button>
           )}
           {perms.export && !showCompetitionButton && (
-            <button className="nav-btn" onClick={handleExport} disabled={!serverOnline}>
-              Exporter
+            <button
+              className="nav-btn"
+              onClick={handleExport}
+              disabled={!serverOnline || exportingPdf}
+              title={isAdminOrCoordon(user) ? `Exporter en PDF l’onglet ${dashboardTab}` : 'Exporter'}
+            >
+              {exportingPdf && isAdminOrCoordon(user) ? 'Export...' : 'Exporter'}
             </button>
           )}
           <div className="header-user">
@@ -784,34 +833,34 @@ export default function App() {
           <>
             {perms.viewStats && (
               <div className="stats-grid">
-                {/* Admin / Coordon : une case fixe par onglet (ne change pas au clic) */}
-                {user.type === 'admin' || (user.type === 'federation' && user.fonction === 'Coordon') ? (
+                {/* Admin / Coordon / Coordon Adjoint / Secrétaire Général : cases cliquables liées aux onglets */}
+                {hasFullDashboardCards(user) ? (
                   <>
-                    <button type="button" className={`stat-card stat-clickable ${dashboardTab === 'judokas' ? 'stat-active' : ''}`} onClick={() => setDashboardTab('judokas')}>
+                    <button type="button" className={`stat-card stat-clickable ${dashboardTab === 'judokas' ? 'stat-active' : ''}`} onClick={() => { setDashboardTab('judokas'); setView('list'); }}>
                       <div className="stat-value">{stats.total}</div>
                       <div className="stat-label">Judokas</div>
                     </button>
-                    <button type="button" className={`stat-card stat-clickable ${dashboardTab === 'ligues' ? 'stat-active' : ''}`} onClick={() => setDashboardTab('ligues')}>
+                    <button type="button" className={`stat-card stat-clickable ${dashboardTab === 'ligues' ? 'stat-active' : ''}`} onClick={() => { setDashboardTab('ligues'); setView('list'); }}>
                       <div className="stat-value">{stats.ligues ?? 0}</div>
                       <div className="stat-label">Ligues</div>
                     </button>
-                    <button type="button" className={`stat-card stat-clickable ${dashboardTab === 'ententes' ? 'stat-active' : ''}`} onClick={() => setDashboardTab('ententes')}>
+                    <button type="button" className={`stat-card stat-clickable ${dashboardTab === 'ententes' ? 'stat-active' : ''}`} onClick={() => { setDashboardTab('ententes'); setView('list'); }}>
                       <div className="stat-value">{stats.ententes ?? 0}</div>
                       <div className="stat-label">Ententes</div>
                     </button>
-                    <button type="button" className={`stat-card stat-clickable ${dashboardTab === 'clubs' ? 'stat-active' : ''}`} onClick={() => setDashboardTab('clubs')}>
+                    <button type="button" className={`stat-card stat-clickable ${dashboardTab === 'clubs' ? 'stat-active' : ''}`} onClick={() => { setDashboardTab('clubs'); setView('list'); }}>
                       <div className="stat-value">{stats.clubs}</div>
                       <div className="stat-label">Clubs</div>
                     </button>
-                    <button type="button" className={`stat-card stat-clickable ${dashboardTab === 'entraineurs' ? 'stat-active' : ''}`} onClick={() => setDashboardTab('entraineurs')}>
+                    <button type="button" className={`stat-card stat-clickable ${dashboardTab === 'entraineurs' ? 'stat-active' : ''}`} onClick={() => { setDashboardTab('entraineurs'); setView('list'); }}>
                       <div className="stat-value">{stats.entraineurs}</div>
                       <div className="stat-label">Entraineurs</div>
                     </button>
-                    <button type="button" className={`stat-card accent stat-clickable ${dashboardTab === 'arbitres' ? 'stat-active' : ''}`} onClick={() => setDashboardTab('arbitres')}>
+                    <button type="button" className={`stat-card accent stat-clickable ${dashboardTab === 'arbitres' ? 'stat-active' : ''}`} onClick={() => { setDashboardTab('arbitres'); setView('list'); }}>
                       <div className="stat-value">{stats.arbitres ?? 0}</div>
                       <div className="stat-label">Arbitres</div>
                     </button>
-                    <button type="button" className={`stat-card success stat-clickable ${dashboardTab === 'federation' ? 'stat-active' : ''}`} onClick={() => setDashboardTab('federation')}>
+                    <button type="button" className={`stat-card success stat-clickable ${dashboardTab === 'federation' ? 'stat-active' : ''}`} onClick={() => { setDashboardTab('federation'); setView('list'); }}>
                       <div className="stat-value">{stats.federationMembers ?? 0}</div>
                       <div className="stat-label">Membres</div>
                     </button>
@@ -1038,13 +1087,14 @@ export default function App() {
                     <Suspense fallback={<PageLoader label="Chargement de la liste..." />}>
                       <UserList
                         users={tabUsers}
-                        showClub={dashboardTab === 'entraineurs' && (user.type === 'admin' || user.type === 'ligue' || user.type === 'entente')}
+                        showClub={dashboardTab === 'entraineurs' && (user.type === 'admin' || user.type === 'federation' || user.type === 'ligue' || user.type === 'entente')}
                         detailColumnLabel={dashboardTab === 'federation' ? 'Fonction / Rôle' : 'Détails'}
                         hideFonctionUnderName={dashboardTab === 'federation'}
                         hideTypeColumn={dashboardTab === 'federation'}
                         showViewAction={
                           (dashboardTab === 'clubs' && canViewClubDetails)
                           || canValidateAccounts
+                          || hasFullDashboardCards(user)
                         }
                         canManage={canManageUsers}
                         canValidate={canValidateAccounts && ['ligues', 'ententes', 'clubs', 'entraineurs'].includes(dashboardTab)}
@@ -1092,16 +1142,9 @@ export default function App() {
                   </div>
                   <Suspense fallback={<PageLoader label="Chargement des arbitres..." />}>
                     <ArbitreList
-                      arbitres={arbitres.filter((a) => {
-                        if (!searchTerm) return true;
-                        return (
-                          matchesSearch(`${a.prenom} ${a.nom}`, searchTerm) ||
-                          matchesSearch(a.club, searchTerm) ||
-                          matchesSearch(a.niveau, searchTerm)
-                        );
-                      })}
+                      arbitres={filteredArbitres}
                       canManage={canCreateArbitres || user.type === 'admin'}
-                      showViewAction={canValidateAccounts || user.type === 'admin'}
+                      showViewAction={canValidateAccounts || hasFullDashboardCards(user)}
                       onView={(a) => setViewAccount({ ...a, _kind: 'arbitre' })}
                       onEdit={canCreateArbitres || user.type === 'admin' ? (a) => {
                         setEditingArbitre(a);

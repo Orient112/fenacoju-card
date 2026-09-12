@@ -2,8 +2,6 @@ export const FENACOJU_BLUE = '#0072bb';
 
 const SENIOR_FEDERATION_TABS = ['judokas', 'entraineurs', 'arbitres', 'clubs', 'ententes', 'ligues'];
 
-const CLUB_ONLY_TABS = ['clubs'];
-
 export const ACCOUNT_STATUTS = ['pending', 'actif', 'rejete'];
 
 export const NO_LOGIN_TYPES = ['entraineur', 'membre'];
@@ -41,8 +39,10 @@ export const FEDERATION_ROLES = {
     manageAll: true,
     manageUsers: false,
     refreshList: false,
-    dashboardTabs: CLUB_ONLY_TABS,
+    hideJudokaActions: true,
+    dashboardTabs: [...SENIOR_FEDERATION_TABS, 'federation'],
     createTypes: [],
+    viewClubDetails: true,
   },
   'Secrétaire Général': {
     viewUsers: true,
@@ -56,9 +56,11 @@ export const FEDERATION_ROLES = {
     manageAll: true,
     manageUsers: false,
     refreshList: false,
-    dashboardTabs: CLUB_ONLY_TABS,
+    hideJudokaActions: true,
+    dashboardTabs: [...SENIOR_FEDERATION_TABS, 'federation'],
     scanQr: true,
     createTypes: [],
+    viewClubDetails: true,
   },
   'Directeur Technique': {
     viewUsers: true,
