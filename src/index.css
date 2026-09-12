@@ -1635,6 +1635,11 @@ tbody tr:last-child td {
   background: #f8fafc;
 }
 
+.competition-club-editor-list li input {
+  flex: 1;
+  min-width: 0;
+}
+
 .confirm-actions {
   display: flex;
   gap: 0.75rem;

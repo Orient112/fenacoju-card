@@ -11,6 +11,7 @@ import {
 } from '../api';
 import { exportCompetitionListToPdf } from '../utils/exportCompetitionListPdf';
 import { exportCompetitionDrawToPdf } from '../utils/exportCompetitionDrawPdf';
+import { exportCompetitionBadgesToPdf } from '../utils/exportCompetitionBadgesPdf';
 import { buildWeightDraw, buildTeamDraw } from '../utils/competitionDraw';
 import DrawAnimation from '../components/DrawAnimation';
 
@@ -62,6 +63,26 @@ function groupTeamClubs(registrations) {
     team.members.push(r);
   }
   return [...map.values()].sort((a, b) => a.club.localeCompare(b.club, 'fr'));
+}
+
+function mergeRegisteredTeamClubs(registeredClubs, registrations) {
+  const fromRegs = groupTeamClubs(registrations.filter((r) => isTeamRegistration(r)));
+  const byName = new Map(fromRegs.map((team) => [String(team.club).trim().toLowerCase(), team]));
+  const merged = [];
+
+  for (const club of (registeredClubs || []).filter((c) => c.cadre === 'equipe')) {
+    const key = String(club.nom || '').trim().toLowerCase();
+    const existing = byName.get(key);
+    if (existing) {
+      merged.push({ ...existing, club: club.nom });
+      byName.delete(key);
+    } else {
+      merged.push({ club: club.nom, ids: [], members: [] });
+    }
+  }
+
+  for (const leftover of byName.values()) merged.push(leftover);
+  return merged.sort((a, b) => a.club.localeCompare(b.club, 'fr'));
 }
 
 function formatDateFr(value) {
@@ -165,22 +186,28 @@ function TeamClubsTable({ clubs, onEdit, onDelete }) {
               <td data-label="Judokas">{team.members?.length || team.ids.length}</td>
               <td data-label="Actions">
                 <div className="actions-cell">
-                  <button
-                    type="button"
-                    className="btn btn-outline btn-sm btn-icon"
-                    title="Modifier"
-                    onClick={() => onEdit(team)}
-                  >
-                    ✏️
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-danger btn-sm btn-icon"
-                    title="Supprimer l'équipe"
-                    onClick={() => onDelete(team)}
-                  >
-                    🗑️
-                  </button>
+                  {(team.members?.length || team.ids.length) > 0 ? (
+                    <>
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-sm btn-icon"
+                        title="Modifier"
+                        onClick={() => onEdit(team)}
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-danger btn-sm btn-icon"
+                        title="Supprimer l'équipe"
+                        onClick={() => onDelete(team)}
+                      >
+                        🗑️
+                      </button>
+                    </>
+                  ) : (
+                    <span className="form-hint">—</span>
+                  )}
                 </div>
               </td>
             </tr>
@@ -370,6 +397,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
   const [editTeamMembers, setEditTeamMembers] = useState([]);
   const [clubsEditorCadre, setClubsEditorCadre] = useState(null);
   const [clubDraft, setClubDraft] = useState('');
+  const [editingClub, setEditingClub] = useState(null);
   const [form, setForm] = useState({
     nom: '',
     date_debut: '',
@@ -562,6 +590,23 @@ export default function CompetitionSettings({ onBack, onToast }) {
     }
   };
 
+  const handleExportBadges = async (mode) => {
+    const list = registrations.filter((r) => (mode === 'equipe') === isTeamRegistration(r));
+    if (!list.length) {
+      onToast?.(mode === 'equipe' ? 'Aucun inscrit par équipe pour les badges' : 'Aucun inscrit individuel pour les badges', 'error');
+      return;
+    }
+    setExporting(true);
+    try {
+      exportCompetitionBadgesToPdf(list, settings || {}, mode);
+      onToast?.('Badges A6 exportés en PDF');
+    } catch (err) {
+      onToast?.(err.message || 'Erreur lors de la génération des badges', 'error');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const openActionMode = (action) => {
     if (action === 'clubs') {
       setActionMode('clubs');
@@ -588,6 +633,19 @@ export default function CompetitionSettings({ onBack, onToast }) {
       setActionMode('export');
       return;
     }
+    if (action === 'badges') {
+      const linkOff = Boolean(settings?.configured) && !settings?.public_enabled;
+      if (!linkOff) {
+        onToast?.('Les badges sont disponibles uniquement lorsque le lien d\'inscription est Off', 'error');
+        return;
+      }
+      if (!registrations.length) {
+        onToast?.('Aucun judoka inscrit pour générer les badges', 'error');
+        return;
+      }
+      setActionMode('badges');
+      return;
+    }
     const closed = Boolean(settings?.configured) && !settings?.public_enabled;
     if (registrations.length === 0) {
       onToast?.('Aucun judoka inscrit pour le tirage', 'error');
@@ -610,6 +668,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
       setActionMode(null);
       setClubsEditorCadre(mode);
       setClubDraft('');
+      setEditingClub(null);
       return;
     }
     if (actionMode === 'weigh') {
@@ -621,6 +680,11 @@ export default function CompetitionSettings({ onBack, onToast }) {
     if (actionMode === 'export') {
       setActionMode(null);
       handleExportList(mode);
+      return;
+    }
+    if (actionMode === 'badges') {
+      setActionMode(null);
+      handleExportBadges(mode);
       return;
     }
     handleTirageMode(mode);
@@ -657,9 +721,54 @@ export default function CompetitionSettings({ onBack, onToast }) {
     setSaving(true);
     try {
       await persistCompetitionClubs(current.filter((c) => c.id !== club.id));
+      setEditingClub((prev) => (prev?.id === club.id ? null : prev));
       onToast?.('Club retiré');
     } catch (err) {
       onToast?.(err.message || 'Impossible de retirer le club', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveEditedClub = async (club) => {
+    const nom = String(editingClub?.nom || '').trim();
+    if (!nom) {
+      onToast?.('Le nom du club est obligatoire', 'error');
+      return;
+    }
+    const current = settings?.competition_clubs || [];
+    if (current.some((c) => c.id !== club.id && c.cadre === club.cadre && String(c.nom).toLowerCase() === nom.toLowerCase())) {
+      onToast?.('Ce club est déjà enregistré pour ce cadre', 'error');
+      return;
+    }
+    const oldName = club.nom;
+    setSaving(true);
+    try {
+      await persistCompetitionClubs(current.map((c) => (c.id === club.id ? { ...c, nom } : c)));
+      const affected = registrations.filter((r) => {
+        const isTeam = isTeamRegistration(r);
+        if (club.cadre === 'equipe' && !isTeam) return false;
+        if (club.cadre === 'individuel' && isTeam) return false;
+        return (r.club || '').trim().toLowerCase() === String(oldName).trim().toLowerCase();
+      });
+      const updatedList = [];
+      for (const row of affected) {
+        const updated = await updateCompetitionRegistration(row.id, {
+          club: nom,
+          nom: row.nom,
+          prenom: row.prenom,
+          poids: row.poids,
+        });
+        updatedList.push(updated);
+      }
+      if (updatedList.length) {
+        const byId = new Map(updatedList.map((row) => [row.id, row]));
+        setRegistrations((prev) => prev.map((r) => (byId.has(r.id) ? { ...r, ...byId.get(r.id) } : r)));
+      }
+      setEditingClub(null);
+      onToast?.('Club modifié');
+    } catch (err) {
+      onToast?.(err.message || 'Impossible de modifier le club', 'error');
     } finally {
       setSaving(false);
     }
@@ -1027,7 +1136,20 @@ export default function CompetitionSettings({ onBack, onToast }) {
                   onClick={() => openActionMode('export')}
                   disabled={exporting || registrations.length === 0}
                 >
-                  {exporting ? 'Export...' : 'Exporter Liste'}
+                  {exporting && actionMode !== 'badges' ? 'Export...' : 'Exporter Liste'}
+                </button>
+                <button
+                  type="button"
+                  className={`btn btn-outline competition-action-btn ${!tirageReady ? 'is-disabled' : ''}`}
+                  onClick={() => openActionMode('badges')}
+                  disabled={exporting || !tirageReady}
+                  title={
+                    tirageReady
+                      ? 'Générer les badges A6'
+                      : 'Disponible uniquement après la clôture des inscriptions'
+                  }
+                >
+                  {exporting && actionMode === 'badges' ? 'Export...' : 'Badges'}
                 </button>
                 <button
                   type="button"
@@ -1045,7 +1167,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
               </div>
             </div>
 
-            {registrations.length === 0 ? (
+            {registrations.length === 0 && mergeRegisteredTeamClubs(settings?.competition_clubs, registrations).length === 0 ? (
               <div className="competition-empty-regs">
                 <p>Aucun judoka inscrit pour le moment.</p>
                 <p className="form-hint">Les nouvelles inscriptions apparaîtront ici automatiquement.</p>
@@ -1063,7 +1185,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
                 <div className="competition-inscriptions-pane">
                   <h4>Par Équipe</h4>
                   <TeamClubsTable
-                    clubs={groupTeamClubs(registrations.filter((r) => isTeamRegistration(r)))}
+                    clubs={mergeRegisteredTeamClubs(settings?.competition_clubs, registrations)}
                     onEdit={openEditTeam}
                     onDelete={setDeleteClubTarget}
                   />
@@ -1321,16 +1443,55 @@ export default function CompetitionSettings({ onBack, onToast }) {
                   .filter((c) => c.cadre === clubsEditorCadre)
                   .map((club) => (
                     <li key={club.id}>
-                      <span>{club.nom}</span>
-                      <button
-                        type="button"
-                        className="btn btn-danger btn-sm btn-icon"
-                        title="Retirer"
-                        disabled={saving}
-                        onClick={() => handleRemoveCompetitionClub(club)}
-                      >
-                        🗑️
-                      </button>
+                      {editingClub?.id === club.id ? (
+                        <input
+                          value={editingClub.nom}
+                          onChange={(e) => setEditingClub((prev) => ({ ...prev, nom: e.target.value }))}
+                          aria-label="Nouveau nom du club"
+                        />
+                      ) : (
+                        <span>{club.nom}</span>
+                      )}
+                      <div className="actions-cell">
+                        {editingClub?.id === club.id ? (
+                          <>
+                            <button
+                              type="button"
+                              className="btn btn-primary btn-sm"
+                              disabled={saving}
+                              onClick={() => handleSaveEditedClub(club)}
+                            >
+                              OK
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-outline btn-sm"
+                              onClick={() => setEditingClub(null)}
+                            >
+                              Annuler
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            className="btn btn-outline btn-sm btn-icon"
+                            title="Modifier"
+                            disabled={saving}
+                            onClick={() => setEditingClub({ id: club.id, nom: club.nom })}
+                          >
+                            ✏️
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className="btn btn-danger btn-sm btn-icon"
+                          title="Retirer"
+                          disabled={saving}
+                          onClick={() => handleRemoveCompetitionClub(club)}
+                        >
+                          🗑️
+                        </button>
+                      </div>
                     </li>
                   ))}
               </ul>
@@ -1352,6 +1513,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
                 <h3>
                   {actionMode === 'weigh' && 'Pesé'}
                   {actionMode === 'export' && 'Exporter Liste'}
+                  {actionMode === 'badges' && 'Badges'}
                   {actionMode === 'draw' && 'Tirage au sort'}
                   {actionMode === 'clubs' && 'Club'}
                 </h3>
