@@ -120,6 +120,11 @@ function isAdminOrCoordon(user) {
   return user?.type === 'admin' || (user?.type === 'federation' && user?.fonction === 'Coordon');
 }
 
+function isResponsableGrade(user) {
+  return user?.type === 'federation'
+    && ['Responsable Grade', 'Responsable Affiliation'].includes(user.fonction);
+}
+
 function hasFullDashboardCards(user) {
   return isAdminOrCoordon(user)
     || (user?.type === 'federation' && ['Coordon Adjoint', 'Secrétaire Général'].includes(user.fonction));
@@ -238,6 +243,7 @@ export default function App() {
   const [serverOnline, setServerOnline] = useState(true);
   const [competitionAccess, setCompetitionAccessState] = useState(false);
   const [competitionToggleBusy, setCompetitionToggleBusy] = useState(false);
+  const [judokaStatutFilter, setJudokaStatutFilter] = useState(null);
 
   const perms = user?.permissions || {};
   const tabs = perms.dashboardTabs || ['judokas'];
@@ -408,15 +414,21 @@ export default function App() {
   const searchTerm = searchInput.trim().toLowerCase();
 
   const filteredJudokas = useMemo(() => {
-    if (!searchTerm) return judokas;
-    return judokas.filter((j) =>
+    let list = judokas;
+    if (judokaStatutFilter === 'actif') {
+      list = list.filter((j) => j.statut === 'actif');
+    } else if (judokaStatutFilter === 'inactif') {
+      list = list.filter((j) => j.statut !== 'actif');
+    }
+    if (!searchTerm) return list;
+    return list.filter((j) =>
       matchesSearch(j.nom, searchTerm) ||
       matchesSearch(j.prenom, searchTerm) ||
       matchesSearch(j.club, searchTerm) ||
       matchesSearch(j.numero_carte, searchTerm) ||
       matchesSearch(`${j.prenom} ${j.nom}`, searchTerm)
     );
-  }, [judokas, searchTerm]);
+  }, [judokas, searchTerm, judokaStatutFilter]);
 
   const tabUsers = useMemo(() => {
     let users = getUsersForTab(members, dashboardTab, user);
@@ -879,6 +891,49 @@ export default function App() {
                       <div className="stat-label">Membres</div>
                     </button>
                   </>
+                ) : isResponsableGrade(user) ? (
+                  <>
+                    <button
+                      type="button"
+                      className={`stat-card stat-clickable ${dashboardTab === 'judokas' && !judokaStatutFilter ? 'stat-active' : ''}`}
+                      onClick={() => { setJudokaStatutFilter(null); setDashboardTab('judokas'); setView('list'); }}
+                    >
+                      <div className="stat-value">{stats.total}</div>
+                      <div className="stat-label">Judokas enregistrés</div>
+                    </button>
+                    <button
+                      type="button"
+                      className={`stat-card success stat-clickable ${dashboardTab === 'judokas' && judokaStatutFilter === 'actif' ? 'stat-active' : ''}`}
+                      onClick={() => { setJudokaStatutFilter('actif'); setDashboardTab('judokas'); setView('list'); }}
+                    >
+                      <div className="stat-value">{stats.actifs}</div>
+                      <div className="stat-label">Actifs</div>
+                    </button>
+                    <button
+                      type="button"
+                      className={`stat-card accent stat-clickable ${dashboardTab === 'judokas' && judokaStatutFilter === 'inactif' ? 'stat-active' : ''}`}
+                      onClick={() => { setJudokaStatutFilter('inactif'); setDashboardTab('judokas'); setView('list'); }}
+                    >
+                      <div className="stat-value">{Math.max(0, (stats.total || 0) - (stats.actifs || 0))}</div>
+                      <div className="stat-label">Inactifs</div>
+                    </button>
+                    <button
+                      type="button"
+                      className={`stat-card stat-label-entraineurs stat-clickable ${dashboardTab === 'entraineurs' ? 'stat-active' : ''}`}
+                      onClick={() => { setJudokaStatutFilter(null); setDashboardTab('entraineurs'); setView('list'); }}
+                    >
+                      <div className="stat-value">{stats.entraineurs}</div>
+                      <div className="stat-label">Entraineurs</div>
+                    </button>
+                    <button
+                      type="button"
+                      className={`stat-card stat-clickable ${dashboardTab === 'clubs' ? 'stat-active' : ''}`}
+                      onClick={() => { setJudokaStatutFilter(null); setDashboardTab('clubs'); setView('list'); }}
+                    >
+                      <div className="stat-value">{stats.clubs}</div>
+                      <div className="stat-label">Clubs</div>
+                    </button>
+                  </>
                 ) : (
                   <>
                     {showStatsJudokas && (
@@ -969,7 +1024,7 @@ export default function App() {
                     <button
                       key={tab.key}
                       className={`dashboard-tab ${dashboardTab === tab.key ? 'active' : ''}`}
-                      onClick={() => setDashboardTab(tab.key)}
+                      onClick={() => { setDashboardTab(tab.key); setJudokaStatutFilter(null); }}
                     >
                       {tab.label}
                       {showBadge && (
