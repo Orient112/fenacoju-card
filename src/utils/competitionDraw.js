@@ -1,4 +1,4 @@
-import { teamCategoryKey } from './weightCategories';
+import { teamCategoryKey, findCategoryForWeight, parseCategoriesPoids } from './weightCategories';
 
 function normalizeWeight(poids) {
   const n = Number(String(poids).replace(',', '.').trim());
@@ -78,9 +78,11 @@ function getTeamRole(r) {
 }
 
 /**
- * Individuel : combats par poids, séparés Garçons / Filles.
+ * Individuel : combats par catégorie de poids (si définie), sinon par poids exact,
+ * séparés Garçons / Filles.
  */
-export function buildWeightDraw(registrations) {
+export function buildWeightDraw(registrations, categories = []) {
+  const cats = parseCategoriesPoids(categories);
   const weighed = (registrations || []).filter((r) => (
     getMode(r) === 'individuel' && String(r.poids || '').trim()
   ));
@@ -89,23 +91,32 @@ export function buildWeightDraw(registrations) {
   for (const r of weighed) {
     const poids = normalizeWeight(r.poids);
     const sexe = r.sexe === 'F' ? 'F' : 'M';
-    const key = `${sexe}|${poids}`;
-    if (!buckets.has(key)) buckets.set(key, []);
-    buckets.get(key).push(r);
+    const cat = cats.length ? findCategoryForWeight(cats, r.poids, sexe) : null;
+    const key = cat ? cat.key : `${sexe}|${poids}`;
+    if (!buckets.has(key)) {
+      buckets.set(key, {
+        members: [],
+        sexe,
+        title: cat
+          ? `${sexeLabel(sexe)} · ${cat.label}`
+          : `${sexeLabel(sexe)} · ${poids} kg`,
+        sortValue: cat ? cat.max : weightSortValue(poids),
+      });
+    }
+    buckets.get(key).members.push(r);
   }
 
   const groups = [...buckets.entries()]
-    .map(([key, members]) => {
-      const [sexe, poids] = key.split('|');
-      const { fights, bye, seedOrder } = pairMembers(members, key);
+    .map(([key, bucket]) => {
+      const { fights, bye, seedOrder } = pairMembers(bucket.members, key);
       return {
         key,
         mode: 'individuel',
-        title: `${sexeLabel(sexe)} · ${poids} kg`,
-        poids,
-        sexe,
-        sexeLabel: sexeLabel(sexe),
-        count: members.length,
+        title: bucket.title,
+        sexe: bucket.sexe,
+        sexeLabel: sexeLabel(bucket.sexe),
+        sortValue: bucket.sortValue,
+        count: bucket.members.length,
         fights,
         bye,
         seedOrder,
@@ -113,7 +124,7 @@ export function buildWeightDraw(registrations) {
     })
     .sort((a, b) => {
       if (a.sexe !== b.sexe) return a.sexe === 'M' ? -1 : 1;
-      return weightSortValue(a.poids) - weightSortValue(b.poids);
+      return a.sortValue - b.sortValue;
     });
 
   return {

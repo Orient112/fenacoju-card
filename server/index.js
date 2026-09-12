@@ -540,6 +540,9 @@ app.put('/api/competition', async (req, res) => {
     if (body.categories_poids !== undefined) {
       patch.categories_poids = parseCategoriesPoids(body.categories_poids);
     }
+    if (body.categories_poids_individuel !== undefined) {
+      patch.categories_poids_individuel = parseCategoriesPoids(body.categories_poids_individuel);
+    }
     if (body.public_enabled !== undefined) {
       const next = { ...current, ...patch };
       if (body.public_enabled && !isCompetitionConfigured(next)) {

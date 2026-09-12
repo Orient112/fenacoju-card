@@ -191,83 +191,92 @@ function TeamClubsTable({ clubs, onEdit, onDelete }) {
   );
 }
 
-function ParamsFormFields({ form, onChange, onCategoriesChange }) {
-  const cats = Array.isArray(form.categories_poids) ? form.categories_poids : [];
+function ParamsFormFields({ form, onChange, onCategoriesChange, onIndividualCategoriesChange }) {
+  const teamCats = Array.isArray(form.categories_poids) ? form.categories_poids : [];
+  const individualCats = Array.isArray(form.categories_poids_individuel) ? form.categories_poids_individuel : [];
 
-  const updateCat = (index, field, value) => {
-    const next = cats.map((c, i) => {
-      if (i !== index) return c;
-      const current = (c && typeof c === 'object') ? c : { min: c, max: c, label: c };
-      return { ...current, [field]: value };
-    });
-    onCategoriesChange(next);
-  };
-
-  const addCat = (sexe) => onCategoriesChange([...cats, { sexe, label: '', min: '', max: '' }]);
-  const removeCat = (index) => onCategoriesChange(cats.filter((_, i) => i !== index));
-
-  const renderSexGroup = (sexe, title) => {
-    const rows = cats
-      .map((value, index) => ({ value, index }))
-      .filter(({ value }) => {
-        const current = (value && typeof value === 'object') ? value : {};
-        const s = String(current.sexe || 'M').toUpperCase().startsWith('F') ? 'F' : 'M';
-        return s === sexe;
+  const renderCatEditor = (cats, onUpdate, prefix) => {
+    const updateCat = (index, field, value) => {
+      const next = cats.map((c, i) => {
+        if (i !== index) return c;
+        const current = (c && typeof c === 'object') ? c : { min: c, max: c, label: c };
+        return { ...current, [field]: value };
       });
+      onUpdate(next);
+    };
+    const addCat = (sexe) => onUpdate([...cats, { sexe, label: '', min: '', max: '' }]);
+    const removeCat = (index) => onUpdate(cats.filter((_, i) => i !== index));
+
+    const renderSexGroup = (sexe, title) => {
+      const rows = cats
+        .map((value, index) => ({ value, index }))
+        .filter(({ value }) => {
+          const current = (value && typeof value === 'object') ? value : {};
+          const s = String(current.sexe || 'M').toUpperCase().startsWith('F') ? 'F' : 'M';
+          return s === sexe;
+        });
+
+      return (
+        <div className="competition-cat-sex-group">
+          <div className="club-comites-head">
+            <label>{title}</label>
+            <button type="button" className="btn btn-outline btn-sm" onClick={() => addCat(sexe)}>
+              + Ajouter
+            </button>
+          </div>
+          {rows.length === 0 ? (
+            <p className="form-hint">Aucune catégorie {title.toLowerCase()} pour le moment.</p>
+          ) : (
+            <div className="club-comites-list">
+              {rows.map(({ value, index }) => {
+                const cat = (value && typeof value === 'object') ? value : { label: value, min: value, max: value };
+                return (
+                  <div key={`${prefix}-${sexe}-${index}`} className="club-comite-row club-comite-row-cat">
+                    <input
+                      value={cat.label ?? ''}
+                      onChange={(e) => updateCat(index, 'label', e.target.value)}
+                      placeholder="Ex. -60"
+                      aria-label={`Catégorie ${title} ${index + 1}`}
+                    />
+                    <span className="form-hint" style={{ margin: 0 }}>de</span>
+                    <input
+                      value={cat.min ?? ''}
+                      onChange={(e) => updateCat(index, 'min', e.target.value)}
+                      placeholder="Ex. 0"
+                      inputMode="decimal"
+                      aria-label={`Poids minimum ${title} ${index + 1}`}
+                    />
+                    <span className="form-hint" style={{ margin: 0 }}>à</span>
+                    <input
+                      value={cat.max ?? ''}
+                      onChange={(e) => updateCat(index, 'max', e.target.value)}
+                      placeholder="Ex. 60"
+                      inputMode="decimal"
+                      aria-label={`Poids maximum ${title} ${index + 1}`}
+                    />
+                    <span className="form-hint" style={{ margin: 0 }}>kg</span>
+                    <button
+                      type="button"
+                      className="btn btn-danger btn-sm btn-icon"
+                      title="Retirer"
+                      onClick={() => removeCat(index)}
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      );
+    };
 
     return (
-      <div className="competition-cat-sex-group">
-        <div className="club-comites-head">
-          <label>{title}</label>
-          <button type="button" className="btn btn-outline btn-sm" onClick={() => addCat(sexe)}>
-            + Ajouter
-          </button>
-        </div>
-        {rows.length === 0 ? (
-          <p className="form-hint">Aucune catégorie {title.toLowerCase()} pour le moment.</p>
-        ) : (
-          <div className="club-comites-list">
-            {rows.map(({ value, index }) => {
-              const cat = (value && typeof value === 'object') ? value : { label: value, min: value, max: value };
-              return (
-                <div key={`poids-${sexe}-${index}`} className="club-comite-row club-comite-row-cat">
-                  <input
-                    value={cat.label ?? ''}
-                    onChange={(e) => updateCat(index, 'label', e.target.value)}
-                    placeholder="Ex. -60"
-                    aria-label={`Catégorie ${title} ${index + 1}`}
-                  />
-                  <span className="form-hint" style={{ margin: 0 }}>de</span>
-                  <input
-                    value={cat.min ?? ''}
-                    onChange={(e) => updateCat(index, 'min', e.target.value)}
-                    placeholder="Ex. 0"
-                    inputMode="decimal"
-                    aria-label={`Poids minimum ${title} ${index + 1}`}
-                  />
-                  <span className="form-hint" style={{ margin: 0 }}>à</span>
-                  <input
-                    value={cat.max ?? ''}
-                    onChange={(e) => updateCat(index, 'max', e.target.value)}
-                    placeholder="Ex. 60"
-                    inputMode="decimal"
-                    aria-label={`Poids maximum ${title} ${index + 1}`}
-                  />
-                  <span className="form-hint" style={{ margin: 0 }}>kg</span>
-                  <button
-                    type="button"
-                    className="btn btn-danger btn-sm btn-icon"
-                    title="Retirer"
-                    onClick={() => removeCat(index)}
-                  >
-                    🗑️
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+      <>
+        {renderSexGroup('M', 'Garçon')}
+        {renderSexGroup('F', 'Fille')}
+      </>
     );
   };
 
@@ -328,15 +337,12 @@ function ParamsFormFields({ form, onChange, onCategoriesChange }) {
         />
       </div>
       <div className="form-group form-group-full">
+        <label>Catégories de poids (Individuel)</label>
+        {renderCatEditor(individualCats, onIndividualCategoriesChange, 'indiv')}
+      </div>
+      <div className="form-group form-group-full">
         <label>Catégories de poids (Par équipe)</label>
-        <p className="form-hint">
-          Garçons et Filles ont chacun leurs catégories. Saisissez le libellé (ex. -60)
-          et le seuil (de tel poids à tel poids). L&apos;inscription d&apos;équipe n&apos;affiche que
-          les catégories ; le classement se fait automatiquement selon le poids.
-          Chaque équipe (garçons ou filles) doit couvrir au moins 3 catégories.
-        </p>
-        {renderSexGroup('M', 'Garçon')}
-        {renderSexGroup('F', 'Fille')}
+        {renderCatEditor(teamCats, onCategoriesChange, 'equipe')}
       </div>
     </div>
   );
@@ -369,6 +375,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
     lieu: '',
     description: '',
     categories_poids: [],
+    categories_poids_individuel: [],
   });
   const formRef = useRef(form);
   const savingRef = useRef(false);
@@ -389,6 +396,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
       lieu: data.lieu || '',
       description: data.description || '',
       categories_poids: Array.isArray(data.categories_poids) ? data.categories_poids : [],
+      categories_poids_individuel: Array.isArray(data.categories_poids_individuel) ? data.categories_poids_individuel : [],
     });
   };
 
@@ -432,6 +440,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
           lieu: data.lieu || '',
           description: data.description || '',
           categories_poids: Array.isArray(data.categories_poids) ? data.categories_poids : [],
+          categories_poids_individuel: Array.isArray(data.categories_poids_individuel) ? data.categories_poids_individuel : [],
         });
         setDrawResult(null);
         setShowParamsModal(false);
@@ -462,6 +471,10 @@ export default function CompetitionSettings({ onBack, onToast }) {
 
   const handleCategoriesChange = (next) => {
     setForm((prev) => ({ ...prev, categories_poids: next }));
+  };
+
+  const handleIndividualCategoriesChange = (next) => {
+    setForm((prev) => ({ ...prev, categories_poids_individuel: next }));
   };
 
   const handleSave = async (e) => {
@@ -604,7 +617,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
   const handleTirageMode = (mode) => {
     const result = mode === 'equipe'
       ? buildTeamDraw(registrations)
-      : buildWeightDraw(registrations);
+      : buildWeightDraw(registrations, settings?.categories_poids_individuel);
     if (!result.groups.length) {
       onToast?.(
         mode === 'equipe'
@@ -829,6 +842,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
                   form={form}
                   onChange={handleChange}
                   onCategoriesChange={handleCategoriesChange}
+                  onIndividualCategoriesChange={handleIndividualCategoriesChange}
                 />
                 <div className="form-actions">
                   <button type="submit" className="btn btn-primary" disabled={saving}>
@@ -1016,6 +1030,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
                 form={form}
                 onChange={handleChange}
                 onCategoriesChange={handleCategoriesChange}
+                onIndividualCategoriesChange={handleIndividualCategoriesChange}
               />
               <div className="form-actions">
                 <button type="button" className="btn btn-outline" onClick={() => setShowParamsModal(false)}>

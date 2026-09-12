@@ -17,6 +17,7 @@ const DEFAULT_SETTINGS = {
   public_enabled: false,
   public_token: '',
   categories_poids: [],
+  categories_poids_individuel: [],
   updated_at: null,
 };
 
@@ -145,6 +146,7 @@ function ensureDefaults(raw = {}) {
     settings.public_token = uuidv4().replace(/-/g, '').slice(0, 16);
   }
   settings.categories_poids = parseCategoriesPoids(settings.categories_poids);
+  settings.categories_poids_individuel = parseCategoriesPoids(settings.categories_poids_individuel);
   const desc = String(settings.description || '');
   const metaMatch = desc.match(META_RE);
   if (metaMatch) {
@@ -152,6 +154,9 @@ function ensureDefaults(raw = {}) {
       const meta = JSON.parse(metaMatch[1]);
       if (!settings.categories_poids.length && Array.isArray(meta.categories_poids)) {
         settings.categories_poids = parseCategoriesPoids(meta.categories_poids);
+      }
+      if (!settings.categories_poids_individuel.length && Array.isArray(meta.categories_poids_individuel)) {
+        settings.categories_poids_individuel = parseCategoriesPoids(meta.categories_poids_individuel);
       }
     } catch {
       // ignore meta
@@ -163,6 +168,7 @@ function ensureDefaults(raw = {}) {
 
 function toDbSettings(settings) {
   const cats = parseCategoriesPoids(settings.categories_poids);
+  const indivCats = parseCategoriesPoids(settings.categories_poids_individuel);
   const cleanDesc = String(settings.description || '').replace(META_RE, '').trimEnd();
   return {
     id: 1,
@@ -171,7 +177,10 @@ function toDbSettings(settings) {
     date_debut: settings.date_debut || null,
     date_fin: settings.date_fin || null,
     lieu: settings.lieu || '',
-    description: `${cleanDesc}\n<!--FENACOJU_META:${JSON.stringify({ categories_poids: cats })}-->`,
+    description: `${cleanDesc}\n<!--FENACOJU_META:${JSON.stringify({
+      categories_poids: cats,
+      categories_poids_individuel: indivCats,
+    })}-->`,
     public_enabled: Boolean(settings.public_enabled),
     public_token: settings.public_token || '',
     updated_at: settings.updated_at,
@@ -265,6 +274,7 @@ export function toPublicCompetition(settings, extras = {}) {
     description: settings.description || '',
     public_token: settings.public_token,
     categories_poids: parseCategoriesPoids(settings.categories_poids),
+    categories_poids_individuel: parseCategoriesPoids(settings.categories_poids_individuel),
     ...extras,
   };
 }
@@ -648,6 +658,7 @@ export async function resetCompetitionCompletely({ access_enabled = false } = {}
     public_enabled: false,
     public_token: uuidv4().replace(/-/g, '').slice(0, 16),
     categories_poids: [],
+    categories_poids_individuel: [],
   });
 }
 
