@@ -562,10 +562,15 @@ export const FEDERATION_FONCTIONS = [
   'Secrétaire Général',
   'Directeur Technique',
   'Directeur Compétition',
-  'Responsable Affiliation',
+  'Responsable Grade',
   'Membre',
   'Assistant (e)',
 ];
+
+export function normalizeFederationFonction(fonction) {
+  if (fonction === 'Responsable Affiliation') return 'Responsable Grade';
+  return fonction || '';
+}
 
 /** Fonctions pour comptes Fédération connectés (sans « Membre ») */
 export const FEDERATION_ACCOUNT_FONCTIONS = FEDERATION_FONCTIONS.filter((f) => f !== 'Membre');

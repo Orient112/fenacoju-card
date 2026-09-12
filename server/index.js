@@ -1090,7 +1090,11 @@ app.post('/api/judokas/:id', handlePhotoUpload, handleUpdateJudoka);
 async function handleUpdateJudoka(req, res) {
   try {
     const perms = getPermissions(req.user);
-    if (perms.readOnlyJudokas || (!perms.createJudokas && !perms.manageUsers && req.user.type !== 'admin')) {
+    const canUpdateJudoka = req.user.type === 'admin'
+      || perms.createJudokas
+      || perms.manageUsers
+      || perms.manageGrades;
+    if (perms.readOnlyJudokas || !canUpdateJudoka) {
       return res.status(403).json({ error: 'Modification non autorisée' });
     }
 
@@ -1102,6 +1106,15 @@ async function handleUpdateJudoka(req, res) {
     }
 
     const body = req.body;
+    const gradeOnly = perms.manageGrades && !perms.createJudokas && !perms.manageUsers && req.user.type !== 'admin';
+    if (gradeOnly) {
+      const nextGrade = String(body.grade || '').trim();
+      if (!nextGrade) {
+        return res.status(400).json({ error: 'Le nouveau grade est requis' });
+      }
+      await updateJudoka(req.params.id, { grade: nextGrade });
+      return res.json(await getJudokaById(req.params.id));
+    }
     if (!body.nom?.trim() || !body.prenom?.trim() || !body.date_naissance || !body.club?.trim() || !body.grade) {
       return res.status(400).json({ error: 'Champs obligatoires manquants' });
     }

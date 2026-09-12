@@ -91,7 +91,7 @@ export const FEDERATION_ROLES = {
     createTypes: [],
     canManageCompetition: true,
   },
-  'Responsable Affiliation': {
+  'Responsable Grade': {
     viewUsers: true,
     viewJudokas: true,
     viewStats: true,
@@ -100,6 +100,10 @@ export const FEDERATION_ROLES = {
     createJudokas: false,
     export: true,
     deleteJudokas: false,
+    manageAll: true,
+    manageUsers: false,
+    manageGrades: true,
+    hideJudokaActions: true,
     createTypes: [],
     dashboardTabs: SENIOR_FEDERATION_TABS,
   },
@@ -342,7 +346,8 @@ export function getPermissions(user) {
   }
 
   if (user.type === 'federation') {
-    const role = FEDERATION_ROLES[user.fonction] || DEFAULT_FEDERATION;
+    const fonction = user.fonction === 'Responsable Affiliation' ? 'Responsable Grade' : user.fonction;
+    const role = FEDERATION_ROLES[fonction] || DEFAULT_FEDERATION;
     const tabs = role.dashboardTabs || ['judokas'];
     return {
       ...role,
@@ -490,7 +495,11 @@ export function computeStats(judokas, users, user, arbitres = []) {
     ententes: filteredUsers.filter((u) => u.type === 'entente').length,
     ententesActives: filteredUsers.filter((u) => u.type === 'entente' && getAccountStatut(u) === 'actif').length,
     clubsActifs: filteredUsers.filter((u) => u.type === 'club' && getAccountStatut(u) === 'actif').length,
-    federationMembers: filteredUsers.filter((u) => u.type === 'federation' || u.type === 'membre').length,
+    federationMembers: filteredUsers.filter((u) => (
+      u.type === 'federation'
+      || u.type === 'membre'
+      || (user.type === 'admin' && u.type === 'admin')
+    )).length,
     pendingLigues,
     pendingEntentes,
     pendingClubs,

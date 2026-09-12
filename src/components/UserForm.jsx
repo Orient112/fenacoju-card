@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { createUser, updateUser, uploadClubDocuments, GRADES, USER_TYPES, FEDERATION_ACCOUNT_FONCTIONS, getUserClub, CLUB_DOC_FIELDS } from '../api';
+import { createUser, updateUser, uploadClubDocuments, GRADES, USER_TYPES, FEDERATION_ACCOUNT_FONCTIONS, getUserClub, CLUB_DOC_FIELDS, normalizeFederationFonction } from '../api';
 import DocumentUploadField from './DocumentUploadField';
 
 function emptyClubDocs() {
@@ -19,6 +19,7 @@ function emptyClubDocPreviews(user) {
 }
 
 const emptyForms = {
+  admin: { nom: '', prenom: '', email: '', telephone: '', password: '', confirmPassword: '' },
   federation: { nom: '', prenom: '', email: '', telephone: '', fonction: '', password: '', confirmPassword: '' },
   membre: { nom: '', prenom: '', email: '', telephone: '', fonction: '' },
   ligue: { nom_organisation: '', ville: '', responsable: '', email: '', telephone: '', password: '', confirmPassword: '' },
@@ -36,7 +37,7 @@ function userToForm(user, type) {
     prenom: user.prenom || '',
     email: user.email || '',
     telephone: user.telephone || '',
-    fonction: user.fonction || '',
+    fonction: normalizeFederationFonction(user.fonction) || user.fonction || '',
     nom_organisation: user.nom_organisation || user.nom || '',
     nom_club: user.nom_club || '',
     ville: user.ville || '',
@@ -69,6 +70,13 @@ const FORM_COPY = {
     editSubtitle: 'Modifiez les informations de ce compte',
     newSubtitle: 'Compte avec identifiant et mot de passe (ex. Coordon)',
     createLabel: 'Créer Compte',
+  },
+  admin: {
+    editTitle: 'Modifier - Compte Administrateur',
+    newTitle: 'Nouveau - Administrateur',
+    editSubtitle: 'Modifiez vos informations et, si besoin, votre mot de passe',
+    newSubtitle: 'Compte administrateur',
+    createLabel: 'Créer Administrateur',
   },
   membre: {
     editTitle: 'Modifier - Membre',
@@ -274,9 +282,15 @@ export default function UserForm({ type, editingUser, currentUser, registeredClu
         setError('Les mots de passe ne correspondent pas');
         return;
       }
-    } else if (!isNoLogin && form.password && form.password !== form.confirmPassword) {
-      setError('Les mots de passe ne correspondent pas');
-      return;
+    } else if (!isNoLogin && form.password) {
+      if (form.password.length < 6) {
+        setError('Le mot de passe doit contenir au moins 6 caractères');
+        return;
+      }
+      if (form.password !== form.confirmPassword) {
+        setError('Les mots de passe ne correspondent pas');
+        return;
+      }
     }
 
     setLoading(true);
@@ -340,7 +354,7 @@ export default function UserForm({ type, editingUser, currentUser, registeredClu
 
       <form onSubmit={handleSubmit}>
         <div className="form-grid">
-          {type === 'federation' && (
+          {(type === 'federation' || type === 'admin') && (
             <>
               <div className="form-group">
                 <label>Nom <span className="required">*</span></label>
@@ -350,15 +364,22 @@ export default function UserForm({ type, editingUser, currentUser, registeredClu
                 <label>Prénom <span className="required">*</span></label>
                 <input name="prenom" value={form.prenom} onChange={handleChange} required placeholder="Prénom" />
               </div>
-              <div className="form-group">
-                <label>Fonction <span className="required">*</span></label>
-                <select name="fonction" value={form.fonction} onChange={handleChange} required>
-                  <option value="">— Sélectionner une fonction —</option>
-                  {FEDERATION_ACCOUNT_FONCTIONS.map((f) => (
-                    <option key={f} value={f}>{f}</option>
-                  ))}
-                </select>
-              </div>
+              {type === 'federation' ? (
+                <div className="form-group">
+                  <label>Fonction <span className="required">*</span></label>
+                  <select name="fonction" value={form.fonction} onChange={handleChange} required>
+                    <option value="">— Sélectionner une fonction —</option>
+                    {FEDERATION_ACCOUNT_FONCTIONS.map((f) => (
+                      <option key={f} value={f}>{f}</option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <div className="form-group">
+                  <label>Fonction</label>
+                  <input value="Administrateur" readOnly />
+                </div>
+              )}
             </>
           )}
 
@@ -504,29 +525,35 @@ export default function UserForm({ type, editingUser, currentUser, registeredClu
             </>
           )}
 
-          {!isEdit && !isNoLogin && (
+          {((!isEdit && !isNoLogin) || (isEdit && type === 'admin')) && (
             <>
               <div className="form-group">
-                <label>Mot de passe <span className="required">*</span></label>
+                <label>
+                  {isEdit ? 'Nouveau mot de passe' : 'Mot de passe'}
+                  {!isEdit && <span className="required"> *</span>}
+                </label>
                 <input
                   type="password"
                   name="password"
                   value={form.password}
                   onChange={handleChange}
-                  required
-                  placeholder=""
+                  required={!isEdit}
+                  placeholder={isEdit ? 'Laisser vide pour conserver' : ''}
                   minLength={6}
                   autoComplete="new-password"
                 />
               </div>
               <div className="form-group">
-                <label>Confirmer le mot de passe <span className="required">*</span></label>
+                <label>
+                  Confirmer le mot de passe
+                  {!isEdit && <span className="required"> *</span>}
+                </label>
                 <input
                   type="password"
                   name="confirmPassword"
                   value={form.confirmPassword}
                   onChange={handleChange}
-                  required
+                  required={!isEdit}
                   placeholder=""
                   autoComplete="new-password"
                 />

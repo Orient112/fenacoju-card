@@ -1,4 +1,4 @@
-import { USER_TYPES, ACCOUNT_STATUT_LABELS } from '../api';
+import { USER_TYPES, ACCOUNT_STATUT_LABELS, normalizeFederationFonction } from '../api';
 
 function displayName(u) {
   if (u.type === 'club') return u.nom_club;
@@ -23,6 +23,7 @@ export default function UserList({
   hideFonctionUnderName = false,
   hideTypeColumn = false,
   showViewAction = false,
+  allowAdminSelfManage = false,
   onEdit,
   onDelete,
   onResetPassword,
@@ -70,7 +71,10 @@ export default function UserList({
                 </td>
               )}
               <td data-label="Nom">
-                <div className="judoka-name">{displayName(u)}</div>
+                <div className="judoka-name">
+                  {displayName(u)}
+                  {u.type === 'admin' && <span className="self-account-pill">Votre compte</span>}
+                </div>
                 {u.fonction && !hideFonctionUnderName && (
                   <div className="judoka-club">{u.fonction}</div>
                 )}
@@ -93,9 +97,12 @@ export default function UserList({
                   <span className="judoka-club">{u.ville}</span>
                 )}
                 {(u.type === 'federation' || u.type === 'membre') && (
-                  <span className="badge badge-actif">{u.fonction || '—'}</span>
+                  <span className="badge badge-actif">{normalizeFederationFonction(u.fonction) || '—'}</span>
                 )}
-                {!['entraineur', 'club', 'ligue', 'entente', 'federation', 'membre'].includes(u.type) && '—'}
+                {u.type === 'admin' && (
+                  <span className="badge badge-actif">Administrateur</span>
+                )}
+                {!['entraineur', 'club', 'ligue', 'entente', 'federation', 'membre', 'admin'].includes(u.type) && '—'}
               </td>
               {(canManage || showViewAction || canValidate) && (
                 <td data-label="Actions">
@@ -130,7 +137,7 @@ export default function UserList({
                         Rejeter
                       </button>
                     )}
-                    {canManage && u.type !== 'admin' && onEdit && (
+                    {canManage && (u.type !== 'admin' || allowAdminSelfManage) && onEdit && (
                       <button
                         type="button"
                         className="btn btn-outline btn-sm btn-icon"
@@ -140,7 +147,7 @@ export default function UserList({
                         ✏️
                       </button>
                     )}
-                    {u.type !== 'admin' && u.acces_systeme !== false && u.type !== 'entraineur' && u.type !== 'membre' && onResetPassword && (
+                    {(u.type !== 'admin' || allowAdminSelfManage) && u.acces_systeme !== false && u.type !== 'entraineur' && u.type !== 'membre' && onResetPassword && (
                       <button
                         type="button"
                         className="btn btn-outline btn-sm btn-icon"

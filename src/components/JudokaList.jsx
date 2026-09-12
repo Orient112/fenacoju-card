@@ -1,7 +1,7 @@
 import { formatDate } from '../api';
 
-export default function JudokaList({ judokas, onViewCard, onEdit, onDelete, onAddNew, showActions = true }) {
-  const hasActions = showActions && (onViewCard || onEdit || onDelete);
+export default function JudokaList({ judokas, onViewCard, onEdit, onDelete, onPromoteGrade, onAddNew, showActions = true }) {
+  const hasActions = showActions && (onViewCard || onEdit || onDelete || onPromoteGrade);
 
   if (judokas.length === 0) {
     return (
@@ -64,6 +64,16 @@ export default function JudokaList({ judokas, onViewCard, onEdit, onDelete, onAd
                       title="Voir la carte"
                     >
                       🪪
+                    </button>
+                  )}
+                  {onPromoteGrade && (
+                    <button
+                      type="button"
+                      className="btn btn-accent btn-sm btn-icon"
+                      onClick={() => onPromoteGrade(j)}
+                      title="Passation de grade"
+                    >
+                      🥋
                     </button>
                   )}
                   {onEdit && (

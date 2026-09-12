@@ -366,7 +366,21 @@ export async function updateUser(id, data, editor) {
   if (existing.type === 'federation' || existing.type === 'membre') {
     if (data.nom) updated.nom = data.nom.trim();
     if (data.prenom) updated.prenom = data.prenom.trim();
-    if (data.fonction) updated.fonction = data.fonction.trim();
+    if (data.fonction) {
+      updated.fonction = data.fonction.trim() === 'Responsable Affiliation'
+        ? 'Responsable Grade'
+        : data.fonction.trim();
+    }
+  } else if (existing.type === 'admin') {
+    if (editor.type !== 'admin' || editor.id !== existing.id) {
+      throw new Error('Seul l\'administrateur peut modifier son propre compte');
+    }
+    if (data.nom) updated.nom = data.nom.trim();
+    if (data.prenom) updated.prenom = data.prenom.trim();
+    if (emailOrUsername) {
+      updated.email = emailOrUsername;
+      updated.username = emailOrUsername;
+    }
   } else if (existing.type === 'ligue' || existing.type === 'entente') {
     if (data.nom_organisation || data.nom) {
       const orgName = (data.nom_organisation || data.nom).trim();

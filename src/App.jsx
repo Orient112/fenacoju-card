@@ -34,7 +34,7 @@ const ArbitreList = lazy(() => import('./components/ArbitreList'));
 const CardModal = lazy(() => import('./components/CardModal'));
 const QrScanModal = lazy(() => import('./components/QrScanModal'));
 const CreateTypeModal = lazy(() => import('./components/CreateTypeModal'));
-const ClubDetailModal = lazy(() => import('./components/ClubDetailModal'));
+const GradePassationModal = lazy(() => import('./components/GradePassationModal'));
 const AccountDetailModal = lazy(() => import('./components/AccountDetailModal'));
 const CompetitionSettings = lazy(() => import('./pages/CompetitionSettings'));
 
@@ -176,12 +176,19 @@ function getVisibleTabs(user, tabs) {
   return visible;
 }
 
-function getUsersForTab(members, tab) {
+function getUsersForTab(members, tab, currentUser) {
   if (tab === 'entraineurs') return members.filter((u) => u.type === 'entraineur');
   if (tab === 'clubs') return members.filter((u) => u.type === 'club');
   if (tab === 'ententes') return members.filter((u) => u.type === 'entente');
   if (tab === 'ligues') return members.filter((u) => u.type === 'ligue');
-  if (tab === 'federation') return members.filter((u) => u.type === 'federation' || u.type === 'membre');
+  if (tab === 'federation') {
+    const list = members.filter((u) => u.type === 'federation' || u.type === 'membre');
+    if (currentUser?.type === 'admin') {
+      const admin = members.find((u) => u.id === currentUser.id) || currentUser;
+      return [admin, ...list.filter((u) => u.id !== admin.id)];
+    }
+    return list;
+  }
   return members;
 }
 
@@ -223,6 +230,7 @@ export default function App() {
   const [resetPasswordTarget, setResetPasswordTarget] = useState(null);
   const [viewClub, setViewClub] = useState(null);
   const [viewAccount, setViewAccount] = useState(null);
+  const [gradeTarget, setGradeTarget] = useState(null);
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [toast, setToast] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -240,6 +248,7 @@ export default function App() {
   const canViewCards = perms.viewCards === true;
   const readOnlyJudokas = perms.readOnlyJudokas === true;
   const hideJudokaActions = perms.hideJudokaActions === true;
+  const canManageGrades = perms.manageGrades === true;
   const canCreateArbitres = perms.createArbitres === true;
   const showHeaderCreate = perms.showHeaderCreate !== false && (perms.createUsers || perms.createTypes?.length > 0);
   const canScanQr = canUseQrScan(user, perms);
@@ -409,7 +418,7 @@ export default function App() {
   }, [judokas, searchTerm]);
 
   const tabUsers = useMemo(() => {
-    let users = getUsersForTab(members, dashboardTab);
+    let users = getUsersForTab(members, dashboardTab, user);
     if (!searchTerm) return users;
     return users.filter((u) => {
       const name = u.type === 'club'
@@ -426,7 +435,7 @@ export default function App() {
         matchesSearch(u.nom_organisation, searchTerm)
       );
     });
-  }, [members, dashboardTab, searchTerm]);
+  }, [members, dashboardTab, searchTerm, user]);
 
   const filteredArbitres = useMemo(() => {
     if (!searchTerm) return arbitres;
@@ -484,9 +493,13 @@ export default function App() {
   };
 
   const handleUserSaved = async (savedUser) => {
-    const label = USER_TYPES[savedUser.type]?.label || 'Utilisateur';
+    const label = USER_TYPES[savedUser.type]?.label || (savedUser.type === 'admin' ? 'Administrateur' : 'Utilisateur');
     if (editingUser) {
       showToast(`${label} mis à jour`);
+      if (editingUser.id === user.id) {
+        const fresh = await fetchCurrentUser();
+        if (fresh) setUser(fresh);
+      }
     } else if (savedUser.statut === 'pending') {
       showToast(`${label} créé — en attente de validation Coordon`);
     } else {
@@ -1033,10 +1046,11 @@ export default function App() {
                     <Suspense fallback={<PageLoader label="Chargement de la liste..." />}>
                       <JudokaList
                         judokas={filteredJudokas}
-                        showActions={!readOnlyJudokas && !hideJudokaActions}
+                        showActions={!readOnlyJudokas && (!hideJudokaActions || canManageGrades)}
                         onViewCard={!readOnlyJudokas && !hideJudokaActions && canViewCards ? setCardJudoka : null}
                         onEdit={!hideJudokaActions && perms.createJudokas ? openEditForm : null}
                         onDelete={!hideJudokaActions && perms.deleteJudokas ? setDeleteTarget : null}
+                        onPromoteGrade={canManageGrades ? setGradeTarget : null}
                         onAddNew={perms.createJudokas ? openNewJudoka : null}
                       />
                     </Suspense>
@@ -1099,7 +1113,7 @@ export default function App() {
                         canManage={canManageUsers}
                         canValidate={canValidateAccounts && ['ligues', 'ententes', 'clubs', 'entraineurs'].includes(dashboardTab)}
                         onView={(u) => {
-                          if (u.type === 'club' && canViewClubDetails && user.type === 'admin') {
+                          if (u.type === 'club' && canViewClubDetails) {
                             setViewClub(u);
                           } else {
                             setViewAccount(u);
@@ -1108,6 +1122,7 @@ export default function App() {
                         onEdit={canManageUsers ? openEditUser : null}
                         onDelete={canManageUsers ? setDeleteUserTarget : null}
                         onResetPassword={canResetPassword ? setResetPasswordTarget : null}
+                        allowAdminSelfManage={user.type === 'admin'}
                         onValidate={canValidateAccounts ? handleValidateUser : null}
                         onReject={canValidateAccounts ? handleRejectUser : null}
                       />
@@ -1250,6 +1265,20 @@ export default function App() {
       {showQrScan && (
         <Suspense fallback={null}>
           <QrScanModal onClose={() => setShowQrScan(false)} />
+        </Suspense>
+      )}
+
+      {gradeTarget && (
+        <Suspense fallback={null}>
+          <GradePassationModal
+            judoka={gradeTarget}
+            onClose={() => setGradeTarget(null)}
+            onSuccess={async (updated) => {
+              showToast(`Grade mis à jour : ${updated.prenom} ${updated.nom} · ${updated.grade}`);
+              setGradeTarget(null);
+              await loadData();
+            }}
+          />
         </Suspense>
       )}
 
