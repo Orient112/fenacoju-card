@@ -76,6 +76,7 @@ export default function CompetitionPublicForm({ token }) {
             registrations_count: data.registrations_count,
             closed: data.closed,
             categories_poids: data.categories_poids,
+            competition_clubs: data.competition_clubs,
             team_counts: data.team_counts,
           };
         });
@@ -236,6 +237,14 @@ export default function CompetitionPublicForm({ token }) {
   );
   const boyCats = categoriesForSexe(allWeightCats, 'M');
   const girlCats = categoriesForSexe(allWeightCats, 'F');
+  const registeredClubs = (competition.competition_clubs || []).filter((c) => (
+    c.cadre === (inscriptionMode === 'equipe' ? 'equipe' : 'individuel')
+  ));
+  const namesForSelect = (current) => {
+    const names = registeredClubs.map((c) => c.nom);
+    if (current && !names.includes(current)) names.unshift(current);
+    return names;
+  };
 
   const resetFlow = () => {
     setStep('mode');
@@ -397,7 +406,7 @@ export default function CompetitionPublicForm({ token }) {
                 <p>Le judoka est-il déjà enregistré dans le système FENACOJU ?</p>
                 <div className="competition-choice-actions">
                   <button type="button" className="btn btn-primary competition-choice-btn" onClick={startExisting}>
-                    Déjà enregistré
+                    Déjà dans le Système
                   </button>
                   <button type="button" className="btn btn-outline competition-choice-btn" onClick={startNew}>
                     Pas encore dans le Système
@@ -450,7 +459,15 @@ export default function CompetitionPublicForm({ token }) {
                 <div className="form-grid">
                   <div className="form-group form-group-full">
                     <label htmlFor="club">Club *</label>
-                    <input id="club" name="club" value={form.club} onChange={handleChange} required readOnly={Boolean(judokaMeta)} />
+                    <select id="club" name="club" value={form.club} onChange={handleChange} required>
+                      <option value="">— Sélectionner un club —</option>
+                      {namesForSelect(form.club).map((nom) => (
+                        <option key={nom} value={nom}>{nom}</option>
+                      ))}
+                    </select>
+                    {registeredClubs.length === 0 && (
+                      <p className="form-hint">Aucun club Individuel n&apos;est encore enregistré pour cette compétition.</p>
+                    )}
                   </div>
                   <div className="form-group">
                     <label htmlFor="nom">Nom *</label>
@@ -511,14 +528,21 @@ export default function CompetitionPublicForm({ token }) {
 
                 <div className="form-group">
                   <label htmlFor="team-club">Nom du club *</label>
-                  <input
+                  <select
                     id="team-club"
                     value={teamClub}
                     onChange={(e) => setTeamClub(e.target.value)}
                     required
-                    placeholder="Ex. Club Judo Kinshasa"
                     autoFocus
-                  />
+                  >
+                    <option value="">— Sélectionner un club —</option>
+                    {namesForSelect(teamClub).map((nom) => (
+                      <option key={nom} value={nom}>{nom}</option>
+                    ))}
+                  </select>
+                  {registeredClubs.length === 0 && (
+                    <p className="form-hint">Aucun club Par équipe n&apos;est encore enregistré pour cette compétition.</p>
+                  )}
                 </div>
 
                 <div className="competition-team-entry">

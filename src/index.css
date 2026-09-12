@@ -1614,6 +1614,27 @@ tbody tr:last-child td {
   justify-content: flex-end;
 }
 
+.competition-club-editor-list {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  text-align: left;
+}
+
+.competition-club-editor-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: #f8fafc;
+}
+
 .confirm-actions {
   display: flex;
   gap: 0.75rem;
@@ -3811,7 +3832,7 @@ tbody tr:last-child td {
   background: var(--surface);
   border-radius: var(--radius);
   box-shadow: var(--shadow-lg);
-  width: min(680px, 94vw);
+  width: min(816px, 94vw);
   max-height: 90vh;
   overflow: auto;
   padding: 1.25rem 1.35rem;

@@ -368,6 +368,8 @@ export default function CompetitionSettings({ onBack, onToast }) {
   const [editTeamTarget, setEditTeamTarget] = useState(null);
   const [editTeamClub, setEditTeamClub] = useState('');
   const [editTeamMembers, setEditTeamMembers] = useState([]);
+  const [clubsEditorCadre, setClubsEditorCadre] = useState(null);
+  const [clubDraft, setClubDraft] = useState('');
   const [form, setForm] = useState({
     nom: '',
     date_debut: '',
@@ -561,6 +563,10 @@ export default function CompetitionSettings({ onBack, onToast }) {
   };
 
   const openActionMode = (action) => {
+    if (action === 'clubs') {
+      setActionMode('clubs');
+      return;
+    }
     if (action === 'weigh') {
       if (!canWeigh) {
         onToast?.(
@@ -600,6 +606,12 @@ export default function CompetitionSettings({ onBack, onToast }) {
   };
 
   const handleActionMode = (mode) => {
+    if (actionMode === 'clubs') {
+      setActionMode(null);
+      setClubsEditorCadre(mode);
+      setClubDraft('');
+      return;
+    }
     if (actionMode === 'weigh') {
       const url = competitionWeighUrl(settings?.public_token, mode);
       if (url) window.open(url, '_blank', 'noopener,noreferrer');
@@ -612,6 +624,45 @@ export default function CompetitionSettings({ onBack, onToast }) {
       return;
     }
     handleTirageMode(mode);
+  };
+
+  const persistCompetitionClubs = async (nextClubs) => {
+    const updated = await updateCompetition({ competition_clubs: nextClubs });
+    setSettings((prev) => ({ ...prev, ...updated }));
+  };
+
+  const handleAddCompetitionClub = async (e) => {
+    e.preventDefault();
+    const nom = clubDraft.trim();
+    if (!nom || !clubsEditorCadre) return;
+    const current = settings?.competition_clubs || [];
+    if (current.some((c) => c.cadre === clubsEditorCadre && String(c.nom).toLowerCase() === nom.toLowerCase())) {
+      onToast?.('Ce club est déjà enregistré pour ce cadre', 'error');
+      return;
+    }
+    setSaving(true);
+    try {
+      await persistCompetitionClubs([...current, { nom, cadre: clubsEditorCadre }]);
+      setClubDraft('');
+      onToast?.('Club enregistré');
+    } catch (err) {
+      onToast?.(err.message || 'Impossible d\'enregistrer le club', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleRemoveCompetitionClub = async (club) => {
+    const current = settings?.competition_clubs || [];
+    setSaving(true);
+    try {
+      await persistCompetitionClubs(current.filter((c) => c.id !== club.id));
+      onToast?.('Club retiré');
+    } catch (err) {
+      onToast?.(err.message || 'Impossible de retirer le club', 'error');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleTirageMode = (mode) => {
@@ -958,6 +1009,13 @@ export default function CompetitionSettings({ onBack, onToast }) {
               <div className="competition-inscriptions-actions">
                 <button
                   type="button"
+                  className="btn btn-outline competition-action-btn"
+                  onClick={() => openActionMode('clubs')}
+                >
+                  Club
+                </button>
+                <button
+                  type="button"
                   className={`btn btn-primary competition-action-btn ${!canWeigh ? 'is-disabled' : ''}`}
                   onClick={() => openActionMode('weigh')}
                 >
@@ -1234,6 +1292,58 @@ export default function CompetitionSettings({ onBack, onToast }) {
         </div>
       )}
 
+      {clubsEditorCadre && (
+        <div className="confirm-overlay" onClick={() => setClubsEditorCadre(null)}>
+          <div className="confirm-dialog competition-team-edit-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Clubs · {clubsEditorCadre === 'equipe' ? 'Par équipe' : 'Individuel'}</h3>
+            <form onSubmit={handleAddCompetitionClub}>
+              <div className="form-group">
+                <label htmlFor="competition-club-name">Nom du club</label>
+                <input
+                  id="competition-club-name"
+                  value={clubDraft}
+                  onChange={(e) => setClubDraft(e.target.value)}
+                  placeholder="Ex. Club Judo Kinshasa"
+                  autoFocus
+                />
+              </div>
+              <div className="confirm-actions" style={{ marginBottom: '1rem' }}>
+                <button type="submit" className="btn btn-primary" disabled={saving || !clubDraft.trim()}>
+                  {saving ? 'Enregistrement...' : 'Ajouter'}
+                </button>
+              </div>
+            </form>
+            {(settings?.competition_clubs || []).filter((c) => c.cadre === clubsEditorCadre).length === 0 ? (
+              <p className="form-hint">Aucun club enregistré pour ce cadre.</p>
+            ) : (
+              <ul className="competition-club-editor-list">
+                {(settings?.competition_clubs || [])
+                  .filter((c) => c.cadre === clubsEditorCadre)
+                  .map((club) => (
+                    <li key={club.id}>
+                      <span>{club.nom}</span>
+                      <button
+                        type="button"
+                        className="btn btn-danger btn-sm btn-icon"
+                        title="Retirer"
+                        disabled={saving}
+                        onClick={() => handleRemoveCompetitionClub(club)}
+                      >
+                        🗑️
+                      </button>
+                    </li>
+                  ))}
+              </ul>
+            )}
+            <div className="confirm-actions">
+              <button type="button" className="btn btn-outline" onClick={() => setClubsEditorCadre(null)}>
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {actionMode && !drawAnimating && (
         <div className="confirm-overlay" onClick={() => setActionMode(null)}>
           <div className="competition-draw-mode-modal" onClick={(e) => e.stopPropagation()}>
@@ -1243,6 +1353,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
                   {actionMode === 'weigh' && 'Pesé'}
                   {actionMode === 'export' && 'Exporter Liste'}
                   {actionMode === 'draw' && 'Tirage au sort'}
+                  {actionMode === 'clubs' && 'Club'}
                 </h3>
                 <p className="form-hint">Choisissez Individuel ou Par équipe.</p>
               </div>

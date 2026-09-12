@@ -81,6 +81,7 @@ import {
   toPublicCompetition,
   toPublicRegistration,
   parseCategoriesPoids,
+  parseCompetitionClubs,
   isCompetitionConfigured,
 } from './competition.js';
 
@@ -251,6 +252,7 @@ app.get('/api/public/competition/:token', async (req, res) => {
       description: settings.description || '',
       public_token: settings.public_token,
       categories_poids: settings.categories_poids || [],
+      competition_clubs: settings.competition_clubs || [],
       team_counts: teamCounts,
       registrations_count: registrations.length,
       closed: !settings.public_enabled,
@@ -264,6 +266,7 @@ app.get('/api/public/competition/:token', async (req, res) => {
       registrations_count: registrations.length,
       closed: false,
       categories_poids: settings.categories_poids || [],
+      competition_clubs: settings.competition_clubs || [],
       team_counts: teamCounts,
     });
     if (!pub) return res.status(404).json({ error: 'Formulaire de compétition indisponible' });
@@ -542,6 +545,9 @@ app.put('/api/competition', async (req, res) => {
     }
     if (body.categories_poids_individuel !== undefined) {
       patch.categories_poids_individuel = parseCategoriesPoids(body.categories_poids_individuel);
+    }
+    if (body.competition_clubs !== undefined) {
+      patch.competition_clubs = parseCompetitionClubs(body.competition_clubs);
     }
     if (body.public_enabled !== undefined) {
       const next = { ...current, ...patch };

@@ -18,6 +18,7 @@ const DEFAULT_SETTINGS = {
   public_token: '',
   categories_poids: [],
   categories_poids_individuel: [],
+  competition_clubs: [],
   updated_at: null,
 };
 
@@ -140,6 +141,37 @@ export function getTeamRole(row) {
   return 'principal';
 }
 
+export function parseCompetitionClubs(raw) {
+  let list = [];
+  if (Array.isArray(raw)) list = raw;
+  else if (typeof raw === 'string' && raw.trim()) {
+    try {
+      const parsed = JSON.parse(raw);
+      return parseCompetitionClubs(parsed);
+    } catch {
+      list = raw.split(/[;,]/).map((nom) => ({ nom, cadre: 'individuel' }));
+    }
+  }
+
+  const seen = new Set();
+  const clubs = [];
+  for (const item of list) {
+    const nom = String(typeof item === 'string' ? item : (item?.nom || item?.name || '')).trim();
+    if (!nom) continue;
+    const cadreRaw = String(typeof item === 'object' ? (item.cadre || item.mode || '') : '').toLowerCase();
+    const cadre = cadreRaw.startsWith('eq') ? 'equipe' : 'individuel';
+    const key = `${cadre}|${nom.toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    clubs.push({
+      id: String(item?.id || uuidv4().replace(/-/g, '').slice(0, 10)),
+      nom,
+      cadre,
+    });
+  }
+  return clubs.sort((a, b) => a.cadre.localeCompare(b.cadre) || a.nom.localeCompare(b.nom, 'fr'));
+}
+
 function ensureDefaults(raw = {}) {
   const settings = { ...DEFAULT_SETTINGS, ...raw };
   if (!settings.public_token) {
@@ -147,6 +179,7 @@ function ensureDefaults(raw = {}) {
   }
   settings.categories_poids = parseCategoriesPoids(settings.categories_poids);
   settings.categories_poids_individuel = parseCategoriesPoids(settings.categories_poids_individuel);
+  settings.competition_clubs = parseCompetitionClubs(settings.competition_clubs);
   const desc = String(settings.description || '');
   const metaMatch = desc.match(META_RE);
   if (metaMatch) {
@@ -157,6 +190,9 @@ function ensureDefaults(raw = {}) {
       }
       if (!settings.categories_poids_individuel.length && Array.isArray(meta.categories_poids_individuel)) {
         settings.categories_poids_individuel = parseCategoriesPoids(meta.categories_poids_individuel);
+      }
+      if (!settings.competition_clubs.length && Array.isArray(meta.competition_clubs)) {
+        settings.competition_clubs = parseCompetitionClubs(meta.competition_clubs);
       }
     } catch {
       // ignore meta
@@ -180,6 +216,7 @@ function toDbSettings(settings) {
     description: `${cleanDesc}\n<!--FENACOJU_META:${JSON.stringify({
       categories_poids: cats,
       categories_poids_individuel: indivCats,
+      competition_clubs: parseCompetitionClubs(settings.competition_clubs),
     })}-->`,
     public_enabled: Boolean(settings.public_enabled),
     public_token: settings.public_token || '',
@@ -275,6 +312,7 @@ export function toPublicCompetition(settings, extras = {}) {
     public_token: settings.public_token,
     categories_poids: parseCategoriesPoids(settings.categories_poids),
     categories_poids_individuel: parseCategoriesPoids(settings.categories_poids_individuel),
+    competition_clubs: parseCompetitionClubs(settings.competition_clubs),
     ...extras,
   };
 }
@@ -659,6 +697,7 @@ export async function resetCompetitionCompletely({ access_enabled = false } = {}
     public_token: uuidv4().replace(/-/g, '').slice(0, 16),
     categories_poids: [],
     categories_poids_individuel: [],
+    competition_clubs: [],
   });
 }
 
