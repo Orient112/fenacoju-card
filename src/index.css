@@ -3539,6 +3539,73 @@ tbody tr:last-child td {
   opacity: 0.85;
 }
 
+.competition-stat small {
+  font-size: 0.72rem;
+  opacity: 0.8;
+  font-weight: 600;
+}
+
+.competition-cat-block {
+  grid-column: 1 / -1;
+  margin-top: 0.35rem;
+  padding: 1rem 1.05rem 1.1rem;
+  border-radius: var(--radius);
+}
+
+.competition-cat-block-head {
+  margin-bottom: 0.35rem;
+}
+
+.competition-cat-block-kicker {
+  display: inline-block;
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 800;
+}
+
+.competition-cat-block-head h4 {
+  margin: 0.2rem 0 0;
+  font-size: 1.05rem;
+}
+
+.competition-cat-block-indiv {
+  background: linear-gradient(180deg, rgba(29, 67, 147, 0.08), #f8fbff);
+  border: 1px solid rgba(29, 67, 147, 0.28);
+}
+
+.competition-cat-block-indiv .competition-cat-block-kicker,
+.competition-cat-block-indiv h4 {
+  color: var(--primary);
+}
+
+.competition-cat-block-indiv .competition-cat-sex-group {
+  background: #fff;
+  border-color: rgba(29, 67, 147, 0.18);
+}
+
+.competition-cat-separator {
+  grid-column: 1 / -1;
+  height: 1px;
+  margin: 0.35rem 0;
+  background: linear-gradient(90deg, transparent, var(--gold) 18%, var(--accent) 50%, var(--primary) 82%, transparent);
+}
+
+.competition-cat-block-team {
+  background: linear-gradient(180deg, rgba(245, 197, 24, 0.16), #fffdf5);
+  border: 1px solid rgba(180, 130, 12, 0.35);
+}
+
+.competition-cat-block-team .competition-cat-block-kicker,
+.competition-cat-block-team h4 {
+  color: #8a5a00;
+}
+
+.competition-cat-block-team .competition-cat-sex-group {
+  background: #fffef8;
+  border-color: rgba(180, 130, 12, 0.22);
+}
+
 .competition-layout {
   display: grid;
   grid-template-columns: 1.35fr 1fr;

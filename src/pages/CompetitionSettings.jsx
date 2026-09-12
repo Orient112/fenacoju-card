@@ -186,28 +186,22 @@ function TeamClubsTable({ clubs, onEdit, onDelete }) {
               <td data-label="Judokas">{team.members?.length || team.ids.length}</td>
               <td data-label="Actions">
                 <div className="actions-cell">
-                  {(team.members?.length || team.ids.length) > 0 ? (
-                    <>
-                      <button
-                        type="button"
-                        className="btn btn-outline btn-sm btn-icon"
-                        title="Modifier"
-                        onClick={() => onEdit(team)}
-                      >
-                        ✏️
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-danger btn-sm btn-icon"
-                        title="Supprimer l'équipe"
-                        onClick={() => onDelete(team)}
-                      >
-                        🗑️
-                      </button>
-                    </>
-                  ) : (
-                    <span className="form-hint">—</span>
-                  )}
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-sm btn-icon"
+                    title="Modifier"
+                    onClick={() => onEdit(team)}
+                  >
+                    ✏️
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-danger btn-sm btn-icon"
+                    title="Supprimer l'équipe"
+                    onClick={() => onDelete(team)}
+                  >
+                    🗑️
+                  </button>
                 </div>
               </td>
             </tr>
@@ -363,12 +357,19 @@ function ParamsFormFields({ form, onChange, onCategoriesChange, onIndividualCate
           placeholder="Informations utiles pour les judokas..."
         />
       </div>
-      <div className="form-group form-group-full">
-        <label>Catégories de poids (Individuel)</label>
+      <div className="competition-cat-block competition-cat-block-indiv">
+        <div className="competition-cat-block-head">
+          <span className="competition-cat-block-kicker">Individuel</span>
+          <h4>Catégories de poids</h4>
+        </div>
         {renderCatEditor(individualCats, onIndividualCategoriesChange, 'indiv')}
       </div>
-      <div className="form-group form-group-full">
-        <label>Catégories de poids (Par équipe)</label>
+      <div className="competition-cat-separator" aria-hidden="true" />
+      <div className="competition-cat-block competition-cat-block-team">
+        <div className="competition-cat-block-head">
+          <span className="competition-cat-block-kicker">Par équipe</span>
+          <h4>Catégories de poids</h4>
+        </div>
         {renderCatEditor(teamCats, onCategoriesChange, 'equipe')}
       </div>
     </div>
@@ -828,18 +829,30 @@ export default function CompetitionSettings({ onBack, onToast }) {
     setSaving(true);
     setError('');
     try {
-      const updatedList = [];
-      for (const member of editTeamMembers) {
-        const updated = await updateCompetitionRegistration(member.id, {
-          club,
-          nom: member.nom,
-          prenom: member.prenom,
-          poids: member.poids,
-        });
-        updatedList.push(updated);
+      if (editTeamMembers.length) {
+        const updatedList = [];
+        for (const member of editTeamMembers) {
+          const updated = await updateCompetitionRegistration(member.id, {
+            club,
+            nom: member.nom,
+            prenom: member.prenom,
+            poids: member.poids,
+          });
+          updatedList.push(updated);
+        }
+        const byId = new Map(updatedList.map((row) => [row.id, row]));
+        setRegistrations((prev) => prev.map((r) => (byId.has(r.id) ? { ...r, ...byId.get(r.id) } : r)));
       }
-      const byId = new Map(updatedList.map((row) => [row.id, row]));
-      setRegistrations((prev) => prev.map((r) => (byId.has(r.id) ? { ...r, ...byId.get(r.id) } : r)));
+      const current = settings?.competition_clubs || [];
+      const oldName = String(editTeamTarget.club || '').trim().toLowerCase();
+      const nextClubs = current.map((c) => (
+        c.cadre === 'equipe' && String(c.nom || '').trim().toLowerCase() === oldName
+          ? { ...c, nom: club }
+          : c
+      ));
+      if (JSON.stringify(nextClubs) !== JSON.stringify(current)) {
+        await persistCompetitionClubs(nextClubs);
+      }
       setEditTeamTarget(null);
       onToast?.('Équipe mise à jour');
     } catch (err) {
@@ -902,13 +915,23 @@ export default function CompetitionSettings({ onBack, onToast }) {
   };
 
   const handleDeleteClubTeam = async () => {
-    if (!deleteClubTarget?.ids?.length) return;
+    if (!deleteClubTarget) return;
     setSaving(true);
     setError('');
     try {
-      await Promise.all(deleteClubTarget.ids.map((id) => deleteCompetitionRegistration(id)));
-      const ids = new Set(deleteClubTarget.ids);
-      setRegistrations((prev) => prev.filter((r) => !ids.has(r.id)));
+      if (deleteClubTarget.ids?.length) {
+        await Promise.all(deleteClubTarget.ids.map((id) => deleteCompetitionRegistration(id)));
+        const ids = new Set(deleteClubTarget.ids);
+        setRegistrations((prev) => prev.filter((r) => !ids.has(r.id)));
+      }
+      const current = settings?.competition_clubs || [];
+      const target = String(deleteClubTarget.club || '').trim().toLowerCase();
+      const nextClubs = current.filter((c) => !(
+        c.cadre === 'equipe' && String(c.nom || '').trim().toLowerCase() === target
+      ));
+      if (nextClubs.length !== current.length) {
+        await persistCompetitionClubs(nextClubs);
+      }
       setDeleteClubTarget(null);
       onToast?.('Équipe du club retirée de la compétition');
     } catch (err) {
@@ -935,6 +958,10 @@ export default function CompetitionSettings({ onBack, onToast }) {
   const isClosed = configured && !isPublic;
   const canWeigh = configured && isPublic;
   const weighedCount = registrations.filter((r) => r.poids).length;
+  const individualCount = registrations.filter((r) => !isTeamRegistration(r)).length;
+  const teamCount = registrations.length - individualCount;
+  const individualWeighed = registrations.filter((r) => !isTeamRegistration(r) && r.poids).length;
+  const teamWeighed = registrations.filter((r) => isTeamRegistration(r) && r.poids).length;
   // Tirage actif si pesée clôturée, ou si le lien d'inscription est Off
   const tirageReady = isClosed && registrations.length > 0;
 
@@ -965,10 +992,12 @@ export default function CompetitionSettings({ onBack, onToast }) {
             <div className="competition-stat">
               <strong>{registrations.length}</strong>
               <span>Judokas inscrits</span>
+              <small>Individuel {individualCount} · Par équipe {teamCount}</small>
             </div>
             <div className="competition-stat">
               <strong>{weighedCount}</strong>
               <span>Pesés</span>
+              <small>Individuel {individualWeighed} · Par équipe {teamWeighed}</small>
             </div>
             <div className="competition-stat">
               <strong>{isPublic ? 'Ouvertes' : (configured ? 'Clôturées' : 'Non')}</strong>
@@ -1271,7 +1300,9 @@ export default function CompetitionSettings({ onBack, onToast }) {
           <div className="confirm-dialog" onClick={(e) => e.stopPropagation()}>
             <h3>Supprimer l&apos;équipe ?</h3>
             <p>
-              Retirer le club <strong>{deleteClubTarget.club}</strong> et tous ses judokas d&apos;équipe ?
+              {(deleteClubTarget.ids?.length || 0) > 0
+                ? <>Retirer le club <strong>{deleteClubTarget.club}</strong> et tous ses judokas d&apos;équipe ?</>
+                : <>Retirer le club <strong>{deleteClubTarget.club}</strong> de la liste Par équipe ?</>}
             </p>
             <div className="confirm-actions">
               <button type="button" className="btn btn-outline" onClick={() => setDeleteClubTarget(null)}>
@@ -1348,6 +1379,9 @@ export default function CompetitionSettings({ onBack, onToast }) {
                 />
               </div>
               <div className="competition-team-edit-list">
+                {editTeamMembers.length === 0 && (
+                  <p className="form-hint">Aucun judoka n&apos;est encore rattaché à ce club.</p>
+                )}
                 {groupEditMembersByCategory(editTeamMembers).map((bucket) => (
                   <section key={bucket.key} className="competition-team-edit-cat">
                     <h4>
