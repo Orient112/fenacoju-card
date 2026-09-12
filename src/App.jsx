@@ -34,6 +34,7 @@ const ArbitreList = lazy(() => import('./components/ArbitreList'));
 const CardModal = lazy(() => import('./components/CardModal'));
 const QrScanModal = lazy(() => import('./components/QrScanModal'));
 const CreateTypeModal = lazy(() => import('./components/CreateTypeModal'));
+const ClubDetailModal = lazy(() => import('./components/ClubDetailModal'));
 const GradePassationModal = lazy(() => import('./components/GradePassationModal'));
 const AccountDetailModal = lazy(() => import('./components/AccountDetailModal'));
 const CompetitionSettings = lazy(() => import('./pages/CompetitionSettings'));
