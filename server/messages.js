@@ -37,6 +37,16 @@ export async function getUserMessages(userId) {
 }
 
 export async function getConversation(userId, otherId) {
+  if (isSupabaseEnabled()) {
+    const { data, error } = await getSupabase()
+      .from('messages')
+      .select('*')
+      .or(`and(from_id.eq.${userId},to_id.eq.${otherId}),and(from_id.eq.${otherId},to_id.eq.${userId})`)
+      .order('created_at', { ascending: true });
+    if (error) throw new Error(error.message);
+    return data || [];
+  }
+
   const messages = await getUserMessages(userId);
   return messages.filter(
     (m) =>

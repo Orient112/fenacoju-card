@@ -1477,7 +1477,7 @@ tbody tr:last-child td {
   }
 
   .messages-contacts {
-    max-height: calc(var(--messages-contact-h) * 9 + 0.3rem * 8);
+    max-height: calc(var(--messages-contact-h) * 9);
   }
 
   .messages-compose-row {
@@ -3252,10 +3252,14 @@ tbody tr:last-child td {
   padding: 0.15rem 0.7rem 0.9rem;
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: 0;
   flex: 0 1 auto;
-  max-height: calc(var(--messages-contact-h) * 9 + 0.3rem * 8);
+  max-height: calc(var(--messages-contact-h) * 9);
   overflow-y: auto;
+}
+
+.messages-contacts > li:not(:last-child) {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.28);
 }
 
 .messages-contact {
@@ -3450,7 +3454,33 @@ tbody tr:last-child td {
 .message-time {
   font-size: 0.68rem;
   opacity: 0.72;
+}
+
+.message-meta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.45rem;
   margin-top: 0.4rem;
+}
+
+.message-receipt {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.message-receipt.is-sent {
+  opacity: 0.78;
+}
+
+.message-receipt.is-read {
+  color: #9be7ff;
+  opacity: 1;
+}
+
+.message-bubble.theirs .message-meta {
+  justify-content: flex-start;
 }
 
 .messages-compose {

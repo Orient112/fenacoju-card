@@ -77,9 +77,11 @@ export default function Messages({ currentUser, onUnreadChange }) {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const threadRef = useRef(null);
+  const selectedIdRef = useRef(null);
 
   const selected = contacts.find((c) => c.id === selectedId);
   const unreadTotal = contacts.reduce((sum, c) => sum + (c.unread || 0), 0);
+  selectedIdRef.current = selectedId;
 
   const searchTerm = search.trim().toLowerCase();
   const filteredContacts = searchTerm
@@ -99,14 +101,35 @@ export default function Messages({ currentUser, onUnreadChange }) {
   }, []);
 
   useEffect(() => {
-    if (!selectedId) return;
+    if (!selectedId) {
+      setMessages([]);
+      return undefined;
+    }
+    let cancelled = false;
     setError('');
     fetchConversation(selectedId)
       .then((data) => {
-        setMessages(data);
+        if (!cancelled) setMessages(data);
         loadContacts();
       })
-      .catch((err) => setError(err.message));
+      .catch((err) => {
+        if (!cancelled) setError(err.message);
+      });
+
+    const poll = setInterval(() => {
+      const id = selectedIdRef.current;
+      if (!id) return;
+      fetchConversation(id)
+        .then((data) => {
+          if (!cancelled && selectedIdRef.current === id) setMessages(data);
+        })
+        .catch(() => {});
+    }, 2500);
+
+    return () => {
+      cancelled = true;
+      clearInterval(poll);
+    };
   }, [selectedId]);
 
   useEffect(() => {
@@ -118,15 +141,29 @@ export default function Messages({ currentUser, onUnreadChange }) {
   const handleSend = async (e) => {
     e.preventDefault();
     if (!selectedId || !draft.trim()) return;
+    const text = draft.trim();
+    const topic = subject;
+    const tempId = `tmp-${Date.now()}`;
+    const optimistic = {
+      id: tempId,
+      from_id: currentUser.id,
+      to_id: selectedId,
+      subject: topic,
+      body: text,
+      read: false,
+      created_at: new Date().toISOString(),
+    };
+    setDraft('');
     setSending(true);
     setError('');
+    setMessages((prev) => [...prev, optimistic]);
     try {
-      await sendMessage(selectedId, subject, draft);
-      setDraft('');
-      const data = await fetchConversation(selectedId);
-      setMessages(data);
-      await loadContacts();
+      const saved = await sendMessage(selectedId, topic, text);
+      setMessages((prev) => prev.map((m) => (m.id === tempId ? saved : m)));
+      loadContacts();
     } catch (err) {
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      setDraft(text);
       setError(err.message);
     } finally {
       setSending(false);
@@ -148,7 +185,6 @@ export default function Messages({ currentUser, onUnreadChange }) {
         <div className="messages-sidebar-head">
           <p className="messages-kicker">Messagerie interne</p>
           <h2>Messages</h2>
-          <p className="subtitle">Correspondance officielle FENACOJU</p>
           {unreadTotal > 0 && (
             <span className="messages-inbox-count">{unreadTotal} non lu{unreadTotal > 1 ? 's' : ''}</span>
           )}
@@ -215,11 +251,19 @@ export default function Messages({ currentUser, onUnreadChange }) {
               ) : (
                 messages.map((m) => {
                   const mine = m.from_id === currentUser.id;
+                  const isRead = m.read === true || m.read === 'true';
                   return (
                     <div key={m.id} className={`message-bubble ${mine ? 'mine' : 'theirs'}`}>
                       {m.subject && <div className="message-subject">{m.subject}</div>}
                       <div className="message-body">{m.body}</div>
-                      <div className="message-time">{formatMessageTime(m.created_at)}</div>
+                      <div className="message-meta">
+                        <span className="message-time">{formatMessageTime(m.created_at)}</span>
+                        {mine && (
+                          <span className={`message-receipt ${isRead ? 'is-read' : 'is-sent'}`}>
+                            {isRead ? 'Lu' : 'Envoyé'}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   );
                 })
