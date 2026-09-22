@@ -25,11 +25,29 @@ function getContactRole(contact) {
   return contact.fonction || USER_TYPES.federation?.label || 'Fédération';
 }
 
+function contactInitials(contact) {
+  const name = getContactName(contact);
+  const parts = String(name || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2);
+  if (!parts.length) return 'MS';
+  return parts.map((p) => p[0]).join('').toUpperCase();
+}
+
 function formatMessageTime(dateStr) {
   const d = new Date(dateStr);
+  const now = new Date();
+  const sameDay = d.toDateString() === now.toDateString();
+  if (sameDay) {
+    return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  }
   return d.toLocaleString('fr-FR', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
   });
 }
 
@@ -61,6 +79,7 @@ export default function Messages({ currentUser, onUnreadChange }) {
   const threadRef = useRef(null);
 
   const selected = contacts.find((c) => c.id === selectedId);
+  const unreadTotal = contacts.reduce((sum, c) => sum + (c.unread || 0), 0);
 
   const searchTerm = search.trim().toLowerCase();
   const filteredContacts = searchTerm
@@ -125,16 +144,24 @@ export default function Messages({ currentUser, onUnreadChange }) {
 
   return (
     <div className="messages-page">
-      <div className="messages-sidebar">
-        <h2>Messages</h2>
-        <p className="subtitle">Échangez avec les utilisateurs autorisés</p>
-        <input
-          type="search"
-          className="messages-search"
-          placeholder="Rechercher par nom ou club..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+      <aside className="messages-sidebar">
+        <div className="messages-sidebar-head">
+          <p className="messages-kicker">Messagerie interne</p>
+          <h2>Messages</h2>
+          <p className="subtitle">Correspondance officielle FENACOJU</p>
+          {unreadTotal > 0 && (
+            <span className="messages-inbox-count">{unreadTotal} non lu{unreadTotal > 1 ? 's' : ''}</span>
+          )}
+        </div>
+        <div className="messages-search-wrap">
+          <input
+            type="search"
+            className="messages-search"
+            placeholder="Rechercher un contact..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
         <ul className="messages-contacts">
           {contacts.length === 0 ? (
             <li className="messages-empty">Aucun contact disponible</li>
@@ -148,25 +175,32 @@ export default function Messages({ currentUser, onUnreadChange }) {
                   className={`messages-contact ${selectedId === c.id ? 'active' : ''}`}
                   onClick={() => setSelectedId(c.id)}
                 >
-                  <span className="messages-contact-name">{getContactName(c)}</span>
-                  <span className="messages-contact-role">{getContactRole(c)}</span>
+                  <span className="messages-avatar" aria-hidden="true">{contactInitials(c)}</span>
+                  <span className="messages-contact-copy">
+                    <span className="messages-contact-name">{getContactName(c)}</span>
+                    <span className="messages-contact-role">{getContactRole(c)}</span>
+                  </span>
                   {c.unread > 0 && <span className="messages-badge">{c.unread}</span>}
                 </button>
               </li>
             ))
           )}
         </ul>
-      </div>
+      </aside>
 
-      <div className="messages-panel">
+      <section className="messages-panel">
         {!selected ? (
           <div className="messages-placeholder">
-            <h3>Sélectionnez une conversation</h3>
-            <p>Choisissez un contact pour lire ou envoyer un message.</p>
+            <div className="messages-placeholder-mark" aria-hidden="true">F</div>
+            <h3>Boîte de messagerie</h3>
+            <p>Sélectionnez un contact à gauche pour consulter ou envoyer un message officiel.</p>
           </div>
         ) : (
           <>
             <div className="messages-panel-header">
+              <span className="messages-avatar messages-avatar-lg" aria-hidden="true">
+                {contactInitials(selected)}
+              </span>
               <div>
                 <h3>{getContactName(selected)}</h3>
                 <span className="messages-contact-role">{getContactRole(selected)}</span>
@@ -199,20 +233,22 @@ export default function Messages({ currentUser, onUnreadChange }) {
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
               />
-              <textarea
-                placeholder="Écrivez votre message..."
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                rows={3}
-                required
-              />
-              <button type="submit" className="btn btn-primary" disabled={sending || !draft.trim()}>
-                {sending ? 'Envoi...' : 'Envoyer'}
-              </button>
+              <div className="messages-compose-row">
+                <textarea
+                  placeholder="Rédiger un message..."
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  rows={2}
+                  required
+                />
+                <button type="submit" className="btn btn-primary" disabled={sending || !draft.trim()}>
+                  {sending ? 'Envoi...' : 'Envoyer'}
+                </button>
+              </div>
             </form>
           </>
         )}
-      </div>
+      </section>
     </div>
   );
 }

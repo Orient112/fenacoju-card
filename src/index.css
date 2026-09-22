@@ -1480,6 +1480,10 @@ tbody tr:last-child td {
     max-height: 240px;
   }
 
+  .messages-compose-row {
+    flex-direction: column;
+  }
+
   .messages-compose .btn {
     width: 100%;
     justify-content: center;
@@ -3160,113 +3164,204 @@ tbody tr:last-child td {
 /* Messages */
 .messages-page {
   display: grid;
-  grid-template-columns: 280px 1fr;
-  gap: 1rem;
-  min-height: 520px;
-}
-
-.messages-sidebar,
-.messages-panel {
-  background: white;
+  grid-template-columns: minmax(260px, 320px) 1fr;
+  gap: 0;
+  min-height: min(68vh, 720px);
+  background: #fff;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
 }
 
 .messages-sidebar {
-  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  background:
+    linear-gradient(180deg, #122d66 0%, #1d4393 72%, #16357a 100%);
+  color: #fff;
+  min-height: 520px;
+}
+
+.messages-sidebar-head {
+  padding: 1.2rem 1.15rem 0.85rem;
+}
+
+.messages-kicker {
+  margin: 0 0 0.2rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 800;
+  color: var(--gold);
 }
 
 .messages-sidebar h2 {
-  margin: 0 0 0.25rem;
-  color: var(--primary);
+  margin: 0;
+  color: #fff;
+  font-size: 1.35rem;
+}
+
+.messages-sidebar .subtitle {
+  margin: 0.25rem 0 0;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.82rem;
+}
+
+.messages-inbox-count {
+  display: inline-flex;
+  margin-top: 0.65rem;
+  padding: 0.18rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(245, 197, 24, 0.18);
+  color: var(--gold);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.messages-search-wrap {
+  padding: 0 1rem 0.85rem;
 }
 
 .messages-search {
   width: 100%;
-  margin-top: 0.75rem;
-  padding: 0.55rem 0.75rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  font-size: 0.9rem;
+  margin: 0;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  font-size: 0.86rem;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.messages-search::placeholder {
+  color: rgba(255, 255, 255, 0.55);
 }
 
 .messages-search:focus {
   outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 2px rgba(29, 67, 147, 0.15);
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(245, 197, 24, 0.18);
+  background: rgba(255, 255, 255, 0.14);
 }
 
 .messages-contacts {
   list-style: none;
-  margin: 1rem 0 0;
-  padding: 0;
+  margin: 0;
+  padding: 0.15rem 0.7rem 0.9rem;
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  max-height: 420px;
+  gap: 0.3rem;
+  flex: 1;
+  max-height: none;
   overflow-y: auto;
 }
 
 .messages-contact {
   width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.15rem;
-  padding: 0.7rem 0.85rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: white;
+  display: grid;
+  grid-template-columns: 40px 1fr auto;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.65rem 0.7rem;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
   cursor: pointer;
   font-family: inherit;
   text-align: left;
   position: relative;
+  color: inherit;
 }
 
-.messages-contact:hover,
+.messages-contact:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
 .messages-contact.active {
-  border-color: var(--primary-light);
-  background: #f0f7ff;
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(245, 197, 24, 0.35);
+}
+
+.messages-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.messages-avatar-lg {
+  width: 44px;
+  height: 44px;
+  background: var(--primary);
+  color: #fff;
+}
+
+.messages-contact-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.08rem;
 }
 
 .messages-contact-name {
   font-weight: 700;
-  color: var(--primary);
-  font-size: 0.9rem;
+  color: #fff;
+  font-size: 0.88rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .messages-contact-role {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.62);
+  letter-spacing: 0.02em;
+}
+
+.messages-panel .messages-contact-role {
   color: var(--text-muted);
 }
 
 .messages-badge {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  background: var(--accent);
-  color: white;
-  font-size: 0.7rem;
-  font-weight: 700;
-  padding: 0.1rem 0.45rem;
+  position: static;
+  background: var(--gold);
+  color: #1a1300;
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 0.12rem 0.42rem;
   border-radius: 999px;
+  min-width: 1.35rem;
+  text-align: center;
 }
 
 .messages-panel {
   display: flex;
   flex-direction: column;
   min-height: 520px;
+  background: #f7f9fc;
 }
 
 .messages-panel-header {
-  padding: 1rem 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 1rem 1.3rem;
   border-bottom: 1px solid var(--border);
+  background: #fff;
 }
 
 .messages-panel-header h3 {
   margin: 0;
-  color: var(--primary);
+  color: var(--primary-dark);
+  font-size: 1.05rem;
 }
 
 .messages-placeholder,
@@ -3282,61 +3377,120 @@ tbody tr:last-child td {
   justify-content: center;
   flex: 1;
   text-align: center;
+  padding: 2rem 1.5rem;
+}
+
+.messages-placeholder-mark {
+  width: 64px;
+  height: 64px;
+  border-radius: 20px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 1rem;
+  background: linear-gradient(135deg, var(--primary-dark), var(--primary-light));
+  color: #fff;
+  font-weight: 800;
+  font-size: 1.4rem;
+  box-shadow: 0 12px 28px rgba(29, 67, 147, 0.22);
+}
+
+.messages-placeholder h3 {
+  margin: 0 0 0.35rem;
+  color: var(--primary-dark);
 }
 
 .messages-thread {
   flex: 1;
   overflow-y: auto;
-  padding: 1rem 1.25rem;
+  padding: 1.15rem 1.3rem;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  background: #f8fafc;
+  gap: 0.7rem;
+  background:
+    radial-gradient(circle at top right, rgba(29, 67, 147, 0.05), transparent 32%),
+    #f4f7fb;
 }
 
 .message-bubble {
-  max-width: 75%;
-  padding: 0.7rem 0.9rem;
-  border-radius: 12px;
+  max-width: 72%;
+  padding: 0.75rem 0.95rem;
+  border-radius: 16px;
   font-size: 0.9rem;
+  line-height: 1.45;
+  box-shadow: 0 6px 16px rgba(18, 45, 102, 0.06);
 }
 
 .message-bubble.mine {
   align-self: flex-end;
-  background: var(--primary);
+  background: linear-gradient(180deg, var(--primary-light), var(--primary));
   color: white;
+  border-bottom-right-radius: 6px;
 }
 
 .message-bubble.theirs {
   align-self: flex-start;
   background: white;
-  border: 1px solid var(--border);
+  border: 1px solid #e4ecf7;
+  border-bottom-left-radius: 6px;
+  color: var(--text);
 }
 
 .message-subject {
-  font-weight: 700;
-  font-size: 0.8rem;
-  margin-bottom: 0.25rem;
+  font-weight: 800;
+  font-size: 0.76rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  margin-bottom: 0.28rem;
+  opacity: 0.9;
 }
 
 .message-time {
-  font-size: 0.7rem;
-  opacity: 0.75;
-  margin-top: 0.35rem;
+  font-size: 0.68rem;
+  opacity: 0.72;
+  margin-top: 0.4rem;
 }
 
 .messages-compose {
-  padding: 1rem 1.25rem;
+  padding: 0.9rem 1.15rem 1.1rem;
   border-top: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: 0.55rem;
+  background: #fff;
 }
 
 .messages-compose input,
 .messages-compose textarea {
   width: 100%;
   font-family: inherit;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.65rem 0.8rem;
+  background: #f8fbff;
+}
+
+.messages-compose input:focus,
+.messages-compose textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(29, 67, 147, 0.12);
+  background: #fff;
+}
+
+.messages-compose-row {
+  display: flex;
+  gap: 0.65rem;
+  align-items: flex-end;
+}
+
+.messages-compose-row textarea {
+  min-height: 54px;
+  resize: vertical;
+}
+
+.messages-compose-row .btn {
+  flex-shrink: 0;
+  min-height: 42px;
 }
 
 
