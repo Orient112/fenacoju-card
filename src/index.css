@@ -1477,7 +1477,7 @@ tbody tr:last-child td {
   }
 
   .messages-contacts {
-    max-height: calc(var(--messages-contact-h) * 9);
+    max-height: calc(var(--messages-contact-h) * 10);
   }
 
   .messages-compose-row {
@@ -3254,8 +3254,24 @@ tbody tr:last-child td {
   flex-direction: column;
   gap: 0;
   flex: 0 1 auto;
-  max-height: calc(var(--messages-contact-h) * 9);
+  max-height: calc(var(--messages-contact-h) * 10);
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #0dd1ff rgba(255, 255, 255, 0.12);
+}
+
+.messages-contacts::-webkit-scrollbar {
+  width: 8px;
+}
+
+.messages-contacts::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+}
+
+.messages-contacts::-webkit-scrollbar-thumb {
+  background: #0dd1ff;
+  border-radius: 999px;
 }
 
 .messages-contacts > li:not(:last-child) {
