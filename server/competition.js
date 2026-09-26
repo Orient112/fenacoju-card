@@ -19,6 +19,8 @@ const DEFAULT_SETTINGS = {
   categories_poids: [],
   categories_poids_individuel: [],
   competition_clubs: [],
+  frais_individuel: 0,
+  frais_equipe: 0,
   updated_at: null,
 };
 
@@ -180,6 +182,8 @@ function ensureDefaults(raw = {}) {
   settings.categories_poids = parseCategoriesPoids(settings.categories_poids);
   settings.categories_poids_individuel = parseCategoriesPoids(settings.categories_poids_individuel);
   settings.competition_clubs = parseCompetitionClubs(settings.competition_clubs);
+  settings.frais_individuel = Math.max(0, Number(settings.frais_individuel) || 0);
+  settings.frais_equipe = Math.max(0, Number(settings.frais_equipe) || 0);
   const desc = String(settings.description || '');
   const metaMatch = desc.match(META_RE);
   if (metaMatch) {
@@ -193,6 +197,12 @@ function ensureDefaults(raw = {}) {
       }
       if (!settings.competition_clubs.length && Array.isArray(meta.competition_clubs)) {
         settings.competition_clubs = parseCompetitionClubs(meta.competition_clubs);
+      }
+      if (meta.frais_individuel != null) {
+        settings.frais_individuel = Math.max(0, Number(meta.frais_individuel) || 0);
+      }
+      if (meta.frais_equipe != null) {
+        settings.frais_equipe = Math.max(0, Number(meta.frais_equipe) || 0);
       }
     } catch {
       // ignore meta
@@ -217,6 +227,8 @@ function toDbSettings(settings) {
       categories_poids: cats,
       categories_poids_individuel: indivCats,
       competition_clubs: parseCompetitionClubs(settings.competition_clubs),
+      frais_individuel: Math.max(0, Number(settings.frais_individuel) || 0),
+      frais_equipe: Math.max(0, Number(settings.frais_equipe) || 0),
     })}-->`,
     public_enabled: Boolean(settings.public_enabled),
     public_token: settings.public_token || '',
@@ -313,6 +325,8 @@ export function toPublicCompetition(settings, extras = {}) {
     categories_poids: parseCategoriesPoids(settings.categories_poids),
     categories_poids_individuel: parseCategoriesPoids(settings.categories_poids_individuel),
     competition_clubs: parseCompetitionClubs(settings.competition_clubs),
+    frais_individuel: Math.max(0, Number(settings.frais_individuel) || 0),
+    frais_equipe: Math.max(0, Number(settings.frais_equipe) || 0),
     ...extras,
   };
 }
@@ -417,6 +431,9 @@ export async function createCompetitionRegistration(payload) {
     deja_enregistre: dejaEnregistre,
     mode_inscription: modeInscription,
     role_equipe: payload.role_equipe === 'remplacant' ? 'remplacant' : (modeInscription === 'equipe' ? 'principal' : ''),
+    paiement_statut: payload.paiement_statut === 'paye' ? 'paye' : (payload.paiement_statut || 'en_attente'),
+    montant_paye: Math.max(0, Number(payload.montant_paye) || 0),
+    mode_paiement: String(payload.mode_paiement || '').trim(),
     created_at: new Date().toISOString(),
   };
 
@@ -435,11 +452,25 @@ export async function createCompetitionRegistration(payload) {
       if (error) throw error;
       return row;
     } catch (err) {
-      const { mode_inscription, role_equipe, ...withoutExtra } = row;
+      const {
+        mode_inscription,
+        role_equipe,
+        paiement_statut,
+        montant_paye,
+        mode_paiement,
+        ...withoutExtra
+      } = row;
       try {
         const { error } = await getSupabase().from('competition_registrations').insert(withoutExtra);
         if (error) throw error;
-        return { ...row, mode_inscription, role_equipe };
+        return {
+          ...row,
+          mode_inscription,
+          role_equipe,
+          paiement_statut,
+          montant_paye,
+          mode_paiement,
+        };
       } catch (inner) {
         if (!/relation|does not exist|schema cache|column/i.test(inner.message || err.message || '')) throw inner;
         console.warn('Insert competition_registrations fallback JSON:', inner.message || err.message);
@@ -453,7 +484,14 @@ export async function createCompetitionRegistration(payload) {
   return row;
 }
 
-export async function createCompetitionTeamRoster({ club, sexe = 'M', members = [], allowedCategories = [] } = {}) {
+export async function createCompetitionTeamRoster({
+  club,
+  sexe = 'M',
+  members = [],
+  allowedCategories = [],
+  paiement = null,
+  allowExisting = false,
+} = {}) {
   const clubName = String(club || '').trim();
   if (!clubName) throw new Error('Le nom du club est obligatoire');
   const teamSexe = String(sexe).toUpperCase().startsWith('F') ? 'F' : 'M';
@@ -469,7 +507,7 @@ export async function createCompetitionTeamRoster({ club, sexe = 'M', members = 
     && norm(r.club) === norm(clubName)
     && (r.sexe === 'F' ? 'F' : 'M') === teamSexe
   ));
-  if (existing.length) {
+  if (existing.length && !allowExisting) {
     throw new Error(`Ce club a déjà une équipe ${sexeLabel} inscrite à cette compétition`);
   }
 
@@ -500,10 +538,17 @@ export async function createCompetitionTeamRoster({ club, sexe = 'M', members = 
     const member = {
       nom,
       prenom,
+      date_naissance: raw?.date_naissance || '',
       poids: poidsReel,
       categorie: cat.label,
       sexe: teamSexe,
       role_equipe: role,
+      judoka_id: raw?.judoka_id || null,
+      numero_carte: raw?.numero_carte || '',
+      grade: raw?.grade || '',
+      telephone: raw?.telephone || '',
+      email: raw?.email || '',
+      deja_enregistre: Boolean(raw?.deja_enregistre || raw?.judoka_id),
     };
     bucket[role] = member;
     cleaned.push(member);
@@ -515,30 +560,80 @@ export async function createCompetitionTeamRoster({ club, sexe = 'M', members = 
     }
   }
 
-  if (cleaned.length < 3) {
+  if (cleaned.length < 1 && allowExisting) {
+    throw new Error('Sélectionnez au moins un judoka à charger');
+  }
+  if (cleaned.length < 3 && !allowExisting) {
     throw new Error('Le club doit inscrire au moins 3 judokas');
   }
+
+  const payInfo = paiement && typeof paiement === 'object' ? {
+    paiement_statut: paiement.statut === 'paye' || paiement.paiement_statut === 'paye' ? 'paye' : 'en_attente',
+    montant_paye: Math.max(0, Number(paiement.montant ?? paiement.montant_paye) || 0),
+    mode_paiement: String(paiement.mode || paiement.mode_paiement || '').trim(),
+  } : {};
 
   const created = [];
   for (const member of cleaned) {
     const row = await createCompetitionRegistration({
       nom: member.nom,
       prenom: member.prenom,
-      date_naissance: '',
+      date_naissance: member.date_naissance || '',
       sexe: member.sexe,
       club: clubName,
-      grade: '',
+      grade: member.grade || '',
       categorie: member.categorie,
       poids: member.poids,
-      telephone: '',
-      email: '',
-      deja_enregistre: false,
+      telephone: member.telephone || '',
+      email: member.email || '',
+      judoka_id: member.judoka_id,
+      numero_carte: member.numero_carte,
+      deja_enregistre: member.deja_enregistre,
       mode_inscription: 'equipe',
       role_equipe: member.role_equipe,
+      ...payInfo,
     });
     created.push(row);
   }
   return { club: clubName, sexe: teamSexe, count: created.length, registrations: created };
+}
+
+export async function chargeTeamFromIndividuel({ club, members = [] } = {}) {
+  const clubName = String(club || '').trim();
+  if (!clubName) throw new Error('Le nom du club est obligatoire');
+  if (!Array.isArray(members) || !members.length) {
+    throw new Error('Sélectionnez au moins un judoka à charger');
+  }
+
+  const created = [];
+  for (const raw of members) {
+    const nom = String(raw?.nom || '').trim();
+    const prenom = String(raw?.prenom || '').trim();
+    const poids = String(raw?.poids || '').trim();
+    if (!nom || !prenom) throw new Error('Nom et prénom obligatoires pour chaque judoka');
+    if (!poids) throw new Error(`Indiquez le poids pour ${prenom} ${nom}`);
+
+    const row = await createCompetitionRegistration({
+      nom,
+      prenom,
+      date_naissance: raw?.date_naissance || '',
+      sexe: raw?.sexe || 'M',
+      club: clubName,
+      grade: raw?.grade || '',
+      categorie: raw?.categorie || '',
+      poids,
+      telephone: raw?.telephone || '',
+      email: raw?.email || '',
+      judoka_id: raw?.judoka_id || null,
+      numero_carte: raw?.numero_carte || '',
+      deja_enregistre: Boolean(raw?.deja_enregistre || raw?.judoka_id),
+      mode_inscription: 'equipe',
+      role_equipe: raw?.role_equipe === 'remplacant' ? 'remplacant' : 'principal',
+    });
+    created.push(row);
+  }
+
+  return { club: clubName, count: created.length, registrations: created };
 }
 
 export async function getCompetitionRegistrationById(id) {

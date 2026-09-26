@@ -72,6 +72,7 @@ import {
   getCompetitionRegistrations,
   createCompetitionRegistration,
   createCompetitionTeamRoster,
+  chargeTeamFromIndividuel,
   updateCompetitionRegistration,
   updateCompetitionRegistrationWeight,
   deleteCompetitionRegistration,
@@ -367,6 +368,28 @@ app.post('/api/public/competition/:token/register', async (req, res) => {
 
     const body = req.body || {};
     const modeInscription = body.mode_inscription === 'equipe' ? 'equipe' : 'individuel';
+    const payInfo = body.paiement && typeof body.paiement === 'object' ? {
+      paiement_statut: 'paye',
+      montant_paye: Math.max(0, Number(body.paiement.montant) || 0),
+      mode_paiement: String(body.paiement.mode || '').trim(),
+    } : {};
+
+    if (modeInscription === 'individuel' && Array.isArray(body.batch) && body.batch.length) {
+      const created = [];
+      const unitFee = Math.max(0, Number(settings.frais_individuel) || 0);
+      for (const item of body.batch) {
+        const registration = await createCompetitionRegistration({
+          ...item,
+          mode_inscription: 'individuel',
+          poids: '',
+          paiement_statut: payInfo.paiement_statut || 'en_attente',
+          mode_paiement: payInfo.mode_paiement || '',
+          montant_paye: payInfo.paiement_statut === 'paye' ? unitFee : 0,
+        });
+        created.push(registration);
+      }
+      return res.status(201).json({ count: created.length, registrations: created });
+    }
 
     if (modeInscription === 'equipe' && Array.isArray(body.members)) {
       const roster = await createCompetitionTeamRoster({
@@ -374,6 +397,11 @@ app.post('/api/public/competition/:token/register', async (req, res) => {
         sexe: body.sexe,
         members: body.members,
         allowedCategories: settings.categories_poids || [],
+        paiement: body.paiement ? {
+          statut: 'paye',
+          montant: body.paiement.montant ?? settings.frais_equipe,
+          mode: body.paiement.mode,
+        } : null,
       });
       return res.status(201).json(roster);
     }
@@ -425,6 +453,7 @@ app.post('/api/public/competition/:token/register', async (req, res) => {
         email: body.email || judoka.email,
         deja_enregistre: true,
         mode_inscription: modeInscription,
+        ...payInfo,
       });
       return res.status(201).json(registration);
     }
@@ -449,6 +478,7 @@ app.post('/api/public/competition/:token/register', async (req, res) => {
       taille: '',
       deja_enregistre: false,
       mode_inscription: modeInscription,
+      ...payInfo,
     });
     res.status(201).json(registration);
   } catch (err) {
@@ -549,6 +579,12 @@ app.put('/api/competition', async (req, res) => {
     if (body.competition_clubs !== undefined) {
       patch.competition_clubs = parseCompetitionClubs(body.competition_clubs);
     }
+    if (body.frais_individuel !== undefined) {
+      patch.frais_individuel = Math.max(0, Number(body.frais_individuel) || 0);
+    }
+    if (body.frais_equipe !== undefined) {
+      patch.frais_equipe = Math.max(0, Number(body.frais_equipe) || 0);
+    }
     if (body.public_enabled !== undefined) {
       const next = { ...current, ...patch };
       if (body.public_enabled && !isCompetitionConfigured(next)) {
@@ -604,6 +640,25 @@ app.get('/api/competition/registrations', async (req, res) => {
     res.json(await getCompetitionRegistrations());
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/competition/registrations/charge-team', async (req, res) => {
+  try {
+    const current = await getCompetitionSettings();
+    const canToggle = canToggleCompetitionAccess(req.user);
+    const isDirector = isDirecteurCompetition(req.user);
+    if (!canToggle && !(isDirector && current.access_enabled)) {
+      return res.status(403).json({ error: 'Accès non autorisé' });
+    }
+    const body = req.body || {};
+    const result = await chargeTeamFromIndividuel({
+      club: body.club,
+      members: Array.isArray(body.members) ? body.members : [],
+    });
+    res.status(201).json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
 });
 

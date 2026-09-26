@@ -6,6 +6,7 @@ import {
   deleteCompetitionRegistration,
   updateCompetitionRegistration,
   deleteCompetitionPublicLink,
+  chargeCompetitionTeamFromIndividuel,
   competitionPublicUrl,
   competitionWeighUrl,
 } from '../api';
@@ -160,7 +161,7 @@ function RegistrationsTable({ registrations, onEdit, onDelete }) {
   );
 }
 
-function TeamClubsTable({ clubs, onEdit, onDelete }) {
+function TeamClubsTable({ clubs, onEdit, onDelete, onCharge }) {
   if (!clubs.length) {
     return (
       <div className="competition-empty-regs">
@@ -194,6 +195,16 @@ function TeamClubsTable({ clubs, onEdit, onDelete }) {
                   >
                     ✏️
                   </button>
+                  {onCharge && (
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm btn-icon"
+                      title="Charger des judokas individuels"
+                      onClick={() => onCharge(team)}
+                    >
+                      📥
+                    </button>
+                  )}
                   <button
                     type="button"
                     className="btn btn-danger btn-sm btn-icon"
@@ -357,6 +368,43 @@ function ParamsFormFields({ form, onChange, onCategoriesChange, onIndividualCate
           placeholder="Informations utiles pour les judokas..."
         />
       </div>
+      <div className="competition-fees-block">
+        <div className="competition-cat-block-head">
+          <span className="competition-cat-block-kicker">Tarifs</span>
+          <h4>Frais de participation</h4>
+        </div>
+        <p className="form-hint">
+          Le frais Individuel s&apos;applique par judoka. Le frais Par équipe s&apos;applique par club et se règle à l&apos;inscription.
+        </p>
+        <div className="competition-fees-grid">
+          <div className="form-group">
+            <label htmlFor="frais-individuel">Frais Individuel (par judoka)</label>
+            <input
+              id="frais-individuel"
+              name="frais_individuel"
+              type="number"
+              min="0"
+              step="1"
+              value={form.frais_individuel ?? 0}
+              onChange={onChange}
+              placeholder="0"
+            />
+          </div>
+          <div className="form-group">
+            <label htmlFor="frais-equipe">Frais Par équipe (par club)</label>
+            <input
+              id="frais-equipe"
+              name="frais_equipe"
+              type="number"
+              min="0"
+              step="1"
+              value={form.frais_equipe ?? 0}
+              onChange={onChange}
+              placeholder="0"
+            />
+          </div>
+        </div>
+      </div>
       <div className="competition-cat-block competition-cat-block-indiv">
         <div className="competition-cat-block-head">
           <span className="competition-cat-block-kicker">Individuel</span>
@@ -399,6 +447,8 @@ export default function CompetitionSettings({ onBack, onToast }) {
   const [clubsEditorCadre, setClubsEditorCadre] = useState(null);
   const [clubDraft, setClubDraft] = useState('');
   const [editingClub, setEditingClub] = useState(null);
+  const [chargeTeamTarget, setChargeTeamTarget] = useState(null);
+  const [chargeSelections, setChargeSelections] = useState({});
   const [form, setForm] = useState({
     nom: '',
     date_debut: '',
@@ -407,6 +457,8 @@ export default function CompetitionSettings({ onBack, onToast }) {
     description: '',
     categories_poids: [],
     categories_poids_individuel: [],
+    frais_individuel: 0,
+    frais_equipe: 0,
   });
   const formRef = useRef(form);
   const savingRef = useRef(false);
@@ -428,6 +480,8 @@ export default function CompetitionSettings({ onBack, onToast }) {
       description: data.description || '',
       categories_poids: Array.isArray(data.categories_poids) ? data.categories_poids : [],
       categories_poids_individuel: Array.isArray(data.categories_poids_individuel) ? data.categories_poids_individuel : [],
+      frais_individuel: Math.max(0, Number(data.frais_individuel) || 0),
+      frais_equipe: Math.max(0, Number(data.frais_equipe) || 0),
     });
   };
 
@@ -496,8 +550,11 @@ export default function CompetitionSettings({ onBack, onToast }) {
   }, [loading, settings?.access_ok, settings?.can_toggle_access, refreshSilent]);
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    const { name, value, type } = e.target;
+    setForm((prev) => ({
+      ...prev,
+      [name]: type === 'number' ? value : value,
+    }));
   };
 
   const handleCategoriesChange = (next) => {
@@ -513,13 +570,84 @@ export default function CompetitionSettings({ onBack, onToast }) {
     setSaving(true);
     setError('');
     try {
-      const updated = await updateCompetition(form);
+      const payload = {
+        ...form,
+        frais_individuel: Math.max(0, Number(form.frais_individuel) || 0),
+        frais_equipe: Math.max(0, Number(form.frais_equipe) || 0),
+      };
+      const updated = await updateCompetition(payload);
       setSettings((prev) => ({ ...prev, ...updated }));
       applySettingsForm(updated);
       setShowParamsModal(false);
       onToast?.('Paramètres de la compétition enregistrés');
     } catch (err) {
       setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const openChargeTeam = (team) => {
+    setChargeTeamTarget(team);
+    setChargeSelections({});
+  };
+
+  const toggleChargeJudoka = (reg) => {
+    setChargeSelections((prev) => {
+      if (prev[reg.id]) {
+        const next = { ...prev };
+        delete next[reg.id];
+        return next;
+      }
+      return {
+        ...prev,
+        [reg.id]: {
+          selected: true,
+          poids: reg.poids || '',
+          role_equipe: 'principal',
+          source: reg,
+        },
+      };
+    });
+  };
+
+  const handleConfirmChargeTeam = async () => {
+    if (!chargeTeamTarget) return;
+    const members = Object.values(chargeSelections)
+      .filter((row) => row.selected)
+      .map((row) => ({
+        nom: row.source.nom,
+        prenom: row.source.prenom,
+        date_naissance: row.source.date_naissance || '',
+        sexe: row.source.sexe || 'M',
+        grade: row.source.grade || '',
+        categorie: row.source.categorie || '',
+        telephone: row.source.telephone || '',
+        email: row.source.email || '',
+        judoka_id: row.source.judoka_id || null,
+        numero_carte: row.source.numero_carte || '',
+        deja_enregistre: Boolean(row.source.deja_enregistre || row.source.judoka_id),
+        poids: row.poids,
+        role_equipe: row.role_equipe === 'remplacant' ? 'remplacant' : 'principal',
+      }));
+    if (!members.length) {
+      onToast?.('Sélectionnez au moins un judoka', 'error');
+      return;
+    }
+    setSaving(true);
+    setError('');
+    try {
+      const result = await chargeCompetitionTeamFromIndividuel({
+        club: chargeTeamTarget.club,
+        members,
+      });
+      setRegistrations((prev) => [...(result.registrations || []), ...prev]);
+      setChargeTeamTarget(null);
+      setChargeSelections({});
+      onToast?.(`${result.count || members.length} judoka(s) chargé(s) dans ${chargeTeamTarget.club}`);
+    } catch (err) {
+      setError(err.message);
+      onToast?.(err.message, 'error');
     } finally {
       setSaving(false);
     }
@@ -1231,6 +1359,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
                     clubs={mergeRegisteredTeamClubs(settings?.competition_clubs, registrations)}
                     onEdit={openEditTeam}
                     onDelete={setDeleteClubTarget}
+                    onCharge={openChargeTeam}
                   />
                 </div>
               </div>
@@ -1324,6 +1453,86 @@ export default function CompetitionSettings({ onBack, onToast }) {
               </button>
               <button type="button" className="btn btn-danger" onClick={handleDeleteClubTeam} disabled={saving}>
                 {saving ? 'Suppression...' : 'Supprimer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {chargeTeamTarget && (
+        <div className="confirm-overlay" onClick={() => setChargeTeamTarget(null)}>
+          <div className="competition-charge-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="competition-params-modal-head">
+              <div>
+                <h3>Charger des judokas</h3>
+                <p className="form-hint">
+                  Sélectionnez des judokas inscrits en Individuel pour l&apos;équipe{' '}
+                  <strong>{chargeTeamTarget.club}</strong>.
+                </p>
+              </div>
+              <button type="button" className="btn btn-outline btn-sm" onClick={() => setChargeTeamTarget(null)}>
+                Fermer
+              </button>
+            </div>
+            {registrations.filter((r) => !isTeamRegistration(r)).length === 0 ? (
+              <p className="form-hint">Aucun judoka inscrit en Individuel pour le moment.</p>
+            ) : (
+              <div className="competition-charge-list">
+                {registrations.filter((r) => !isTeamRegistration(r)).map((r) => {
+                  const selected = Boolean(chargeSelections[r.id]);
+                  return (
+                    <div key={r.id} className={`competition-charge-row ${selected ? 'is-selected' : ''}`}>
+                      <label className="competition-charge-check">
+                        <input
+                          type="checkbox"
+                          checked={selected}
+                          onChange={() => toggleChargeJudoka(r)}
+                        />
+                        <span>
+                          <strong>{r.prenom} {r.nom}</strong>
+                          <small>{r.club || 'Sans club'} · {r.sexe === 'F' ? 'F' : 'M'}{r.categorie ? ` · ${r.categorie}` : ''}</small>
+                        </span>
+                      </label>
+                      {selected && (
+                        <div className="competition-charge-fields">
+                          <input
+                            type="text"
+                            placeholder="Poids (kg)"
+                            value={chargeSelections[r.id]?.poids || ''}
+                            onChange={(e) => setChargeSelections((prev) => ({
+                              ...prev,
+                              [r.id]: { ...prev[r.id], poids: e.target.value },
+                            }))}
+                            required
+                          />
+                          <select
+                            value={chargeSelections[r.id]?.role_equipe || 'principal'}
+                            onChange={(e) => setChargeSelections((prev) => ({
+                              ...prev,
+                              [r.id]: { ...prev[r.id], role_equipe: e.target.value },
+                            }))}
+                          >
+                            <option value="principal">Principal</option>
+                            <option value="remplacant">Remplaçant</option>
+                          </select>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            <div className="form-actions">
+              <button type="button" className="btn btn-outline" onClick={() => setChargeTeamTarget(null)}>
+                Annuler
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleConfirmChargeTeam}
+                disabled={saving || Object.keys(chargeSelections).length === 0}
+              >
+                {saving ? 'Chargement...' : 'Charger dans l\'équipe'}
               </button>
             </div>
           </div>

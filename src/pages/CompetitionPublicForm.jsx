@@ -5,7 +5,7 @@ import {
   registerPublicCompetition,
   CATEGORIES,
 } from '../api';
-
+import CompetitionPaymentModal, { formatMoney } from '../components/CompetitionPaymentModal';
 import {
   parseCategoriesPoids,
   categoriesForSexe,
@@ -35,6 +35,7 @@ export default function CompetitionPublicForm({ token }) {
   const [cardId, setCardId] = useState('');
   const [lookupLoading, setLookupLoading] = useState(false);
   const [form, setForm] = useState(emptyForm());
+  const [basket, setBasket] = useState([]);
   const [teamClub, setTeamClub] = useState('');
   const [teamRoster, setTeamRoster] = useState({});
   const [teamEntry, setTeamEntry] = useState(emptyTeamEntry());
@@ -43,6 +44,10 @@ export default function CompetitionPublicForm({ token }) {
   const [judokaMeta, setJudokaMeta] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [successName, setSuccessName] = useState('');
+  const [successCount, setSuccessCount] = useState(0);
+  const [showPayment, setShowPayment] = useState(false);
+  const [paymentKind, setPaymentKind] = useState(null);
+  const [paymentItems, setPaymentItems] = useState([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -77,6 +82,8 @@ export default function CompetitionPublicForm({ token }) {
             closed: data.closed,
             categories_poids: data.categories_poids,
             competition_clubs: data.competition_clubs,
+            frais_individuel: data.frais_individuel,
+            frais_equipe: data.frais_equipe,
             team_counts: data.team_counts,
           };
         });
@@ -97,6 +104,29 @@ export default function CompetitionPublicForm({ token }) {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
+  const fraisIndividuel = Math.max(0, Number(competition?.frais_individuel) || 0);
+  const fraisEquipe = Math.max(0, Number(competition?.frais_equipe) || 0);
+
+  const resetFlow = () => {
+    setStep('mode');
+    setInscriptionMode('');
+    setCardId('');
+    setJudokaMeta(null);
+    setForm(emptyForm());
+    setBasket([]);
+    setTeamClub('');
+    setTeamRoster({});
+    setTeamEntry(emptyTeamEntry());
+    setTeamSexe('');
+    setShowTeamSexModal(false);
+    setSuccessName('');
+    setSuccessCount(0);
+    setShowPayment(false);
+    setPaymentKind(null);
+    setPaymentItems([]);
+    setError('');
+  };
+
   const startExisting = () => {
     setStep('lookup');
     setError('');
@@ -111,6 +141,17 @@ export default function CompetitionPublicForm({ token }) {
     setCardId('');
     setJudokaMeta(null);
     setForm(emptyForm());
+  };
+
+  const chooseMode = (mode) => {
+    setInscriptionMode(mode);
+    setError('');
+    setBasket([]);
+    if (mode === 'equipe') {
+      setShowTeamSexModal(true);
+      return;
+    }
+    setStep('choice');
   };
 
   const handleLookup = async (e) => {
@@ -139,27 +180,91 @@ export default function CompetitionPublicForm({ token }) {
     }
   };
 
-  const handleSubmit = async (e) => {
+  const buildIndividuelPayload = () => ({
+    ...form,
+    deja_enregistre: Boolean(judokaMeta),
+    judoka_id: judokaMeta?.id || null,
+    numero_carte: judokaMeta ? (judokaMeta.numero_carte || cardId.trim() || '') : '',
+    mode_inscription: 'individuel',
+    poids: '',
+  });
+
+  const addToBasket = (e) => {
     e.preventDefault();
+    setError('');
+    if (!form.club?.trim() || !form.nom?.trim() || !form.prenom?.trim() || !form.date_naissance) {
+      setError('Complétez les champs obligatoires avant d\'ajouter');
+      return;
+    }
+    const payload = buildIndividuelPayload();
+    const key = [
+      payload.nom, payload.prenom, payload.date_naissance, payload.club,
+      payload.judoka_id || payload.numero_carte || '',
+    ].join('|').toLowerCase();
+    if (basket.some((item) => item._key === key)) {
+      setError('Ce judoka est déjà dans la liste d\'inscription');
+      return;
+    }
+    setBasket((prev) => [...prev, { ...payload, _key: key }]);
+    setJudokaMeta(null);
+    setCardId('');
+    setForm((prev) => ({ ...emptyForm(), club: prev.club }));
+    setStep('form');
+  };
+
+  const removeFromBasket = (key) => {
+    setBasket((prev) => prev.filter((item) => item._key !== key));
+  };
+
+  const openIndividuelPayment = (e) => {
+    e.preventDefault();
+    setError('');
+    let list = [...basket];
+    if (form.nom?.trim() && form.prenom?.trim() && form.club?.trim() && form.date_naissance) {
+      const payload = buildIndividuelPayload();
+      const key = [
+        payload.nom, payload.prenom, payload.date_naissance, payload.club,
+        payload.judoka_id || payload.numero_carte || '',
+      ].join('|').toLowerCase();
+      if (!list.some((item) => item._key === key)) {
+        list = [...list, { ...payload, _key: key }];
+      }
+    }
+    if (!list.length) {
+      setError('Ajoutez au moins un judoka avant de valider l\'inscription');
+      return;
+    }
+    setBasket(list);
+    setPaymentItems(list);
+    setPaymentKind('individuel');
+    setShowPayment(true);
+  };
+
+  const confirmIndividuelPayment = async (paiement) => {
     setSubmitting(true);
     setError('');
     try {
-      const payload = {
-        ...form,
-        deja_enregistre: Boolean(judokaMeta),
-        judoka_id: judokaMeta?.id || null,
-        numero_carte: judokaMeta ? (judokaMeta.numero_carte || cardId.trim() || '') : '',
+      const batch = (paymentItems.length ? paymentItems : basket).map(({ _key, ...rest }) => rest);
+      const result = await registerPublicCompetition(token, {
         mode_inscription: 'individuel',
-        poids: '',
-      };
-      await registerPublicCompetition(token, payload);
-      setSuccessName(`${form.prenom} ${form.nom}`.trim());
+        batch,
+        paiement,
+      });
+      const count = result.count || batch.length;
+      setSuccessName(batch.length === 1
+        ? `${batch[0].prenom} ${batch[0].nom}`.trim()
+        : `${batch.length} judokas`);
+      setSuccessCount(count);
       setCompetition((prev) => (prev
-        ? { ...prev, registrations_count: (prev.registrations_count || 0) + 1 }
+        ? { ...prev, registrations_count: (prev.registrations_count || 0) + count }
         : prev));
+      setShowPayment(false);
+      setPaymentKind(null);
+      setPaymentItems([]);
+      setBasket([]);
       setStep('success');
     } catch (err) {
-      setError(err.message);
+      throw err;
     } finally {
       setSubmitting(false);
     }
@@ -198,86 +303,10 @@ export default function CompetitionPublicForm({ token }) {
         cat,
         principal: current.principal,
         remplacant: current.remplacant,
-        [role]: { nom_complet: nomComplet, poids },
+        [role]: { nom_complet: nomComplet, poids, role },
       },
     }));
     setTeamEntry(emptyTeamEntry());
-  };
-
-  if (loading) {
-    return (
-      <div className="competition-public-page">
-        <div className="page-loader">
-          <div className="spinner" />
-          <p>Chargement du formulaire...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!competition) {
-    return (
-      <div className="competition-public-page">
-        <div className="competition-public-shell">
-          <div className="empty-state">
-            <h3>Formulaire indisponible</h3>
-            <p>{error || 'Cette compétition n\'accepte pas les inscriptions pour le moment.'}</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const count = competition.registrations_count ?? 0;
-  const allWeightCats = parseCategoriesPoids(competition.categories_poids);
-  const weightCats = teamSexe ? categoriesForSexe(allWeightCats, teamSexe) : [];
-  const filledTeamJudokas = Object.values(teamRoster).reduce(
-    (n, bucket) => n + (bucket?.principal ? 1 : 0) + (bucket?.remplacant ? 1 : 0),
-    0
-  );
-  const boyCats = categoriesForSexe(allWeightCats, 'M');
-  const girlCats = categoriesForSexe(allWeightCats, 'F');
-  const registeredClubs = (competition.competition_clubs || []).filter((c) => (
-    c.cadre === (inscriptionMode === 'equipe' ? 'equipe' : 'individuel')
-  ));
-  const namesForSelect = (current) => {
-    const names = registeredClubs.map((c) => c.nom);
-    if (current && !names.includes(current)) names.unshift(current);
-    return names;
-  };
-
-  const resetFlow = () => {
-    setStep('mode');
-    setInscriptionMode('');
-    setForm(emptyForm());
-    setTeamClub('');
-    setTeamRoster({});
-    setTeamEntry(emptyTeamEntry());
-    setTeamSexe('');
-    setShowTeamSexModal(false);
-    setJudokaMeta(null);
-    setCardId('');
-    setSuccessName('');
-    setError('');
-  };
-
-  const chooseMode = (mode) => {
-    setInscriptionMode(mode);
-    setError('');
-    if (mode === 'equipe') {
-      if (boyCats.length < TEAM_MIN_CATEGORIES && girlCats.length < TEAM_MIN_CATEGORIES) {
-        setError('Le Directeur de Compétition doit définir au moins 3 catégories Garçon ou Fille pour le mode Par équipe.');
-        return;
-      }
-      setTeamClub('');
-      setTeamRoster({});
-      setTeamEntry(emptyTeamEntry());
-      setTeamSexe('');
-      setShowTeamSexModal(true);
-      return;
-    }
-    setShowTeamSexModal(false);
-    setStep('choice');
   };
 
   const selectTeamSexe = (sexe) => {
@@ -295,8 +324,25 @@ export default function CompetitionPublicForm({ token }) {
     setStep('team');
   };
 
-  const handleTeamSubmit = async (e) => {
+  const openTeamPayment = (e) => {
     e.preventDefault();
+    setError('');
+    if (!teamClub.trim()) {
+      setError('Sélectionnez le club');
+      return;
+    }
+    const filled = Object.values(teamRoster).reduce((sum, b) => (
+      sum + (b.principal ? 1 : 0) + (b.remplacant ? 1 : 0)
+    ), 0);
+    if (filled < 3) {
+      setError('Inscrivez au moins 3 judokas pour enregistrer l\'équipe');
+      return;
+    }
+    setPaymentKind('equipe');
+    setShowPayment(true);
+  };
+
+  const confirmTeamPayment = async (paiement) => {
     setSubmitting(true);
     setError('');
     try {
@@ -324,26 +370,70 @@ export default function CompetitionPublicForm({ token }) {
           });
         }
       }
-      if (members.length < 3) {
-        throw new Error('Inscrivez au moins 3 judokas pour enregistrer l\'équipe');
-      }
       const result = await registerPublicCompetition(token, {
         mode_inscription: 'equipe',
         club: teamClub.trim(),
         sexe: teamSexe,
         members,
+        paiement,
       });
       setSuccessName(teamClub.trim());
+      setSuccessCount(result.count || members.length);
       setCompetition((prev) => (prev
         ? { ...prev, registrations_count: (prev.registrations_count || 0) + (result.count || members.length) }
         : prev));
+      setShowPayment(false);
+      setPaymentKind(null);
       setStep('success');
     } catch (err) {
-      setError(err.message);
+      throw err;
     } finally {
       setSubmitting(false);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="competition-public-page">
+        <div className="loading-state">
+          <div className="spinner" />
+          <p>Chargement...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!competition && error) {
+    return (
+      <div className="competition-public-page">
+        <div className="empty-state">
+          <h3>Formulaire indisponible</h3>
+          <p>{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!competition) return null;
+
+  const count = competition.registrations_count || 0;
+  const allWeightCats = parseCategoriesPoids(competition.categories_poids);
+  const weightCats = categoriesForSexe(allWeightCats, teamSexe);
+  const boyCats = categoriesForSexe(allWeightCats, 'M');
+  const girlCats = categoriesForSexe(allWeightCats, 'F');
+  const registeredClubs = (competition.competition_clubs || []).filter((c) => (
+    inscriptionMode === 'equipe' ? c.cadre === 'equipe' : c.cadre === 'individuel'
+  ));
+  const namesForSelect = (current) => {
+    const names = registeredClubs.map((c) => c.nom).filter(Boolean);
+    if (current && !names.includes(current)) names.unshift(current);
+    return names;
+  };
+  const filledTeamJudokas = Object.values(teamRoster).reduce((sum, b) => (
+    sum + (b.principal ? 1 : 0) + (b.remplacant ? 1 : 0)
+  ), 0);
+  const individuelAmount = fraisIndividuel * Math.max(paymentItems.length || basket.length, 1);
+  const paymentAmount = paymentKind === 'equipe' ? fraisEquipe : individuelAmount;
 
   return (
     <div className="competition-public-page">
@@ -371,6 +461,17 @@ export default function CompetitionPublicForm({ token }) {
 
         {competition.description && (
           <p className="competition-public-desc">{competition.description}</p>
+        )}
+
+        {(fraisIndividuel > 0 || fraisEquipe > 0) && step === 'mode' && (
+          <div className="competition-fees-public">
+            {fraisIndividuel > 0 && (
+              <span>Individuel : <strong>{formatMoney(fraisIndividuel)}</strong> / judoka</span>
+            )}
+            {fraisEquipe > 0 && (
+              <span>Par équipe : <strong>{formatMoney(fraisEquipe)}</strong> / club</span>
+            )}
+          </div>
         )}
 
         {error && step !== 'success' && <div className="form-error">{error}</div>}
@@ -447,13 +548,35 @@ export default function CompetitionPublicForm({ token }) {
             )}
 
             {step === 'form' && (
-              <form className="competition-reg-form form-card" onSubmit={handleSubmit}>
+              <form className="competition-reg-form form-card" onSubmit={openIndividuelPayment}>
                 <h2>{judokaMeta ? 'Confirmer l\'inscription' : 'Nouvel enregistrement'}</h2>
                 {judokaMeta && (
                   <p className="form-hint">
                     Données importées depuis la carte <strong>{judokaMeta.numero_carte}</strong>.
                     Vérifiez la catégorie si besoin. Le poids sera saisi à la pesée.
                   </p>
+                )}
+                {fraisIndividuel > 0 && (
+                  <p className="form-hint">
+                    Frais : <strong>{formatMoney(fraisIndividuel)}</strong> par judoka.
+                    {basket.length > 0 ? ` Liste actuelle : ${basket.length} · Total provisoire ${formatMoney(fraisIndividuel * basket.length)}.` : ''}
+                  </p>
+                )}
+
+                {basket.length > 0 && (
+                  <div className="competition-basket">
+                    <h3>Judokas à inscrire ({basket.length})</h3>
+                    <ul>
+                      {basket.map((item) => (
+                        <li key={item._key}>
+                          <span>{item.prenom} {item.nom} · {item.club}</span>
+                          <button type="button" className="btn btn-outline btn-sm" onClick={() => removeFromBasket(item._key)}>
+                            Retirer
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 )}
 
                 <div className="form-grid">
@@ -471,11 +594,11 @@ export default function CompetitionPublicForm({ token }) {
                   </div>
                   <div className="form-group">
                     <label htmlFor="nom">Nom *</label>
-                    <input id="nom" name="nom" value={form.nom} onChange={handleChange} required readOnly={Boolean(judokaMeta)} />
+                    <input id="nom" name="nom" value={form.nom} onChange={handleChange} required={!basket.length} readOnly={Boolean(judokaMeta)} />
                   </div>
                   <div className="form-group">
                     <label htmlFor="prenom">Prénom *</label>
-                    <input id="prenom" name="prenom" value={form.prenom} onChange={handleChange} required readOnly={Boolean(judokaMeta)} />
+                    <input id="prenom" name="prenom" value={form.prenom} onChange={handleChange} required={!basket.length} readOnly={Boolean(judokaMeta)} />
                   </div>
                   <div className="form-group">
                     <label htmlFor="sexe">Sexe *</label>
@@ -492,7 +615,7 @@ export default function CompetitionPublicForm({ token }) {
                       name="date_naissance"
                       value={form.date_naissance}
                       onChange={handleChange}
-                      required
+                      required={!basket.length}
                       readOnly={Boolean(judokaMeta)}
                     />
                   </div>
@@ -507,24 +630,35 @@ export default function CompetitionPublicForm({ token }) {
                   </div>
                 </div>
 
-                <div className="form-actions">
+                <div className="form-actions competition-form-actions-multi">
                   <button
                     type="button"
                     className="btn btn-outline"
-                    onClick={() => setStep(judokaMeta ? 'lookup' : 'choice')}
+                    onClick={() => setStep(judokaMeta ? 'lookup' : (basket.length ? 'form' : 'choice'))}
                   >
                     Retour
                   </button>
+                  <button type="button" className="btn btn-outline" onClick={addToBasket}>
+                    Ajouter un judoka
+                  </button>
+                  <button type="button" className="btn btn-outline" onClick={() => { setJudokaMeta(null); setCardId(''); setStep('choice'); }}>
+                    Autre judoka
+                  </button>
                   <button type="submit" className="btn btn-primary" disabled={submitting}>
-                    {submitting ? 'Envoi...' : 'Valider l\'inscription'}
+                    Valider l&apos;inscription
                   </button>
                 </div>
               </form>
             )}
 
             {step === 'team' && (
-              <form className="competition-reg-form form-card competition-team-form" onSubmit={handleTeamSubmit}>
+              <form className="competition-reg-form form-card competition-team-form" onSubmit={openTeamPayment}>
                 <h2>Enregistrement Equipe · {sexeLabel(teamSexe)}</h2>
+                {fraisEquipe > 0 && (
+                  <p className="form-hint">
+                    Frais Par équipe : <strong>{formatMoney(fraisEquipe)}</strong> (par club).
+                  </p>
+                )}
 
                 <div className="form-group">
                   <label htmlFor="team-club">Nom du club *</label>
@@ -577,63 +711,58 @@ export default function CompetitionPublicForm({ token }) {
                         onChange={(e) => setTeamEntry((prev) => ({ ...prev, poids: e.target.value }))}
                         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); classifyTeamEntry(); } }}
                         placeholder="Ex. 57"
-                        inputMode="decimal"
                       />
                     </div>
                   </div>
                   <button type="button" className="btn btn-outline" onClick={classifyTeamEntry}>
-                    Valider
+                    Classer dans la catégorie
                   </button>
                 </div>
 
-                <div className="competition-team-cats">
+                <div className="competition-team-roster">
                   {weightCats.map((cat) => {
                     const bucket = teamRoster[cat.key];
                     return (
-                      <section key={cat.key} className="competition-team-cat">
-                        <h3>{cat.label}</h3>
+                      <section key={cat.key} className="competition-team-cat-block">
+                        <h4>{cat.label} <span>({cat.min}–{cat.max} kg)</span></h4>
                         {!bucket?.principal && !bucket?.remplacant ? (
-                          <p className="form-hint">Aucun judoka classé dans cette catégorie pour le moment.</p>
+                          <p className="form-hint">Aucun judoka classé</p>
                         ) : (
-                          <ul className="competition-team-classified">
-                            {bucket?.principal && (
+                          <ul>
+                            {bucket.principal && (
                               <li>
-                                <strong>Principal</strong> · {bucket.principal.nom_complet} ({bucket.principal.poids} kg)
+                                <strong>Principal</strong> — {bucket.principal.nom_complet} ({bucket.principal.poids} kg)
                                 <button
                                   type="button"
                                   className="btn btn-outline btn-sm"
                                   onClick={() => setTeamRoster((prev) => {
-                                    const next = { ...prev };
-                                    const cur = { ...next[cat.key], principal: null };
-                                    if (!cur.principal && !cur.remplacant) delete next[cat.key];
-                                    else next[cat.key] = cur;
-                                    return next;
+                                    const cur = prev[cat.key];
+                                    if (!cur) return prev;
+                                    return { ...prev, [cat.key]: { ...cur, principal: null } };
                                   })}
                                 >
                                   Retirer
                                 </button>
                               </li>
                             )}
-                            {bucket?.remplacant && (
+                            {bucket.remplacant && (
                               <li>
-                                <strong>Remplaçant</strong> · {bucket.remplacant.nom_complet} ({bucket.remplacant.poids} kg)
+                                <strong>Remplaçant</strong> — {bucket.remplacant.nom_complet} ({bucket.remplacant.poids} kg)
                                 <button
                                   type="button"
                                   className="btn btn-outline btn-sm"
                                   onClick={() => setTeamRoster((prev) => {
-                                    const next = { ...prev };
-                                    const cur = { ...next[cat.key], remplacant: null };
-                                    if (!cur.principal && !cur.remplacant) delete next[cat.key];
-                                    else next[cat.key] = cur;
-                                    return next;
+                                    const cur = prev[cat.key];
+                                    if (!cur) return prev;
+                                    return { ...prev, [cat.key]: { ...cur, remplacant: null } };
                                   })}
                                 >
                                   Retirer
                                 </button>
                               </li>
                             )}
-                            {bucket?.principal && bucket?.remplacant && (
-                              <li className="competition-team-swap">
+                            {bucket.principal && bucket.remplacant && (
+                              <li>
                                 <button
                                   type="button"
                                   className="btn btn-outline btn-sm"
@@ -670,7 +799,7 @@ export default function CompetitionPublicForm({ token }) {
                     className="btn btn-primary"
                     disabled={submitting || filledTeamJudokas < 3}
                   >
-                    {submitting ? 'Envoi...' : 'Enregistrer l\'équipe'}
+                    Enregistrer l&apos;équipe
                   </button>
                 </div>
               </form>
@@ -684,7 +813,10 @@ export default function CompetitionPublicForm({ token }) {
                     ? <>L&apos;équipe du club <strong>{successName}</strong> est inscrite à <strong>{competition.nom}</strong>.</>
                     : <>{successName || 'Le judoka'} est inscrit(e) à <strong>{competition.nom}</strong>.</>}
                 </p>
-                <p className="form-hint">{count} judoka{count > 1 ? 's' : ''} inscrit{count > 1 ? 's' : ''} au total.</p>
+                <p className="form-hint">
+                  {successCount > 0 ? `${successCount} inscription(s) validée(s). ` : ''}
+                  {count} judoka{count > 1 ? 's' : ''} inscrit{count > 1 ? 's' : ''} au total.
+                </p>
                 <button type="button" className="btn btn-primary" onClick={resetFlow}>
                   Nouvelle inscription
                 </button>
@@ -728,6 +860,21 @@ export default function CompetitionPublicForm({ token }) {
               </div>
             </div>
           </div>
+        )}
+
+        {showPayment && (
+          <CompetitionPaymentModal
+            title={paymentKind === 'equipe' ? 'Paiement inscription équipe' : 'Paiement inscription individuelle'}
+            summary={
+              paymentKind === 'equipe'
+                ? `Club ${teamClub} · frais forfaitaire par équipe`
+                : `${(paymentItems.length || basket.length)} judoka${(paymentItems.length || basket.length) > 1 ? 's' : ''} × ${formatMoney(fraisIndividuel)}`
+            }
+            amount={paymentAmount}
+            busy={submitting}
+            onClose={() => { if (!submitting) { setShowPayment(false); setPaymentKind(null); } }}
+            onConfirm={paymentKind === 'equipe' ? confirmTeamPayment : confirmIndividuelPayment}
+          />
         )}
       </div>
     </div>

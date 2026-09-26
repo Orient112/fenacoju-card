@@ -480,6 +480,18 @@ export async function deleteCompetitionRegistration(id) {
   return res.json();
 }
 
+export async function chargeCompetitionTeamFromIndividuel(data) {
+  const res = await apiFetch('/api/competition/registrations/charge-team', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Erreur lors du chargement des judokas');
+  }
+  return res.json();
+}
+
 export async function fetchPublicCompetition(token) {
   const res = await fetchWithTimeout(apiUrl(`/api/public/competition/${encodeURIComponent(token)}`));
   if (!res.ok) {
