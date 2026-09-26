@@ -4211,6 +4211,10 @@ tbody tr:last-child td {
   padding: 1.25rem 1.35rem;
 }
 
+.competition-payment-currency {
+  margin: 0.85rem 0 0.55rem;
+}
+
 .competition-payment-total {
   display: flex;
   justify-content: space-between;
