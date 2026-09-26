@@ -184,7 +184,24 @@ function TeamClubsTable({ clubs, onEdit, onDelete, onCharge }) {
           {clubs.map((team) => (
             <tr key={team.club}>
               <td data-label="Club">{team.club}</td>
-              <td data-label="Judokas">{team.members?.length || team.ids.length}</td>
+              <td data-label="Judokas">
+                <div className="competition-team-members-cell">
+                  <strong>{team.members?.length || team.ids.length}</strong>
+                  {(team.members || []).length > 0 && (
+                    <ul className="competition-team-members-preview">
+                      {(team.members || []).map((m) => (
+                        <li key={m.id}>
+                          {`${m.prenom || ''} ${m.nom || ''}`.trim()}
+                          {m.poids ? ` · ${m.poids} kg` : ''}
+                          {m.categorie ? ` · ${m.categorie}` : ''}
+                          {' · '}
+                          {teamMemberRole(m) === 'remplacant' ? 'Remplaçant' : 'Principal'}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </td>
               <td data-label="Actions">
                 <div className="actions-cell">
                   <button
@@ -675,7 +692,6 @@ export default function CompetitionSettings({ onBack, onToast }) {
         date_naissance: row.source.date_naissance || '',
         sexe: row.source.sexe || 'M',
         grade: row.source.grade || '',
-        categorie: row.source.categorie || '',
         telephone: row.source.telephone || '',
         email: row.source.email || '',
         judoka_id: row.source.judoka_id || null,
@@ -695,10 +711,57 @@ export default function CompetitionSettings({ onBack, onToast }) {
         club: chargeTeamTarget.club,
         members,
       });
-      setRegistrations((prev) => [...(result.registrations || []), ...prev]);
+      const created = result.registrations || [];
+      setRegistrations((prev) => [...created, ...prev]);
+      const clubName = chargeTeamTarget.club;
+      const chargedClub = String(clubName || '').trim().toLowerCase();
+      const mappedMembers = created.map((m) => ({
+        id: m.id,
+        nom: m.nom || '',
+        prenom: m.prenom || '',
+        poids: m.poids || '',
+        categorie: m.categorie || '',
+        sexe: m.sexe === 'F' ? 'F' : 'M',
+        role: teamMemberRole(m),
+        role_equipe: m.role_equipe,
+        taille: m.taille,
+      }));
+      const nextTeam = {
+        club: clubName,
+        members: [
+          ...created,
+          ...((editTeamTarget && String(editTeamTarget.club || '').trim().toLowerCase() === chargedClub)
+            ? (editTeamTarget.members || [])
+            : (chargeTeamTarget.members || [])),
+        ],
+        ids: [
+          ...created.map((r) => r.id),
+          ...((editTeamTarget && String(editTeamTarget.club || '').trim().toLowerCase() === chargedClub)
+            ? (editTeamTarget.ids || [])
+            : (chargeTeamTarget.ids || [])),
+        ],
+      };
+      setEditTeamTarget(nextTeam);
+      setEditTeamClub(clubName);
+      setEditTeamMembers((prev) => {
+        const base = (editTeamTarget && String(editTeamTarget.club || '').trim().toLowerCase() === chargedClub)
+          ? prev
+          : (chargeTeamTarget.members || []).map((m) => ({
+            id: m.id,
+            nom: m.nom || '',
+            prenom: m.prenom || '',
+            poids: m.poids || '',
+            categorie: m.categorie || '',
+            sexe: m.sexe === 'F' ? 'F' : 'M',
+            role: teamMemberRole(m),
+            role_equipe: m.role_equipe,
+            taille: m.taille,
+          }));
+        return [...mappedMembers, ...base];
+      });
       setChargeTeamTarget(null);
       setChargeSelections({});
-      onToast?.(`${result.count || members.length} judoka(s) chargé(s) dans ${chargeTeamTarget.club}`);
+      onToast?.(`${result.count || members.length} judoka(s) chargé(s) dans ${clubName}`);
     } catch (err) {
       setError(err.message);
       onToast?.(err.message, 'error');
@@ -1019,6 +1082,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
             nom: member.nom,
             prenom: member.prenom,
             poids: member.poids,
+            role_equipe: member.role === 'remplacant' ? 'remplacant' : 'principal',
           });
           updatedList.push(updated);
         }
@@ -1043,6 +1107,32 @@ export default function CompetitionSettings({ onBack, onToast }) {
     } finally {
       setSaving(false);
     }
+  };
+
+  const swapTeamMemberRole = (memberId) => {
+    setEditTeamMembers((prev) => {
+      const member = prev.find((m) => m.id === memberId);
+      if (!member) return prev;
+      const cat = teamMemberCategory(member);
+      const sexe = member.sexe === 'F' ? 'F' : 'M';
+      const currentRole = member.role === 'remplacant' ? 'remplacant' : 'principal';
+      const otherRole = currentRole === 'principal' ? 'remplacant' : 'principal';
+      const peer = prev.find((m) => (
+        m.id !== memberId
+        && teamMemberCategory(m) === cat
+        && (m.sexe === 'F' ? 'F' : 'M') === sexe
+        && (m.role === 'remplacant' ? 'remplacant' : 'principal') === otherRole
+      ));
+      return prev.map((row) => {
+        if (row.id === member.id) {
+          return { ...row, role: otherRole, role_equipe: otherRole };
+        }
+        if (peer && row.id === peer.id) {
+          return { ...row, role: currentRole, role_equipe: currentRole };
+        }
+        return row;
+      });
+    });
   };
 
   const handleSaveRegistration = async (e) => {
@@ -1595,10 +1685,10 @@ export default function CompetitionSettings({ onBack, onToast }) {
 
       {editRegTarget && (
         <div className="confirm-overlay" onClick={() => setEditRegTarget(null)}>
-          <div className="confirm-dialog" onClick={(e) => e.stopPropagation()}>
+          <div className="confirm-dialog competition-edit-reg-modal" onClick={(e) => e.stopPropagation()}>
             <h3>Modifier l&apos;inscription</h3>
             <form onSubmit={handleSaveRegistration}>
-              <div className="form-grid">
+              <div className="competition-edit-reg-grid">
                 <div className="form-group">
                   <label htmlFor="edit-prenom">Prénom</label>
                   <input
@@ -1617,7 +1707,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
                     required
                   />
                 </div>
-                <div className="form-group form-group-full">
+                <div className="form-group">
                   <label htmlFor="edit-poids">Poids (kg)</label>
                   <input
                     id="edit-poids"
@@ -1669,9 +1759,8 @@ export default function CompetitionSettings({ onBack, onToast }) {
                       const member = bucket[role];
                       if (!member) return null;
                       return (
-                        <div key={member.id} className="competition-team-edit-row">
-                          <p className="form-hint">{role === 'principal' ? 'Principal' : 'Remplaçant'}</p>
-                          <div className="form-grid">
+                        <div key={member.id} className="competition-team-edit-row competition-team-edit-row-inline">
+                          <div className="competition-team-edit-inline-fields">
                             <div className="form-group">
                               <label htmlFor={`edit-team-prenom-${member.id}`}>Prénom</label>
                               <input
@@ -1694,8 +1783,8 @@ export default function CompetitionSettings({ onBack, onToast }) {
                                 required
                               />
                             </div>
-                            <div className="form-group form-group-full">
-                              <label htmlFor={`edit-team-poids-${member.id}`}>Poids (kg)</label>
+                            <div className="form-group">
+                              <label htmlFor={`edit-team-poids-${member.id}`}>Poids</label>
                               <input
                                 id={`edit-team-poids-${member.id}`}
                                 value={member.poids}
@@ -1705,6 +1794,47 @@ export default function CompetitionSettings({ onBack, onToast }) {
                                 inputMode="decimal"
                               />
                             </div>
+                            <div className="form-group">
+                              <label htmlFor={`edit-team-role-${member.id}`}>Rôle</label>
+                              <select
+                                id={`edit-team-role-${member.id}`}
+                                value={member.role === 'remplacant' ? 'remplacant' : 'principal'}
+                                onChange={(e) => {
+                                  const nextRole = e.target.value === 'remplacant' ? 'remplacant' : 'principal';
+                                  setEditTeamMembers((prev) => {
+                                    const peer = prev.find((m) => (
+                                      m.id !== member.id
+                                      && teamMemberCategory(m) === teamMemberCategory(member)
+                                      && (m.sexe === 'F' ? 'F' : 'M') === (member.sexe === 'F' ? 'F' : 'M')
+                                      && (m.role === 'remplacant' ? 'remplacant' : 'principal') === nextRole
+                                    ));
+                                    return prev.map((row) => {
+                                      if (row.id === member.id) {
+                                        return { ...row, role: nextRole, role_equipe: nextRole };
+                                      }
+                                      if (peer && row.id === peer.id) {
+                                        const swapped = nextRole === 'principal' ? 'remplacant' : 'principal';
+                                        return { ...row, role: swapped, role_equipe: swapped };
+                                      }
+                                      return row;
+                                    });
+                                  });
+                                }}
+                              >
+                                <option value="principal">Principal</option>
+                                <option value="remplacant">Remplaçant</option>
+                              </select>
+                            </div>
+                            {bucket.principal && bucket.remplacant && role === 'principal' && (
+                              <button
+                                type="button"
+                                className="btn btn-outline btn-sm competition-team-swap-btn"
+                                onClick={() => swapTeamMemberRole(member.id)}
+                                title="Permuter Principal / Remplaçant"
+                              >
+                                ⇄
+                              </button>
+                            )}
                           </div>
                         </div>
                       );

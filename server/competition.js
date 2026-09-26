@@ -580,6 +580,13 @@ export async function createCompetitionTeamRoster({
     if (bucket[role]) {
       throw new Error(`Un ${role === 'principal' ? 'Principal' : 'Remplaçant'} est déjà classé en ${cat.label}`);
     }
+    const already = existing.find((r) => (
+      getTeamRole(r) === role
+      && String(r.categorie || '').trim() === cat.label
+    ));
+    if (already) {
+      throw new Error(`Un ${role === 'principal' ? 'Principal' : 'Remplaçant'} est déjà classé en ${cat.label}`);
+    }
     const member = {
       nom,
       prenom,
@@ -601,7 +608,13 @@ export async function createCompetitionTeamRoster({
 
   for (const bucket of byCat.values()) {
     if (bucket.remplacant && !bucket.principal) {
-      throw new Error(`Indiquez le Principal avant le Remplaçant en ${bucket.cat.label}`);
+      const existingPrincipal = existing.find((r) => (
+        getTeamRole(r) === 'principal'
+        && String(r.categorie || '').trim() === bucket.cat.label
+      ));
+      if (!existingPrincipal) {
+        throw new Error(`Indiquez le Principal avant le Remplaçant en ${bucket.cat.label}`);
+      }
     }
   }
 
@@ -656,22 +669,51 @@ export async function chargeTeamFromIndividuel({ club, members = [] } = {}) {
     throw new Error('Sélectionnez au moins un judoka à charger');
   }
 
+  const settings = await getCompetitionSettings();
+  const allowedCategories = parseCategoriesPoids(settings.categories_poids || []);
+  const existing = (await getCompetitionRegistrations()).filter((r) => (
+    getRegistrationMode(r) === 'equipe' && norm(r.club) === norm(clubName)
+  ));
+
   const created = [];
+  const pendingSlots = new Map();
+
   for (const raw of members) {
     const nom = String(raw?.nom || '').trim();
     const prenom = String(raw?.prenom || '').trim();
     const poids = String(raw?.poids || '').trim();
+    const sexe = String(raw?.sexe || 'M').toUpperCase().startsWith('F') ? 'F' : 'M';
+    const role = raw?.role_equipe === 'remplacant' ? 'remplacant' : 'principal';
     if (!nom || !prenom) throw new Error('Nom et prénom obligatoires pour chaque judoka');
     if (!poids) throw new Error(`Indiquez le poids pour ${prenom} ${nom}`);
+
+    const cat = findCategoryForWeight(allowedCategories, poids, sexe);
+    if (!cat) {
+      throw new Error(`Aucun seuil de catégorie ne correspond au poids ${poids} kg pour ${prenom} ${nom}`);
+    }
+
+    const slotKey = `${sexe}|${cat.key}|${role}`;
+    if (pendingSlots.has(slotKey)) {
+      throw new Error(`Deux judokas ne peuvent pas occuper le même poste ${role === 'principal' ? 'Principal' : 'Remplaçant'} en ${cat.label}`);
+    }
+    const already = existing.find((r) => (
+      getTeamRole(r) === role
+      && (r.sexe === 'F' ? 'F' : 'M') === sexe
+      && String(r.categorie || '').trim() === cat.label
+    ));
+    if (already) {
+      throw new Error(`Un ${role === 'principal' ? 'Principal' : 'Remplaçant'} est déjà classé en ${cat.label} pour ${clubName}`);
+    }
+    pendingSlots.set(slotKey, true);
 
     const row = await createCompetitionRegistration({
       nom,
       prenom,
       date_naissance: raw?.date_naissance || '',
-      sexe: raw?.sexe || 'M',
+      sexe,
       club: clubName,
       grade: raw?.grade || '',
-      categorie: raw?.categorie || '',
+      categorie: cat.label,
       poids,
       telephone: raw?.telephone || '',
       email: raw?.email || '',
@@ -679,7 +721,7 @@ export async function chargeTeamFromIndividuel({ club, members = [] } = {}) {
       numero_carte: raw?.numero_carte || '',
       deja_enregistre: Boolean(raw?.deja_enregistre || raw?.judoka_id),
       mode_inscription: 'equipe',
-      role_equipe: raw?.role_equipe === 'remplacant' ? 'remplacant' : 'principal',
+      role_equipe: role,
     });
     created.push(row);
   }
@@ -737,6 +779,10 @@ export async function updateCompetitionRegistration(id, patch = {}) {
   if (patch.poids !== undefined) next.poids = String(patch.poids ?? '').trim();
   if (patch.club !== undefined) next.club = String(patch.club || '').trim();
   if (patch.categorie !== undefined) next.categorie = String(patch.categorie || '').trim();
+  if (patch.role_equipe !== undefined && getRegistrationMode(existing) === 'equipe') {
+    next.role_equipe = patch.role_equipe === 'remplacant' ? 'remplacant' : 'principal';
+    next.taille = `${TEAM_MODE_MARK}:${next.role_equipe}`;
+  }
   if (!next.nom || !next.prenom) throw new Error('Nom et prénom obligatoires');
   if (patch.club !== undefined && !next.club) throw new Error('Le nom du club est obligatoire');
 
@@ -750,12 +796,19 @@ export async function updateCompetitionRegistration(id, patch = {}) {
           poids: next.poids,
           club: next.club,
           categorie: next.categorie,
+          taille: next.taille,
         })
         .eq('id', id)
         .select('*')
         .maybeSingle();
       if (error) throw error;
-      if (data) return data;
+      if (data) {
+        return {
+          ...data,
+          mode_inscription: getRegistrationMode(data),
+          role_equipe: getTeamRole({ ...data, role_equipe: next.role_equipe }),
+        };
+      }
     } catch (err) {
       if (!/relation|does not exist|schema cache/i.test(err.message || '')) throw err;
       console.warn('Update inscription compétition fallback JSON:', err.message);
@@ -767,7 +820,11 @@ export async function updateCompetitionRegistration(id, patch = {}) {
   if (index === -1) throw new Error('Inscription introuvable');
   list[index] = next;
   writeRegistrationsJson(list);
-  return next;
+  return {
+    ...next,
+    mode_inscription: getRegistrationMode(next),
+    role_equipe: getTeamRole(next),
+  };
 }
 
 export async function updateCompetitionRegistrationWeight(id, poids) {

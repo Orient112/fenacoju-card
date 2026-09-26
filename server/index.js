@@ -407,6 +407,7 @@ app.post('/api/public/competition/:token/register', async (req, res) => {
         sexe: body.sexe,
         members: body.members,
         allowedCategories: settings.categories_poids || [],
+        allowExisting: Boolean(body.allow_existing),
         paiement: body.paiement ? {
           statut: 'paye',
           montant: body.paiement.montant ?? (
@@ -716,6 +717,7 @@ app.put('/api/competition/registrations/:id', async (req, res) => {
       poids: req.body?.poids,
       club: req.body?.club,
       categorie: req.body?.categorie,
+      role_equipe: req.body?.role_equipe,
     });
     res.json(updated);
   } catch (err) {

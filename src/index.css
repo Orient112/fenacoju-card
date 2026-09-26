@@ -1594,10 +1594,23 @@ tbody tr:last-child td {
 }
 
 .competition-team-edit-modal {
-  max-width: min(720px, 94vw);
+  max-width: min(920px, 96vw);
   text-align: left;
   max-height: 90vh;
   overflow: auto;
+}
+
+.competition-edit-reg-modal {
+  max-width: min(640px, 94vw);
+  text-align: left;
+}
+
+.competition-edit-reg-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+  margin: 1rem 0 1.25rem;
+  text-align: left;
 }
 
 .competition-team-edit-list {
@@ -1625,12 +1638,51 @@ tbody tr:last-child td {
   background: #f8fafc;
 }
 
+.competition-team-edit-row-inline {
+  padding: 0.55rem 0.7rem;
+}
+
+.competition-team-edit-inline-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.2fr) minmax(0, 0.7fr) minmax(0, 0.9fr) auto;
+  gap: 0.55rem;
+  align-items: end;
+}
+
+.competition-team-swap-btn {
+  min-width: 2.4rem;
+  margin-bottom: 0.1rem;
+}
+
 .competition-team-edit-row .form-hint {
   margin: 0 0 0.55rem;
 }
 
-.competition-team-edit-modal .confirm-actions {
+.competition-team-edit-modal .confirm-actions,
+.competition-edit-reg-modal .confirm-actions {
   justify-content: flex-end;
+}
+
+.competition-team-members-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  text-align: left;
+}
+
+.competition-team-members-preview {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.competition-team-members-preview li {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.25;
 }
 
 .competition-club-editor-list {
@@ -4307,7 +4359,9 @@ tbody tr:last-child td {
 @media (max-width: 700px) {
   .competition-fees-grid,
   .competition-fees-grid-dual,
-  .competition-charge-fields {
+  .competition-charge-fields,
+  .competition-edit-reg-grid,
+  .competition-team-edit-inline-fields {
     grid-template-columns: 1fr;
   }
 }

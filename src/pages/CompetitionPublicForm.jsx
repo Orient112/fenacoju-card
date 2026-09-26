@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   fetchPublicCompetition,
+  fetchPublicCompetitionRegistrations,
   lookupPublicCompetitionJudoka,
   registerPublicCompetition,
   CATEGORIES,
@@ -328,7 +329,7 @@ export default function CompetitionPublicForm({ token }) {
   };
 
   const selectTeamSexe = (sexe) => {
-    const cats = categoriesForSexe(allWeightCats, sexe);
+    const cats = categoriesForSexe(parseCategoriesPoids(competition?.categories_poids), sexe);
     if (cats.length < TEAM_MIN_CATEGORIES) {
       setError(`Au moins ${TEAM_MIN_CATEGORIES} catégories ${sexeLabel(sexe)} doivent être définies.`);
       return;
@@ -340,6 +341,42 @@ export default function CompetitionPublicForm({ token }) {
     setTeamRoster({});
     setTeamEntry(emptyTeamEntry());
     setStep('team');
+  };
+
+  const loadExistingTeamRoster = async (club, sexe) => {
+    if (!token || !club) {
+      setTeamRoster({});
+      return;
+    }
+    try {
+      const data = await fetchPublicCompetitionRegistrations(token);
+      const cats = categoriesForSexe(parseCategoriesPoids(competition?.categories_poids), sexe);
+      const clubKey = String(club).trim().toLowerCase();
+      const teamSexeKey = sexe === 'F' ? 'F' : 'M';
+      const members = (data.registrations || []).filter((r) => (
+        r.mode_inscription === 'equipe'
+        && String(r.club || '').trim().toLowerCase() === clubKey
+        && (r.sexe === 'F' ? 'F' : 'M') === teamSexeKey
+      ));
+      const next = {};
+      for (const m of members) {
+        const cat = cats.find((c) => c.label === String(m.categorie || '').trim())
+          || findCategoryForWeight(cats, m.poids, teamSexeKey);
+        if (!cat) continue;
+        if (!next[cat.key]) next[cat.key] = { cat, principal: null, remplacant: null };
+        const role = m.role_equipe === 'remplacant' ? 'remplacant' : 'principal';
+        next[cat.key][role] = {
+          nom_complet: `${m.prenom || ''} ${m.nom || ''}`.trim(),
+          poids: m.poids || '',
+          role,
+          locked: true,
+          registrationId: m.id,
+        };
+      }
+      setTeamRoster(next);
+    } catch {
+      setTeamRoster({});
+    }
   };
 
   const openTeamPayment = (e) => {
@@ -356,6 +393,13 @@ export default function CompetitionPublicForm({ token }) {
       setError('Inscrivez au moins 3 judokas pour enregistrer l\'équipe');
       return;
     }
+    const hasNew = Object.values(teamRoster).some((b) => (
+      (b.principal && !b.principal.locked) || (b.remplacant && !b.remplacant.locked)
+    ));
+    if (!hasNew) {
+      setError('Cette équipe est déjà enregistrée pour ce club');
+      return;
+    }
     setPaymentKind('equipe');
     setShowPayment(true);
   };
@@ -365,34 +409,47 @@ export default function CompetitionPublicForm({ token }) {
     setError('');
     try {
       const members = [];
+      let hasLocked = false;
       for (const bucket of Object.values(teamRoster)) {
         if (bucket.principal) {
-          const names = splitFullName(bucket.principal.nom_complet);
-          members.push({
-            ...names,
-            nom_complet: bucket.principal.nom_complet,
-            poids: bucket.principal.poids,
-            role_equipe: 'principal',
-          });
+          if (bucket.principal.locked) {
+            hasLocked = true;
+          } else {
+            const names = splitFullName(bucket.principal.nom_complet);
+            members.push({
+              ...names,
+              nom_complet: bucket.principal.nom_complet,
+              poids: bucket.principal.poids,
+              role_equipe: 'principal',
+            });
+          }
         }
         if (bucket.remplacant) {
           if (!bucket.principal) {
             throw new Error(`Indiquez le Principal avant le Remplaçant en ${bucket.cat?.label || ''}`);
           }
-          const names = splitFullName(bucket.remplacant.nom_complet);
-          members.push({
-            ...names,
-            nom_complet: bucket.remplacant.nom_complet,
-            poids: bucket.remplacant.poids,
-            role_equipe: 'remplacant',
-          });
+          if (bucket.remplacant.locked) {
+            hasLocked = true;
+          } else {
+            const names = splitFullName(bucket.remplacant.nom_complet);
+            members.push({
+              ...names,
+              nom_complet: bucket.remplacant.nom_complet,
+              poids: bucket.remplacant.poids,
+              role_equipe: 'remplacant',
+            });
+          }
         }
+      }
+      if (!members.length) {
+        throw new Error('Cette équipe est déjà enregistrée pour ce club');
       }
       const result = await registerPublicCompetition(token, {
         mode_inscription: 'equipe',
         club: teamClub.trim(),
         sexe: teamSexe,
         members,
+        allow_existing: hasLocked,
         paiement,
       });
       setSuccessName(teamClub.trim());
@@ -685,18 +742,29 @@ export default function CompetitionPublicForm({ token }) {
             {step === 'team' && (
               <form className="competition-reg-form form-card competition-team-form" onSubmit={openTeamPayment}>
                 <h2>Enregistrement Equipe · {sexeLabel(teamSexe)}</h2>
-                {fraisEquipe > 0 && (
+                {fraisEquipeCdf > 0 || fraisEquipeUsd > 0 ? (
                   <p className="form-hint">
-                    Frais Par équipe : <strong>{formatMoney(fraisEquipe, fraisMonnaie)}</strong> (par club).
+                    Frais Par équipe :{' '}
+                    <strong>
+                      {fraisEquipeCdf > 0 ? formatMoney(fraisEquipeCdf, 'CDF') : null}
+                      {fraisEquipeCdf > 0 && fraisEquipeUsd > 0 ? ' · ' : ''}
+                      {fraisEquipeUsd > 0 ? formatMoney(fraisEquipeUsd, 'USD') : null}
+                    </strong>
+                    {' '}(par club).
                   </p>
-                )}
+                ) : null}
 
                 <div className="form-group">
                   <label htmlFor="team-club">Nom du club *</label>
                   <select
                     id="team-club"
                     value={teamClub}
-                    onChange={(e) => setTeamClub(e.target.value)}
+                    onChange={(e) => {
+                      const nextClub = e.target.value;
+                      setTeamClub(nextClub);
+                      if (nextClub) loadExistingTeamRoster(nextClub, teamSexe);
+                      else setTeamRoster({});
+                    }}
                     required
                     autoFocus
                   >
@@ -763,36 +831,44 @@ export default function CompetitionPublicForm({ token }) {
                             {bucket.principal && (
                               <li>
                                 <strong>Principal</strong> — {bucket.principal.nom_complet} ({bucket.principal.poids} kg)
-                                <button
-                                  type="button"
-                                  className="btn btn-outline btn-sm"
-                                  onClick={() => setTeamRoster((prev) => {
-                                    const cur = prev[cat.key];
-                                    if (!cur) return prev;
-                                    return { ...prev, [cat.key]: { ...cur, principal: null } };
-                                  })}
-                                >
-                                  Retirer
-                                </button>
+                                {bucket.principal.locked ? (
+                                  <span className="badge badge-actif">Chargé</span>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    className="btn btn-outline btn-sm"
+                                    onClick={() => setTeamRoster((prev) => {
+                                      const cur = prev[cat.key];
+                                      if (!cur) return prev;
+                                      return { ...prev, [cat.key]: { ...cur, principal: null } };
+                                    })}
+                                  >
+                                    Retirer
+                                  </button>
+                                )}
                               </li>
                             )}
                             {bucket.remplacant && (
                               <li>
                                 <strong>Remplaçant</strong> — {bucket.remplacant.nom_complet} ({bucket.remplacant.poids} kg)
-                                <button
-                                  type="button"
-                                  className="btn btn-outline btn-sm"
-                                  onClick={() => setTeamRoster((prev) => {
-                                    const cur = prev[cat.key];
-                                    if (!cur) return prev;
-                                    return { ...prev, [cat.key]: { ...cur, remplacant: null } };
-                                  })}
-                                >
-                                  Retirer
-                                </button>
+                                {bucket.remplacant.locked ? (
+                                  <span className="badge badge-actif">Chargé</span>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    className="btn btn-outline btn-sm"
+                                    onClick={() => setTeamRoster((prev) => {
+                                      const cur = prev[cat.key];
+                                      if (!cur) return prev;
+                                      return { ...prev, [cat.key]: { ...cur, remplacant: null } };
+                                    })}
+                                  >
+                                    Retirer
+                                  </button>
+                                )}
                               </li>
                             )}
-                            {bucket.principal && bucket.remplacant && (
+                            {bucket.principal && bucket.remplacant && !bucket.principal.locked && !bucket.remplacant.locked && (
                               <li>
                                 <button
                                   type="button"
