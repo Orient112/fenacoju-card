@@ -19,8 +19,13 @@ const DEFAULT_SETTINGS = {
   categories_poids: [],
   categories_poids_individuel: [],
   competition_clubs: [],
+  frais_monnaie: 'CDF',
   frais_individuel: 0,
   frais_equipe: 0,
+  frais_individuel_cdf: 0,
+  frais_individuel_usd: 0,
+  frais_equipe_cdf: 0,
+  frais_equipe_usd: 0,
   updated_at: null,
 };
 
@@ -182,8 +187,17 @@ function ensureDefaults(raw = {}) {
   settings.categories_poids = parseCategoriesPoids(settings.categories_poids);
   settings.categories_poids_individuel = parseCategoriesPoids(settings.categories_poids_individuel);
   settings.competition_clubs = parseCompetitionClubs(settings.competition_clubs);
-  settings.frais_individuel = Math.max(0, Number(settings.frais_individuel) || 0);
-  settings.frais_equipe = Math.max(0, Number(settings.frais_equipe) || 0);
+  settings.frais_monnaie = String(settings.frais_monnaie || '').toUpperCase() === 'USD' ? 'USD' : 'CDF';
+  settings.frais_individuel_cdf = Math.max(0, Number(settings.frais_individuel_cdf ?? settings.frais_individuel) || 0);
+  settings.frais_individuel_usd = Math.max(0, Number(settings.frais_individuel_usd) || 0);
+  settings.frais_equipe_cdf = Math.max(0, Number(settings.frais_equipe_cdf ?? settings.frais_equipe) || 0);
+  settings.frais_equipe_usd = Math.max(0, Number(settings.frais_equipe_usd) || 0);
+  settings.frais_individuel = settings.frais_monnaie === 'USD'
+    ? settings.frais_individuel_usd
+    : settings.frais_individuel_cdf;
+  settings.frais_equipe = settings.frais_monnaie === 'USD'
+    ? settings.frais_equipe_usd
+    : settings.frais_equipe_cdf;
   const desc = String(settings.description || '');
   const metaMatch = desc.match(META_RE);
   if (metaMatch) {
@@ -198,12 +212,27 @@ function ensureDefaults(raw = {}) {
       if (!settings.competition_clubs.length && Array.isArray(meta.competition_clubs)) {
         settings.competition_clubs = parseCompetitionClubs(meta.competition_clubs);
       }
-      if (meta.frais_individuel != null) {
-        settings.frais_individuel = Math.max(0, Number(meta.frais_individuel) || 0);
+      if (meta.frais_monnaie) {
+        settings.frais_monnaie = String(meta.frais_monnaie).toUpperCase() === 'USD' ? 'USD' : 'CDF';
       }
-      if (meta.frais_equipe != null) {
-        settings.frais_equipe = Math.max(0, Number(meta.frais_equipe) || 0);
+      if (meta.frais_individuel_cdf != null || meta.frais_individuel != null) {
+        settings.frais_individuel_cdf = Math.max(0, Number(meta.frais_individuel_cdf ?? meta.frais_individuel) || 0);
       }
+      if (meta.frais_individuel_usd != null) {
+        settings.frais_individuel_usd = Math.max(0, Number(meta.frais_individuel_usd) || 0);
+      }
+      if (meta.frais_equipe_cdf != null || meta.frais_equipe != null) {
+        settings.frais_equipe_cdf = Math.max(0, Number(meta.frais_equipe_cdf ?? meta.frais_equipe) || 0);
+      }
+      if (meta.frais_equipe_usd != null) {
+        settings.frais_equipe_usd = Math.max(0, Number(meta.frais_equipe_usd) || 0);
+      }
+      settings.frais_individuel = settings.frais_monnaie === 'USD'
+        ? settings.frais_individuel_usd
+        : settings.frais_individuel_cdf;
+      settings.frais_equipe = settings.frais_monnaie === 'USD'
+        ? settings.frais_equipe_usd
+        : settings.frais_equipe_cdf;
     } catch {
       // ignore meta
     }
@@ -227,8 +256,17 @@ function toDbSettings(settings) {
       categories_poids: cats,
       categories_poids_individuel: indivCats,
       competition_clubs: parseCompetitionClubs(settings.competition_clubs),
-      frais_individuel: Math.max(0, Number(settings.frais_individuel) || 0),
-      frais_equipe: Math.max(0, Number(settings.frais_equipe) || 0),
+      frais_monnaie: String(settings.frais_monnaie || '').toUpperCase() === 'USD' ? 'USD' : 'CDF',
+      frais_individuel_cdf: Math.max(0, Number(settings.frais_individuel_cdf ?? settings.frais_individuel) || 0),
+      frais_individuel_usd: Math.max(0, Number(settings.frais_individuel_usd) || 0),
+      frais_equipe_cdf: Math.max(0, Number(settings.frais_equipe_cdf ?? settings.frais_equipe) || 0),
+      frais_equipe_usd: Math.max(0, Number(settings.frais_equipe_usd) || 0),
+      frais_individuel: String(settings.frais_monnaie || '').toUpperCase() === 'USD'
+        ? Math.max(0, Number(settings.frais_individuel_usd) || 0)
+        : Math.max(0, Number(settings.frais_individuel_cdf ?? settings.frais_individuel) || 0),
+      frais_equipe: String(settings.frais_monnaie || '').toUpperCase() === 'USD'
+        ? Math.max(0, Number(settings.frais_equipe_usd) || 0)
+        : Math.max(0, Number(settings.frais_equipe_cdf ?? settings.frais_equipe) || 0),
     })}-->`,
     public_enabled: Boolean(settings.public_enabled),
     public_token: settings.public_token || '',
@@ -325,6 +363,11 @@ export function toPublicCompetition(settings, extras = {}) {
     categories_poids: parseCategoriesPoids(settings.categories_poids),
     categories_poids_individuel: parseCategoriesPoids(settings.categories_poids_individuel),
     competition_clubs: parseCompetitionClubs(settings.competition_clubs),
+    frais_monnaie: String(settings.frais_monnaie || '').toUpperCase() === 'USD' ? 'USD' : 'CDF',
+    frais_individuel_cdf: Math.max(0, Number(settings.frais_individuel_cdf ?? settings.frais_individuel) || 0),
+    frais_individuel_usd: Math.max(0, Number(settings.frais_individuel_usd) || 0),
+    frais_equipe_cdf: Math.max(0, Number(settings.frais_equipe_cdf ?? settings.frais_equipe) || 0),
+    frais_equipe_usd: Math.max(0, Number(settings.frais_equipe_usd) || 0),
     frais_individuel: Math.max(0, Number(settings.frais_individuel) || 0),
     frais_equipe: Math.max(0, Number(settings.frais_equipe) || 0),
     ...extras,
@@ -374,11 +417,13 @@ function normDate(value) {
 
 export async function findDuplicateCompetitionRegistration(payload) {
   const list = await getCompetitionRegistrations();
+  const mode = payload.mode_inscription === 'equipe' ? 'equipe' : 'individuel';
+  const sameMode = list.filter((r) => getRegistrationMode(r) === mode);
 
   if (payload.deja_enregistre) {
     const judokaId = payload.judoka_id || null;
     const carte = normCard(payload.numero_carte);
-    return list.find((r) => {
+    return sameMode.find((r) => {
       if (judokaId && r.judoka_id && String(r.judoka_id) === String(judokaId)) return true;
       if (carte && normCard(r.numero_carte) === carte) return true;
       return false;
@@ -391,7 +436,7 @@ export async function findDuplicateCompetitionRegistration(payload) {
   const club = norm(payload.club);
   const email = norm(payload.email);
 
-  return list.find((r) => (
+  return sameMode.find((r) => (
     norm(r.nom) === nom
     && norm(r.prenom) === prenom
     && normDate(r.date_naissance) === dateNaissance
@@ -570,7 +615,13 @@ export async function createCompetitionTeamRoster({
   const payInfo = paiement && typeof paiement === 'object' ? {
     paiement_statut: paiement.statut === 'paye' || paiement.paiement_statut === 'paye' ? 'paye' : 'en_attente',
     montant_paye: Math.max(0, Number(paiement.montant ?? paiement.montant_paye) || 0),
-    mode_paiement: String(paiement.mode || paiement.mode_paiement || '').trim(),
+    mode_paiement: (() => {
+      const mode = String(paiement.mode || paiement.mode_paiement || '').trim();
+      const phone = String(paiement.telephone || '').trim();
+      if (mode.startsWith('mobile_money|')) return mode;
+      if (mode === 'mobile_money' && phone) return `mobile_money|${phone}`;
+      return mode;
+    })(),
   } : {};
 
   const created = [];

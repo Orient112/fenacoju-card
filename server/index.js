@@ -368,15 +368,25 @@ app.post('/api/public/competition/:token/register', async (req, res) => {
 
     const body = req.body || {};
     const modeInscription = body.mode_inscription === 'equipe' ? 'equipe' : 'individuel';
+    const payMode = body.paiement && typeof body.paiement === 'object'
+      ? String(body.paiement.mode || '').trim()
+      : '';
+    const payPhone = body.paiement && typeof body.paiement === 'object'
+      ? String(body.paiement.telephone || '').trim()
+      : '';
     const payInfo = body.paiement && typeof body.paiement === 'object' ? {
       paiement_statut: 'paye',
       montant_paye: Math.max(0, Number(body.paiement.montant) || 0),
-      mode_paiement: String(body.paiement.mode || '').trim(),
+      mode_paiement: payMode === 'mobile_money' && payPhone
+        ? `mobile_money|${payPhone}`
+        : payMode,
     } : {};
 
     if (modeInscription === 'individuel' && Array.isArray(body.batch) && body.batch.length) {
       const created = [];
-      const unitFee = Math.max(0, Number(settings.frais_individuel) || 0);
+      const unitFee = Math.max(0, Number(
+        settings.frais_monnaie === 'USD' ? settings.frais_individuel_usd : settings.frais_individuel_cdf
+      ) || Number(settings.frais_individuel) || 0);
       for (const item of body.batch) {
         const registration = await createCompetitionRegistration({
           ...item,
@@ -399,8 +409,13 @@ app.post('/api/public/competition/:token/register', async (req, res) => {
         allowedCategories: settings.categories_poids || [],
         paiement: body.paiement ? {
           statut: 'paye',
-          montant: body.paiement.montant ?? settings.frais_equipe,
-          mode: body.paiement.mode,
+          montant: body.paiement.montant ?? (
+            settings.frais_monnaie === 'USD' ? settings.frais_equipe_usd : settings.frais_equipe_cdf
+          ) ?? settings.frais_equipe,
+          mode: payMode === 'mobile_money' && payPhone
+            ? `mobile_money|${payPhone}`
+            : (body.paiement.mode || payMode),
+          telephone: payPhone,
         } : null,
       });
       return res.status(201).json(roster);
@@ -579,11 +594,20 @@ app.put('/api/competition', async (req, res) => {
     if (body.competition_clubs !== undefined) {
       patch.competition_clubs = parseCompetitionClubs(body.competition_clubs);
     }
-    if (body.frais_individuel !== undefined) {
-      patch.frais_individuel = Math.max(0, Number(body.frais_individuel) || 0);
+    if (body.frais_monnaie !== undefined) {
+      patch.frais_monnaie = String(body.frais_monnaie).toUpperCase() === 'USD' ? 'USD' : 'CDF';
     }
-    if (body.frais_equipe !== undefined) {
-      patch.frais_equipe = Math.max(0, Number(body.frais_equipe) || 0);
+    if (body.frais_individuel_cdf !== undefined || body.frais_individuel !== undefined) {
+      patch.frais_individuel_cdf = Math.max(0, Number(body.frais_individuel_cdf ?? body.frais_individuel) || 0);
+    }
+    if (body.frais_individuel_usd !== undefined) {
+      patch.frais_individuel_usd = Math.max(0, Number(body.frais_individuel_usd) || 0);
+    }
+    if (body.frais_equipe_cdf !== undefined || body.frais_equipe !== undefined) {
+      patch.frais_equipe_cdf = Math.max(0, Number(body.frais_equipe_cdf ?? body.frais_equipe) || 0);
+    }
+    if (body.frais_equipe_usd !== undefined) {
+      patch.frais_equipe_usd = Math.max(0, Number(body.frais_equipe_usd) || 0);
     }
     if (body.public_enabled !== undefined) {
       const next = { ...current, ...patch };

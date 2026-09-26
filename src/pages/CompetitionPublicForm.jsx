@@ -84,6 +84,11 @@ export default function CompetitionPublicForm({ token }) {
             competition_clubs: data.competition_clubs,
             frais_individuel: data.frais_individuel,
             frais_equipe: data.frais_equipe,
+            frais_monnaie: data.frais_monnaie,
+            frais_individuel_cdf: data.frais_individuel_cdf,
+            frais_individuel_usd: data.frais_individuel_usd,
+            frais_equipe_cdf: data.frais_equipe_cdf,
+            frais_equipe_usd: data.frais_equipe_usd,
             team_counts: data.team_counts,
           };
         });
@@ -104,8 +109,21 @@ export default function CompetitionPublicForm({ token }) {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const fraisIndividuel = Math.max(0, Number(competition?.frais_individuel) || 0);
-  const fraisEquipe = Math.max(0, Number(competition?.frais_equipe) || 0);
+  const fraisMonnaie = String(competition?.frais_monnaie || '').toUpperCase() === 'USD' ? 'USD' : 'CDF';
+  const fraisIndividuel = Math.max(0, Number(
+    fraisMonnaie === 'USD'
+      ? (competition?.frais_individuel_usd ?? competition?.frais_individuel)
+      : (competition?.frais_individuel_cdf ?? competition?.frais_individuel)
+  ) || 0);
+  const fraisEquipe = Math.max(0, Number(
+    fraisMonnaie === 'USD'
+      ? (competition?.frais_equipe_usd ?? competition?.frais_equipe)
+      : (competition?.frais_equipe_cdf ?? competition?.frais_equipe)
+  ) || 0);
+  const fraisIndividuelCdf = Math.max(0, Number(competition?.frais_individuel_cdf ?? competition?.frais_individuel) || 0);
+  const fraisIndividuelUsd = Math.max(0, Number(competition?.frais_individuel_usd) || 0);
+  const fraisEquipeCdf = Math.max(0, Number(competition?.frais_equipe_cdf ?? competition?.frais_equipe) || 0);
+  const fraisEquipeUsd = Math.max(0, Number(competition?.frais_equipe_usd) || 0);
 
   const resetFlow = () => {
     setStep('mode');
@@ -463,13 +481,29 @@ export default function CompetitionPublicForm({ token }) {
           <p className="competition-public-desc">{competition.description}</p>
         )}
 
-        {(fraisIndividuel > 0 || fraisEquipe > 0) && step === 'mode' && (
+        {(fraisIndividuelCdf > 0 || fraisIndividuelUsd > 0 || fraisEquipeCdf > 0 || fraisEquipeUsd > 0) && step === 'mode' && (
           <div className="competition-fees-public">
-            {fraisIndividuel > 0 && (
-              <span>Individuel : <strong>{formatMoney(fraisIndividuel)}</strong> / judoka</span>
+            {(fraisIndividuelCdf > 0 || fraisIndividuelUsd > 0) && (
+              <span>
+                Individuel :{' '}
+                <strong>
+                  {fraisIndividuelCdf > 0 ? formatMoney(fraisIndividuelCdf, 'CDF') : null}
+                  {fraisIndividuelCdf > 0 && fraisIndividuelUsd > 0 ? ' · ' : ''}
+                  {fraisIndividuelUsd > 0 ? formatMoney(fraisIndividuelUsd, 'USD') : null}
+                </strong>
+                {' '}/ judoka
+              </span>
             )}
-            {fraisEquipe > 0 && (
-              <span>Par équipe : <strong>{formatMoney(fraisEquipe)}</strong> / club</span>
+            {(fraisEquipeCdf > 0 || fraisEquipeUsd > 0) && (
+              <span>
+                Par équipe :{' '}
+                <strong>
+                  {fraisEquipeCdf > 0 ? formatMoney(fraisEquipeCdf, 'CDF') : null}
+                  {fraisEquipeCdf > 0 && fraisEquipeUsd > 0 ? ' · ' : ''}
+                  {fraisEquipeUsd > 0 ? formatMoney(fraisEquipeUsd, 'USD') : null}
+                </strong>
+                {' '}/ club
+              </span>
             )}
           </div>
         )}
@@ -558,8 +592,8 @@ export default function CompetitionPublicForm({ token }) {
                 )}
                 {fraisIndividuel > 0 && (
                   <p className="form-hint">
-                    Frais : <strong>{formatMoney(fraisIndividuel)}</strong> par judoka.
-                    {basket.length > 0 ? ` Liste actuelle : ${basket.length} · Total provisoire ${formatMoney(fraisIndividuel * basket.length)}.` : ''}
+                    Frais : <strong>{formatMoney(fraisIndividuel, fraisMonnaie)}</strong> par judoka.
+                    {basket.length > 0 ? ` Liste actuelle : ${basket.length} · Total provisoire ${formatMoney(fraisIndividuel * basket.length, fraisMonnaie)}.` : ''}
                   </p>
                 )}
 
@@ -641,9 +675,6 @@ export default function CompetitionPublicForm({ token }) {
                   <button type="button" className="btn btn-outline" onClick={addToBasket}>
                     Ajouter un judoka
                   </button>
-                  <button type="button" className="btn btn-outline" onClick={() => { setJudokaMeta(null); setCardId(''); setStep('choice'); }}>
-                    Autre judoka
-                  </button>
                   <button type="submit" className="btn btn-primary" disabled={submitting}>
                     Valider l&apos;inscription
                   </button>
@@ -656,7 +687,7 @@ export default function CompetitionPublicForm({ token }) {
                 <h2>Enregistrement Equipe · {sexeLabel(teamSexe)}</h2>
                 {fraisEquipe > 0 && (
                   <p className="form-hint">
-                    Frais Par équipe : <strong>{formatMoney(fraisEquipe)}</strong> (par club).
+                    Frais Par équipe : <strong>{formatMoney(fraisEquipe, fraisMonnaie)}</strong> (par club).
                   </p>
                 )}
 
@@ -868,9 +899,10 @@ export default function CompetitionPublicForm({ token }) {
             summary={
               paymentKind === 'equipe'
                 ? `Club ${teamClub} · frais forfaitaire par équipe`
-                : `${(paymentItems.length || basket.length)} judoka${(paymentItems.length || basket.length) > 1 ? 's' : ''} × ${formatMoney(fraisIndividuel)}`
+                : `${(paymentItems.length || basket.length)} judoka${(paymentItems.length || basket.length) > 1 ? 's' : ''} × ${formatMoney(fraisIndividuel, fraisMonnaie)}`
             }
             amount={paymentAmount}
+            currency={fraisMonnaie}
             busy={submitting}
             onClose={() => { if (!submitting) { setShowPayment(false); setPaymentKind(null); } }}
             onConfirm={paymentKind === 'equipe' ? confirmTeamPayment : confirmIndividuelPayment}

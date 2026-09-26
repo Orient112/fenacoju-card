@@ -374,34 +374,79 @@ function ParamsFormFields({ form, onChange, onCategoriesChange, onIndividualCate
           <h4>Frais de participation</h4>
         </div>
         <p className="form-hint">
-          Le frais Individuel s&apos;applique par judoka. Le frais Par équipe s&apos;applique par club et se règle à l&apos;inscription.
+          Définissez les prix en Franc Congolais et en Dollars pour chaque catégorie.
+          La monnaie choisie est celle utilisée pour le paiement à l&apos;inscription.
         </p>
-        <div className="competition-fees-grid">
-          <div className="form-group">
-            <label htmlFor="frais-individuel">Frais Individuel (par judoka)</label>
-            <input
-              id="frais-individuel"
-              name="frais_individuel"
-              type="number"
-              min="0"
-              step="1"
-              value={form.frais_individuel ?? 0}
-              onChange={onChange}
-              placeholder="0"
-            />
+        <div className="form-group competition-fees-currency">
+          <label htmlFor="frais-monnaie">Monnaie de paiement</label>
+          <select
+            id="frais-monnaie"
+            name="frais_monnaie"
+            value={form.frais_monnaie || 'CDF'}
+            onChange={onChange}
+          >
+            <option value="CDF">Franc Congolais (FC)</option>
+            <option value="USD">Dollars (USD)</option>
+          </select>
+        </div>
+        <div className="competition-fees-grid competition-fees-grid-dual">
+          <div className="competition-fees-category">
+            <h5>Individuel (par judoka)</h5>
+            <div className="form-group">
+              <label htmlFor="frais-individuel-cdf">Prix en Franc Congolais</label>
+              <input
+                id="frais-individuel-cdf"
+                name="frais_individuel_cdf"
+                type="number"
+                min="0"
+                step="1"
+                value={form.frais_individuel_cdf ?? 0}
+                onChange={onChange}
+                placeholder="0"
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="frais-individuel-usd">Prix en Dollars</label>
+              <input
+                id="frais-individuel-usd"
+                name="frais_individuel_usd"
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.frais_individuel_usd ?? 0}
+                onChange={onChange}
+                placeholder="0"
+              />
+            </div>
           </div>
-          <div className="form-group">
-            <label htmlFor="frais-equipe">Frais Par équipe (par club)</label>
-            <input
-              id="frais-equipe"
-              name="frais_equipe"
-              type="number"
-              min="0"
-              step="1"
-              value={form.frais_equipe ?? 0}
-              onChange={onChange}
-              placeholder="0"
-            />
+          <div className="competition-fees-category">
+            <h5>Par équipe (par club)</h5>
+            <div className="form-group">
+              <label htmlFor="frais-equipe-cdf">Prix en Franc Congolais</label>
+              <input
+                id="frais-equipe-cdf"
+                name="frais_equipe_cdf"
+                type="number"
+                min="0"
+                step="1"
+                value={form.frais_equipe_cdf ?? 0}
+                onChange={onChange}
+                placeholder="0"
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="frais-equipe-usd">Prix en Dollars</label>
+              <input
+                id="frais-equipe-usd"
+                name="frais_equipe_usd"
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.frais_equipe_usd ?? 0}
+                onChange={onChange}
+                placeholder="0"
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -457,8 +502,11 @@ export default function CompetitionSettings({ onBack, onToast }) {
     description: '',
     categories_poids: [],
     categories_poids_individuel: [],
-    frais_individuel: 0,
-    frais_equipe: 0,
+    frais_monnaie: 'CDF',
+    frais_individuel_cdf: 0,
+    frais_individuel_usd: 0,
+    frais_equipe_cdf: 0,
+    frais_equipe_usd: 0,
   });
   const formRef = useRef(form);
   const savingRef = useRef(false);
@@ -480,8 +528,11 @@ export default function CompetitionSettings({ onBack, onToast }) {
       description: data.description || '',
       categories_poids: Array.isArray(data.categories_poids) ? data.categories_poids : [],
       categories_poids_individuel: Array.isArray(data.categories_poids_individuel) ? data.categories_poids_individuel : [],
-      frais_individuel: Math.max(0, Number(data.frais_individuel) || 0),
-      frais_equipe: Math.max(0, Number(data.frais_equipe) || 0),
+      frais_monnaie: String(data.frais_monnaie || '').toUpperCase() === 'USD' ? 'USD' : 'CDF',
+      frais_individuel_cdf: Math.max(0, Number(data.frais_individuel_cdf ?? data.frais_individuel) || 0),
+      frais_individuel_usd: Math.max(0, Number(data.frais_individuel_usd) || 0),
+      frais_equipe_cdf: Math.max(0, Number(data.frais_equipe_cdf ?? data.frais_equipe) || 0),
+      frais_equipe_usd: Math.max(0, Number(data.frais_equipe_usd) || 0),
     });
   };
 
@@ -572,8 +623,11 @@ export default function CompetitionSettings({ onBack, onToast }) {
     try {
       const payload = {
         ...form,
-        frais_individuel: Math.max(0, Number(form.frais_individuel) || 0),
-        frais_equipe: Math.max(0, Number(form.frais_equipe) || 0),
+        frais_monnaie: String(form.frais_monnaie || '').toUpperCase() === 'USD' ? 'USD' : 'CDF',
+        frais_individuel_cdf: Math.max(0, Number(form.frais_individuel_cdf) || 0),
+        frais_individuel_usd: Math.max(0, Number(form.frais_individuel_usd) || 0),
+        frais_equipe_cdf: Math.max(0, Number(form.frais_equipe_cdf) || 0),
+        frais_equipe_usd: Math.max(0, Number(form.frais_equipe_usd) || 0),
       };
       const updated = await updateCompetition(payload);
       setSettings((prev) => ({ ...prev, ...updated }));
@@ -1466,8 +1520,8 @@ export default function CompetitionSettings({ onBack, onToast }) {
               <div>
                 <h3>Charger des judokas</h3>
                 <p className="form-hint">
-                  Sélectionnez des judokas inscrits en Individuel pour l&apos;équipe{' '}
-                  <strong>{chargeTeamTarget.club}</strong>.
+                  Sélectionnez des judokas inscrits en Individuel (tous clubs) pour l&apos;équipe{' '}
+                  <strong>{chargeTeamTarget.club}</strong>. Leur inscription Individuel reste inchangée.
                 </p>
               </div>
               <button type="button" className="btn btn-outline btn-sm" onClick={() => setChargeTeamTarget(null)}>
