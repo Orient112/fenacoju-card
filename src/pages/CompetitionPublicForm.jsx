@@ -32,7 +32,8 @@ function buildTeamRosterFromMembers(members, categories, club, sexe) {
   const teamSexeKey = sexe === 'F' ? 'F' : 'M';
   const next = {};
   for (const m of members || []) {
-    if (m.mode_inscription !== 'equipe') continue;
+    // team_members ne contient que le cadre Par équipe ; tolérer mode manquant
+    if (m.mode_inscription && m.mode_inscription !== 'equipe') continue;
     if (String(m.club || '').trim().toLowerCase() !== clubKey) continue;
     if ((m.sexe === 'F' ? 'F' : 'M') !== teamSexeKey) continue;
     const cat = cats.find((c) => c.label === String(m.categorie || '').trim())
@@ -58,6 +59,17 @@ function buildTeamRosterFromMembers(members, categories, club, sexe) {
     };
   }
   return next;
+}
+
+function countExistingTeamMembers(members, club, sexe) {
+  const clubKey = String(club || '').trim().toLowerCase();
+  if (!clubKey) return 0;
+  const teamSexeKey = sexe === 'F' ? 'F' : 'M';
+  return (members || []).filter((m) => {
+    if (m.mode_inscription && m.mode_inscription !== 'equipe') return false;
+    if (String(m.club || '').trim().toLowerCase() !== clubKey) return false;
+    return (m.sexe === 'F' ? 'F' : 'M') === teamSexeKey;
+  }).length;
 }
 
 export default function CompetitionPublicForm({ token }) {
@@ -428,18 +440,19 @@ export default function CompetitionPublicForm({ token }) {
       setError('Sélectionnez le club');
       return;
     }
+    const existingCount = countExistingTeamMembers(competition?.team_members, teamClub, teamSexe);
+    const hasNew = Object.values(teamRoster).some((b) => (
+      (b.principal && !b.principal.locked) || (b.remplacant && !b.remplacant.locked)
+    ));
+    if ((existingCount > 0 || Object.values(teamRoster).some((b) => b.principal?.locked || b.remplacant?.locked)) && !hasNew) {
+      setError('Cette équipe est déjà enregistrée pour ce club');
+      return;
+    }
     const filled = Object.values(teamRoster).reduce((sum, b) => (
       sum + (b.principal ? 1 : 0) + (b.remplacant ? 1 : 0)
     ), 0);
     if (filled < 3) {
       setError('Inscrivez au moins 3 judokas pour enregistrer l\'équipe');
-      return;
-    }
-    const hasNew = Object.values(teamRoster).some((b) => (
-      (b.principal && !b.principal.locked) || (b.remplacant && !b.remplacant.locked)
-    ));
-    if (!hasNew) {
-      setError('Cette équipe est déjà enregistrée pour ce club');
       return;
     }
     setPaymentKind('equipe');
@@ -571,8 +584,14 @@ export default function CompetitionPublicForm({ token }) {
   const hasNewTeamMembers = Object.values(teamRoster).some((b) => (
     (b.principal && !b.principal.locked) || (b.remplacant && !b.remplacant.locked)
   ));
+  const existingTeamInSystem = countExistingTeamMembers(
+    competition.team_members,
+    teamClub,
+    teamSexe
+  );
+  // Équipe déjà en base (judokas affichés) et aucun nouveau judoka à ajouter → validation inactive
   const teamAlreadyRegistered = Boolean(teamClub)
-    && lockedTeamJudokas > 0
+    && (existingTeamInSystem > 0 || lockedTeamJudokas > 0)
     && !hasNewTeamMembers;
   const judokaCount = Math.max(paymentItems.length || basket.length, 1);
   const individuelAmountCdf = fraisIndividuelCdf * judokaCount;
@@ -1009,8 +1028,9 @@ export default function CompetitionPublicForm({ token }) {
                   </button>
                   <button
                     type="submit"
-                    className="btn btn-primary"
-                    disabled={submitting || filledTeamJudokas < 3 || teamAlreadyRegistered}
+                    className={`btn btn-primary${teamAlreadyRegistered ? ' is-disabled' : ''}`}
+                    disabled={submitting || teamAlreadyRegistered || filledTeamJudokas < 3}
+                    aria-disabled={teamAlreadyRegistered || filledTeamJudokas < 3}
                     title={teamAlreadyRegistered ? 'Équipe déjà enregistrée' : undefined}
                   >
                     Valider l&apos;Inscription
