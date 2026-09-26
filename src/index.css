@@ -4215,6 +4215,17 @@ tbody tr:last-child td {
   margin: 0.85rem 0 0.55rem;
 }
 
+.competition-team-club-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.competition-team-club-row select {
+  flex: 1;
+  min-width: 0;
+}
+
 .competition-payment-total {
   display: flex;
   justify-content: space-between;

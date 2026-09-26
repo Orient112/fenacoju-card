@@ -563,6 +563,17 @@ export default function CompetitionPublicForm({ token }) {
   const filledTeamJudokas = Object.values(teamRoster).reduce((sum, b) => (
     sum + (b.principal ? 1 : 0) + (b.remplacant ? 1 : 0)
   ), 0);
+  const lockedTeamJudokas = Object.values(teamRoster).reduce((sum, b) => (
+    sum
+    + (b.principal?.locked ? 1 : 0)
+    + (b.remplacant?.locked ? 1 : 0)
+  ), 0);
+  const hasNewTeamMembers = Object.values(teamRoster).some((b) => (
+    (b.principal && !b.principal.locked) || (b.remplacant && !b.remplacant.locked)
+  ));
+  const teamAlreadyRegistered = Boolean(teamClub)
+    && lockedTeamJudokas > 0
+    && !hasNewTeamMembers;
   const judokaCount = Math.max(paymentItems.length || basket.length, 1);
   const individuelAmountCdf = fraisIndividuelCdf * judokaCount;
   const individuelAmountUsd = fraisIndividuelUsd * judokaCount;
@@ -829,28 +840,49 @@ export default function CompetitionPublicForm({ token }) {
 
                 <div className="form-group">
                   <label htmlFor="team-club">Nom du club *</label>
-                  <select
-                    id="team-club"
-                    value={teamClub}
-                    onChange={(e) => {
-                      const nextClub = e.target.value;
-                      setTeamClub(nextClub);
-                      if (nextClub) loadExistingTeamRoster(nextClub, teamSexe);
-                      else setTeamRoster({});
-                    }}
-                    required
-                    autoFocus
-                  >
-                    <option value="">— Sélectionner un club —</option>
-                    {namesForSelect(teamClub).map((nom) => (
-                      <option key={nom} value={nom}>{nom}</option>
-                    ))}
-                  </select>
-                  {namesForSelect(teamClub).length === 0 && (
+                  <div className="competition-team-club-row">
+                    <select
+                      id="team-club"
+                      value={teamClub}
+                      onChange={(e) => {
+                        const nextClub = e.target.value;
+                        setTeamClub(nextClub);
+                        setError('');
+                        if (nextClub) loadExistingTeamRoster(nextClub, teamSexe);
+                        else setTeamRoster({});
+                      }}
+                      required
+                      autoFocus={!teamAlreadyRegistered}
+                      disabled={teamAlreadyRegistered}
+                    >
+                      <option value="">— Sélectionner un club —</option>
+                      {namesForSelect(teamClub).map((nom) => (
+                        <option key={nom} value={nom}>{nom}</option>
+                      ))}
+                    </select>
+                    {teamAlreadyRegistered && (
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-sm"
+                        onClick={() => {
+                          setTeamClub('');
+                          setTeamRoster({});
+                          setError('');
+                        }}
+                      >
+                        Changer
+                      </button>
+                    )}
+                  </div>
+                  {teamAlreadyRegistered && (
+                    <p className="form-hint">Cette équipe est déjà enregistrée. Les judokas s&apos;affichent en lecture seule.</p>
+                  )}
+                  {!teamAlreadyRegistered && namesForSelect(teamClub).length === 0 && (
                     <p className="form-hint">Aucun club Par équipe n&apos;est encore enregistré pour cette compétition.</p>
                   )}
                 </div>
 
+                {!teamAlreadyRegistered && (
                 <div className="competition-team-entry">
                   <h3>Ajouter un judoka</h3>
                   <div className="form-grid">
@@ -890,6 +922,7 @@ export default function CompetitionPublicForm({ token }) {
                     Classer dans la catégorie
                   </button>
                 </div>
+                )}
 
                 <div className="competition-team-roster">
                   {weightCats.map((cat) => {
@@ -977,7 +1010,8 @@ export default function CompetitionPublicForm({ token }) {
                   <button
                     type="submit"
                     className="btn btn-primary"
-                    disabled={submitting || filledTeamJudokas < 3}
+                    disabled={submitting || filledTeamJudokas < 3 || teamAlreadyRegistered}
+                    title={teamAlreadyRegistered ? 'Équipe déjà enregistrée' : undefined}
                   >
                     Valider l&apos;Inscription
                   </button>
