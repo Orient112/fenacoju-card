@@ -184,24 +184,7 @@ function TeamClubsTable({ clubs, onEdit, onDelete, onCharge }) {
           {clubs.map((team) => (
             <tr key={team.club}>
               <td data-label="Club">{team.club}</td>
-              <td data-label="Judokas">
-                <div className="competition-team-members-cell">
-                  <strong>{team.members?.length || team.ids.length}</strong>
-                  {(team.members || []).length > 0 && (
-                    <ul className="competition-team-members-preview">
-                      {(team.members || []).map((m) => (
-                        <li key={m.id}>
-                          {`${m.prenom || ''} ${m.nom || ''}`.trim()}
-                          {m.poids ? ` · ${m.poids} kg` : ''}
-                          {m.categorie ? ` · ${m.categorie}` : ''}
-                          {' · '}
-                          {teamMemberRole(m) === 'remplacant' ? 'Remplaçant' : 'Principal'}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              </td>
+              <td data-label="Judokas">{team.members?.length || team.ids.length}</td>
               <td data-label="Actions">
                 <div className="actions-cell">
                   <button

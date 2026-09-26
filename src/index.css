@@ -1663,28 +1663,6 @@ tbody tr:last-child td {
   justify-content: flex-end;
 }
 
-.competition-team-members-cell {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  text-align: left;
-}
-
-.competition-team-members-preview {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-}
-
-.competition-team-members-preview li {
-  font-size: 0.82rem;
-  color: var(--text-muted);
-  line-height: 1.25;
-}
-
 .competition-club-editor-list {
   list-style: none;
   margin: 0 0 1rem;

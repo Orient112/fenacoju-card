@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
   fetchPublicCompetition,
-  fetchPublicCompetitionRegistrations,
   lookupPublicCompetitionJudoka,
   registerPublicCompetition,
   CATEGORIES,
@@ -26,6 +25,40 @@ const emptyForm = () => ({
 
 const TEAM_MIN_CATEGORIES = 3;
 const emptyTeamEntry = () => ({ nom_complet: '', role: 'principal', poids: '' });
+
+function buildTeamRosterFromMembers(members, categories, club, sexe) {
+  const cats = categoriesForSexe(categories, sexe);
+  const clubKey = String(club || '').trim().toLowerCase();
+  const teamSexeKey = sexe === 'F' ? 'F' : 'M';
+  const next = {};
+  for (const m of members || []) {
+    if (m.mode_inscription !== 'equipe') continue;
+    if (String(m.club || '').trim().toLowerCase() !== clubKey) continue;
+    if ((m.sexe === 'F' ? 'F' : 'M') !== teamSexeKey) continue;
+    const cat = cats.find((c) => c.label === String(m.categorie || '').trim())
+      || findCategoryForWeight(cats, m.poids, teamSexeKey)
+      || (m.categorie || m.poids
+        ? {
+          key: `${teamSexeKey}|${String(m.categorie || m.poids).trim()}`,
+          label: String(m.categorie || m.poids).trim(),
+          sexe: teamSexeKey,
+          min: 0,
+          max: 999,
+        }
+        : null);
+    if (!cat) continue;
+    if (!next[cat.key]) next[cat.key] = { cat, principal: null, remplacant: null };
+    const role = m.role_equipe === 'remplacant' ? 'remplacant' : 'principal';
+    next[cat.key][role] = {
+      nom_complet: `${m.prenom || ''} ${m.nom || ''}`.trim(),
+      poids: m.poids || '',
+      role,
+      locked: true,
+      registrationId: m.id,
+    };
+  }
+  return next;
+}
 
 export default function CompetitionPublicForm({ token }) {
   const [loading, setLoading] = useState(true);
@@ -91,6 +124,7 @@ export default function CompetitionPublicForm({ token }) {
             frais_equipe_cdf: data.frais_equipe_cdf,
             frais_equipe_usd: data.frais_equipe_usd,
             team_counts: data.team_counts,
+            team_members: data.team_members,
           };
         });
       } catch {
@@ -104,6 +138,37 @@ export default function CompetitionPublicForm({ token }) {
       clearInterval(id);
     };
   }, [token, loading]);
+
+  useEffect(() => {
+    if (step !== 'team' || !teamClub || !teamSexe) return;
+    const next = buildTeamRosterFromMembers(
+      competition?.team_members,
+      competition?.categories_poids,
+      teamClub,
+      teamSexe
+    );
+    setTeamRoster((prev) => {
+      const merged = { ...next };
+      for (const [key, bucket] of Object.entries(prev || {})) {
+        if (!merged[key]) {
+          merged[key] = {
+            cat: bucket.cat,
+            principal: bucket.principal && !bucket.principal.locked ? bucket.principal : null,
+            remplacant: bucket.remplacant && !bucket.remplacant.locked ? bucket.remplacant : null,
+          };
+          if (!merged[key].principal && !merged[key].remplacant) delete merged[key];
+          continue;
+        }
+        if (bucket.principal && !bucket.principal.locked && !merged[key].principal) {
+          merged[key] = { ...merged[key], principal: bucket.principal };
+        }
+        if (bucket.remplacant && !bucket.remplacant.locked && !merged[key].remplacant) {
+          merged[key] = { ...merged[key], remplacant: bucket.remplacant };
+        }
+      }
+      return merged;
+    });
+  }, [competition?.team_members, competition?.categories_poids, teamClub, teamSexe, step]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -343,40 +408,17 @@ export default function CompetitionPublicForm({ token }) {
     setStep('team');
   };
 
-  const loadExistingTeamRoster = async (club, sexe) => {
-    if (!token || !club) {
+  const loadExistingTeamRoster = (club, sexe) => {
+    if (!club) {
       setTeamRoster({});
       return;
     }
-    try {
-      const data = await fetchPublicCompetitionRegistrations(token);
-      const cats = categoriesForSexe(parseCategoriesPoids(competition?.categories_poids), sexe);
-      const clubKey = String(club).trim().toLowerCase();
-      const teamSexeKey = sexe === 'F' ? 'F' : 'M';
-      const members = (data.registrations || []).filter((r) => (
-        r.mode_inscription === 'equipe'
-        && String(r.club || '').trim().toLowerCase() === clubKey
-        && (r.sexe === 'F' ? 'F' : 'M') === teamSexeKey
-      ));
-      const next = {};
-      for (const m of members) {
-        const cat = cats.find((c) => c.label === String(m.categorie || '').trim())
-          || findCategoryForWeight(cats, m.poids, teamSexeKey);
-        if (!cat) continue;
-        if (!next[cat.key]) next[cat.key] = { cat, principal: null, remplacant: null };
-        const role = m.role_equipe === 'remplacant' ? 'remplacant' : 'principal';
-        next[cat.key][role] = {
-          nom_complet: `${m.prenom || ''} ${m.nom || ''}`.trim(),
-          poids: m.poids || '',
-          role,
-          locked: true,
-          registrationId: m.id,
-        };
-      }
-      setTeamRoster(next);
-    } catch {
-      setTeamRoster({});
-    }
+    setTeamRoster(buildTeamRosterFromMembers(
+      competition?.team_members,
+      competition?.categories_poids,
+      club,
+      sexe
+    ));
   };
 
   const openTeamPayment = (e) => {
@@ -501,7 +543,17 @@ export default function CompetitionPublicForm({ token }) {
   ));
   const namesForSelect = (current) => {
     const names = registeredClubs.map((c) => c.nom).filter(Boolean);
-    if (current && !names.includes(current)) names.unshift(current);
+    if (inscriptionMode === 'equipe') {
+      for (const m of (competition.team_members || [])) {
+        const nom = String(m.club || '').trim();
+        if (nom && !names.some((n) => n.toLowerCase() === nom.toLowerCase())) {
+          names.push(nom);
+        }
+      }
+    }
+    if (current && !names.some((n) => n.toLowerCase() === String(current).toLowerCase())) {
+      names.unshift(current);
+    }
     return names;
   };
   const filledTeamJudokas = Object.values(teamRoster).reduce((sum, b) => (
@@ -647,10 +699,23 @@ export default function CompetitionPublicForm({ token }) {
                     Vérifiez la catégorie si besoin. Le poids sera saisi à la pesée.
                   </p>
                 )}
-                {fraisIndividuel > 0 && (
+                {(fraisIndividuelCdf > 0 || fraisIndividuelUsd > 0) && (
                   <p className="form-hint">
-                    Frais : <strong>{formatMoney(fraisIndividuel, fraisMonnaie)}</strong> par judoka.
-                    {basket.length > 0 ? ` Liste actuelle : ${basket.length} · Total provisoire ${formatMoney(fraisIndividuel * basket.length, fraisMonnaie)}.` : ''}
+                    Frais :{' '}
+                    <strong>
+                      {fraisIndividuelCdf > 0 ? formatMoney(fraisIndividuelCdf, 'CDF') : null}
+                      {fraisIndividuelCdf > 0 && fraisIndividuelUsd > 0 ? ' · ' : ''}
+                      {fraisIndividuelUsd > 0 ? formatMoney(fraisIndividuelUsd, 'USD') : null}
+                    </strong>
+                    {' '}par judoka.
+                    {basket.length > 0 ? (
+                      <>
+                        {' '}Liste actuelle : {basket.length} · Total provisoire{' '}
+                        {fraisIndividuelCdf > 0 ? formatMoney(fraisIndividuelCdf * basket.length, 'CDF') : null}
+                        {fraisIndividuelCdf > 0 && fraisIndividuelUsd > 0 ? ' · ' : ''}
+                        {fraisIndividuelUsd > 0 ? formatMoney(fraisIndividuelUsd * basket.length, 'USD') : null}.
+                      </>
+                    ) : null}
                   </p>
                 )}
 

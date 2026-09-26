@@ -236,14 +236,17 @@ app.get('/api/public/competition/:token', async (req, res) => {
 
     const registrations = await getCompetitionRegistrations();
     const teamCounts = {};
+    const teamMembers = [];
     for (const r of registrations) {
       const mode = r.mode_inscription === 'equipe' || String(r.taille || '').startsWith('__mode_equipe__') ? 'equipe' : 'individuel';
       if (mode !== 'equipe') continue;
       const club = (r.club || '').trim() || 'Sans club';
       const poids = String(r.poids || '').trim();
-      if (!poids) continue;
-      if (!teamCounts[club]) teamCounts[club] = {};
-      teamCounts[club][poids] = (teamCounts[club][poids] || 0) + 1;
+      if (poids) {
+        if (!teamCounts[club]) teamCounts[club] = {};
+        teamCounts[club][poids] = (teamCounts[club][poids] || 0) + 1;
+      }
+      teamMembers.push(toPublicRegistration(r));
     }
     const base = {
       nom: settings.nom,
@@ -255,6 +258,7 @@ app.get('/api/public/competition/:token', async (req, res) => {
       categories_poids: settings.categories_poids || [],
       competition_clubs: settings.competition_clubs || [],
       team_counts: teamCounts,
+      team_members: teamMembers,
       registrations_count: registrations.length,
       closed: !settings.public_enabled,
     };
@@ -269,6 +273,7 @@ app.get('/api/public/competition/:token', async (req, res) => {
       categories_poids: settings.categories_poids || [],
       competition_clubs: settings.competition_clubs || [],
       team_counts: teamCounts,
+      team_members: teamMembers,
     });
     if (!pub) return res.status(404).json({ error: 'Formulaire de compétition indisponible' });
     res.json(pub);
