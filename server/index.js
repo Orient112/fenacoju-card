@@ -412,6 +412,12 @@ app.post('/api/public/competition/:token/register', async (req, res) => {
     }
 
     if (modeInscription === 'equipe' && Array.isArray(body.members)) {
+      const payCurrency = String(body.paiement?.monnaie || settings.frais_monnaie || 'CDF').toUpperCase() === 'USD'
+        ? 'USD'
+        : 'CDF';
+      const defaultTeamFee = Math.max(0, Number(
+        payCurrency === 'USD' ? settings.frais_equipe_usd : settings.frais_equipe_cdf
+      ) || Number(settings.frais_equipe) || 0);
       const roster = await createCompetitionTeamRoster({
         club: body.club,
         sexe: body.sexe,
@@ -420,13 +426,12 @@ app.post('/api/public/competition/:token/register', async (req, res) => {
         allowExisting: Boolean(body.allow_existing),
         paiement: body.paiement ? {
           statut: 'paye',
-          montant: body.paiement.montant ?? (
-            settings.frais_monnaie === 'USD' ? settings.frais_equipe_usd : settings.frais_equipe_cdf
-          ) ?? settings.frais_equipe,
+          montant: Math.max(0, Number(body.paiement.montant) || defaultTeamFee),
           mode: payMode === 'mobile_money' && payPhone
             ? `mobile_money|${payPhone}`
             : (body.paiement.mode || payMode),
           telephone: payPhone,
+          monnaie: payCurrency,
         } : null,
       });
       return res.status(201).json(roster);

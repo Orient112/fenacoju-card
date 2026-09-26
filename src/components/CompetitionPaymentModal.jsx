@@ -70,6 +70,19 @@ export default function CompetitionPaymentModal({
           </button>
         </div>
 
+        <div className="form-group competition-payment-currency">
+          <label htmlFor="pay-currency">Monnaie de paiement *</label>
+          <select
+            id="pay-currency"
+            value={payCurrency}
+            onChange={(e) => setPayCurrency(e.target.value === 'USD' ? 'USD' : 'CDF')}
+            required
+          >
+            <option value="CDF" disabled={cdf <= 0 && usd > 0}>Franc Congolais (FC)</option>
+            <option value="USD" disabled={usd <= 0 && cdf > 0}>Dollars (USD)</option>
+          </select>
+        </div>
+
         <div className="competition-payment-total">
           <span>Montant à régler</span>
           <strong>{formatMoney(payableAmount, payCurrency)}</strong>
@@ -104,18 +117,6 @@ export default function CompetitionPaymentModal({
               />
             </div>
           )}
-          <div className="form-group">
-            <label htmlFor="pay-currency">Monnaie de paiement *</label>
-            <select
-              id="pay-currency"
-              value={payCurrency}
-              onChange={(e) => setPayCurrency(e.target.value === 'USD' ? 'USD' : 'CDF')}
-              required
-            >
-              <option value="CDF" disabled={cdf <= 0 && usd > 0}>Franc Congolais (FC)</option>
-              <option value="USD" disabled={usd <= 0 && cdf > 0}>Dollars (USD)</option>
-            </select>
-          </div>
           <div className="form-actions">
             <button type="button" className="btn btn-outline" onClick={onClose} disabled={busy}>
               Annuler

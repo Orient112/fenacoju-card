@@ -979,7 +979,7 @@ export default function CompetitionPublicForm({ token }) {
                     className="btn btn-primary"
                     disabled={submitting || filledTeamJudokas < 3}
                   >
-                    Enregistrer l&apos;équipe
+                    Valider l&apos;Inscription
                   </button>
                 </div>
               </form>
@@ -1044,7 +1044,7 @@ export default function CompetitionPublicForm({ token }) {
 
         {showPayment && (
           <CompetitionPaymentModal
-            title={paymentKind === 'equipe' ? 'Paiement inscription équipe' : 'Paiement inscription individuelle'}
+            title={paymentKind === 'equipe' ? 'Paiement par Équipe' : 'Paiement inscription individuelle'}
             summary={
               paymentKind === 'equipe'
                 ? `Club ${teamClub} · frais forfaitaire par équipe${fraisEquipeCdf > 0 || fraisEquipeUsd > 0 ? ` · ${[fraisEquipeCdf > 0 ? formatMoney(fraisEquipeCdf, 'CDF') : null, fraisEquipeUsd > 0 ? formatMoney(fraisEquipeUsd, 'USD') : null].filter(Boolean).join(' · ')}` : ''}`
