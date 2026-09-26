@@ -20,6 +20,28 @@ function isTeamRegistration(r) {
   return r?.mode_inscription === 'equipe' || String(r?.taille || '').startsWith('__mode_equipe__');
 }
 
+function sameCompetitionPerson(a, b) {
+  if (!a || !b) return false;
+  if (a.judoka_id && b.judoka_id && String(a.judoka_id) === String(b.judoka_id)) return true;
+  const cardA = String(a.numero_carte || '').trim().toUpperCase();
+  const cardB = String(b.numero_carte || '').trim().toUpperCase();
+  if (cardA && cardB && cardA === cardB) return true;
+  const nom = String(a.nom || '').trim().toLowerCase();
+  const prenom = String(a.prenom || '').trim().toLowerCase();
+  if (!nom || !prenom) return false;
+  return nom === String(b.nom || '').trim().toLowerCase()
+    && prenom === String(b.prenom || '').trim().toLowerCase()
+    && String(a.date_naissance || '').slice(0, 10) === String(b.date_naissance || '').slice(0, 10);
+}
+
+function chargeableIndividuelRegistrations(registrations) {
+  const team = (registrations || []).filter((r) => isTeamRegistration(r));
+  return (registrations || []).filter((r) => (
+    !isTeamRegistration(r)
+    && !team.some((t) => sameCompetitionPerson(r, t))
+  ));
+}
+
 function teamMemberRole(m) {
   if (m?.role === 'remplacant' || m?.role_equipe === 'remplacant') return 'remplacant';
   const raw = String(m?.role || m?.role_equipe || m?.taille || '').toLowerCase();
@@ -1601,11 +1623,11 @@ export default function CompetitionSettings({ onBack, onToast }) {
                 Fermer
               </button>
             </div>
-            {registrations.filter((r) => !isTeamRegistration(r)).length === 0 ? (
-              <p className="form-hint">Aucun judoka inscrit en Individuel pour le moment.</p>
+            {chargeableIndividuelRegistrations(registrations).length === 0 ? (
+              <p className="form-hint">Aucun judoka Individuel disponible à charger (déjà en équipe ou non inscrit).</p>
             ) : (
               <div className="competition-charge-list">
-                {registrations.filter((r) => !isTeamRegistration(r)).map((r) => {
+                {chargeableIndividuelRegistrations(registrations).map((r) => {
                   const selected = Boolean(chargeSelections[r.id]);
                   return (
                     <div key={r.id} className={`competition-charge-row ${selected ? 'is-selected' : ''}`}>

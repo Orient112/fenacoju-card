@@ -541,11 +541,15 @@ export default function CompetitionPublicForm({ token }) {
   const registeredClubs = (competition.competition_clubs || []).filter((c) => (
     inscriptionMode === 'equipe' ? c.cadre === 'equipe' : c.cadre === 'individuel'
   ));
+  const equipeClubsFromCompetition = [
+    ...(competition.competition_clubs || []).filter((c) => c.cadre === 'equipe').map((c) => c.nom).filter(Boolean),
+    ...((competition.team_members || []).map((m) => String(m.club || '').trim()).filter(Boolean)),
+  ];
   const namesForSelect = (current) => {
     const names = registeredClubs.map((c) => c.nom).filter(Boolean);
-    if (inscriptionMode === 'equipe') {
-      for (const m of (competition.team_members || [])) {
-        const nom = String(m.club || '').trim();
+    // Nouvel enregistrement (Individuel) + Enregistrement Equipe : clubs Par Équipe de la page Compétition
+    if (inscriptionMode === 'individuel' || inscriptionMode === 'equipe') {
+      for (const nom of equipeClubsFromCompetition) {
         if (nom && !names.some((n) => n.toLowerCase() === nom.toLowerCase())) {
           names.push(nom);
         }
@@ -559,8 +563,12 @@ export default function CompetitionPublicForm({ token }) {
   const filledTeamJudokas = Object.values(teamRoster).reduce((sum, b) => (
     sum + (b.principal ? 1 : 0) + (b.remplacant ? 1 : 0)
   ), 0);
-  const individuelAmount = fraisIndividuel * Math.max(paymentItems.length || basket.length, 1);
-  const paymentAmount = paymentKind === 'equipe' ? fraisEquipe : individuelAmount;
+  const judokaCount = Math.max(paymentItems.length || basket.length, 1);
+  const individuelAmountCdf = fraisIndividuelCdf * judokaCount;
+  const individuelAmountUsd = fraisIndividuelUsd * judokaCount;
+  const paymentAmountCdf = paymentKind === 'equipe' ? fraisEquipeCdf : individuelAmountCdf;
+  const paymentAmountUsd = paymentKind === 'equipe' ? fraisEquipeUsd : individuelAmountUsd;
+  const paymentAmount = paymentKind === 'equipe' ? fraisEquipe : (fraisIndividuel * judokaCount);
 
   return (
     <div className="competition-public-page">
@@ -744,8 +752,8 @@ export default function CompetitionPublicForm({ token }) {
                         <option key={nom} value={nom}>{nom}</option>
                       ))}
                     </select>
-                    {registeredClubs.length === 0 && (
-                      <p className="form-hint">Aucun club Individuel n&apos;est encore enregistré pour cette compétition.</p>
+                    {namesForSelect(form.club).length === 0 && (
+                      <p className="form-hint">Aucun club n&apos;est encore enregistré pour cette compétition.</p>
                     )}
                   </div>
                   <div className="form-group">
@@ -838,7 +846,7 @@ export default function CompetitionPublicForm({ token }) {
                       <option key={nom} value={nom}>{nom}</option>
                     ))}
                   </select>
-                  {registeredClubs.length === 0 && (
+                  {namesForSelect(teamClub).length === 0 && (
                     <p className="form-hint">Aucun club Par équipe n&apos;est encore enregistré pour cette compétition.</p>
                   )}
                 </div>
@@ -1039,11 +1047,17 @@ export default function CompetitionPublicForm({ token }) {
             title={paymentKind === 'equipe' ? 'Paiement inscription équipe' : 'Paiement inscription individuelle'}
             summary={
               paymentKind === 'equipe'
-                ? `Club ${teamClub} · frais forfaitaire par équipe`
-                : `${(paymentItems.length || basket.length)} judoka${(paymentItems.length || basket.length) > 1 ? 's' : ''} × ${formatMoney(fraisIndividuel, fraisMonnaie)}`
+                ? `Club ${teamClub} · frais forfaitaire par équipe${fraisEquipeCdf > 0 || fraisEquipeUsd > 0 ? ` · ${[fraisEquipeCdf > 0 ? formatMoney(fraisEquipeCdf, 'CDF') : null, fraisEquipeUsd > 0 ? formatMoney(fraisEquipeUsd, 'USD') : null].filter(Boolean).join(' · ')}` : ''}`
+                : `${judokaCount} judoka${judokaCount > 1 ? 's' : ''} × ${[
+                  fraisIndividuelCdf > 0 ? formatMoney(fraisIndividuelCdf, 'CDF') : null,
+                  fraisIndividuelUsd > 0 ? formatMoney(fraisIndividuelUsd, 'USD') : null,
+                ].filter(Boolean).join(' · ') || formatMoney(fraisIndividuel, fraisMonnaie)}`
             }
             amount={paymentAmount}
+            amountCdf={paymentAmountCdf}
+            amountUsd={paymentAmountUsd}
             currency={fraisMonnaie}
+            confirmLabel="Payer"
             busy={submitting}
             onClose={() => { if (!submitting) { setShowPayment(false); setPaymentKind(null); } }}
             onConfirm={paymentKind === 'equipe' ? confirmTeamPayment : confirmIndividuelPayment}

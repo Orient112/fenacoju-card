@@ -11,15 +11,25 @@ export default function CompetitionPaymentModal({
   title = 'Paiement de l\'inscription',
   summary,
   amount = 0,
+  amountCdf,
+  amountUsd,
   currency = 'CDF',
-  confirmLabel = 'Payer et Valider',
+  confirmLabel = 'Payer',
   onConfirm,
   onClose,
   busy = false,
 }) {
+  const cdf = Math.max(0, Number(amountCdf ?? (String(currency).toUpperCase() === 'USD' ? 0 : amount)) || 0);
+  const usd = Math.max(0, Number(amountUsd ?? (String(currency).toUpperCase() === 'USD' ? amount : 0)) || 0);
+  const defaultCurrency = String(currency || 'CDF').toUpperCase() === 'USD' ? 'USD' : 'CDF';
   const [mode, setMode] = useState('mobile_money');
   const [telephone, setTelephone] = useState('');
+  const [payCurrency, setPayCurrency] = useState(
+    defaultCurrency === 'USD' && usd > 0 ? 'USD' : (cdf > 0 ? 'CDF' : defaultCurrency)
+  );
   const [error, setError] = useState('');
+
+  const payableAmount = payCurrency === 'USD' ? usd : cdf;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -39,8 +49,8 @@ export default function CompetitionPaymentModal({
       await onConfirm({
         mode,
         telephone: mode === 'mobile_money' ? telephone.trim() : '',
-        montant: Math.max(0, Number(amount) || 0),
-        monnaie: currency,
+        montant: payableAmount,
+        monnaie: payCurrency,
       });
     } catch (err) {
       setError(err.message || 'Paiement impossible');
@@ -62,7 +72,7 @@ export default function CompetitionPaymentModal({
 
         <div className="competition-payment-total">
           <span>Montant à régler</span>
-          <strong>{formatMoney(amount, currency)}</strong>
+          <strong>{formatMoney(payableAmount, payCurrency)}</strong>
         </div>
 
         {error && <div className="form-error">{error}</div>}
@@ -94,6 +104,18 @@ export default function CompetitionPaymentModal({
               />
             </div>
           )}
+          <div className="form-group">
+            <label htmlFor="pay-currency">Monnaie de paiement *</label>
+            <select
+              id="pay-currency"
+              value={payCurrency}
+              onChange={(e) => setPayCurrency(e.target.value === 'USD' ? 'USD' : 'CDF')}
+              required
+            >
+              <option value="CDF" disabled={cdf <= 0 && usd > 0}>Franc Congolais (FC)</option>
+              <option value="USD" disabled={usd <= 0 && cdf > 0}>Dollars (USD)</option>
+            </select>
+          </div>
           <div className="form-actions">
             <button type="button" className="btn btn-outline" onClick={onClose} disabled={busy}>
               Annuler

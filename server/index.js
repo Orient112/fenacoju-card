@@ -389,8 +389,11 @@ app.post('/api/public/competition/:token/register', async (req, res) => {
 
     if (modeInscription === 'individuel' && Array.isArray(body.batch) && body.batch.length) {
       const created = [];
+      const payCurrency = String(body.paiement?.monnaie || settings.frais_monnaie || 'CDF').toUpperCase() === 'USD'
+        ? 'USD'
+        : 'CDF';
       const unitFee = Math.max(0, Number(
-        settings.frais_monnaie === 'USD' ? settings.frais_individuel_usd : settings.frais_individuel_cdf
+        payCurrency === 'USD' ? settings.frais_individuel_usd : settings.frais_individuel_cdf
       ) || Number(settings.frais_individuel) || 0);
       for (const item of body.batch) {
         const registration = await createCompetitionRegistration({
@@ -399,7 +402,9 @@ app.post('/api/public/competition/:token/register', async (req, res) => {
           poids: '',
           paiement_statut: payInfo.paiement_statut || 'en_attente',
           mode_paiement: payInfo.mode_paiement || '',
-          montant_paye: payInfo.paiement_statut === 'paye' ? unitFee : 0,
+          montant_paye: payInfo.paiement_statut === 'paye'
+            ? Math.max(0, Number(body.paiement?.montant) || unitFee)
+            : 0,
         });
         created.push(registration);
       }
