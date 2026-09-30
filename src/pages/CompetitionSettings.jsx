@@ -511,6 +511,14 @@ export default function CompetitionSettings({ onBack, onToast }) {
   const [editTeamTarget, setEditTeamTarget] = useState(null);
   const [editTeamClub, setEditTeamClub] = useState('');
   const [editTeamMembers, setEditTeamMembers] = useState([]);
+  const [editTeamNewJudoka, setEditTeamNewJudoka] = useState({
+    prenom: '',
+    nom: '',
+    poids: '',
+    sexe: 'M',
+    role_equipe: 'principal',
+  });
+  const [addingTeamJudoka, setAddingTeamJudoka] = useState(false);
   const [clubsEditorCadre, setClubsEditorCadre] = useState(null);
   const [clubDraft, setClubDraft] = useState('');
   const [editingClub, setEditingClub] = useState(null);
@@ -1066,6 +1074,89 @@ export default function CompetitionSettings({ onBack, onToast }) {
       role_equipe: m.role_equipe,
       taille: m.taille,
     })));
+    const defaultSexe = (team.members || []).some((m) => m.sexe === 'F')
+      && !(team.members || []).some((m) => m.sexe !== 'F')
+      ? 'F'
+      : 'M';
+    setEditTeamNewJudoka({
+      prenom: '',
+      nom: '',
+      poids: '',
+      sexe: defaultSexe,
+      role_equipe: 'principal',
+    });
+  };
+
+  const handleAddEditTeamJudoka = async (e) => {
+    e.preventDefault();
+    if (!editTeamTarget) return;
+    const club = editTeamClub.trim() || editTeamTarget.club;
+    const prenom = String(editTeamNewJudoka.prenom || '').trim();
+    const nom = String(editTeamNewJudoka.nom || '').trim();
+    const poids = String(editTeamNewJudoka.poids || '').trim();
+    const sexe = editTeamNewJudoka.sexe === 'F' ? 'F' : 'M';
+    const role = editTeamNewJudoka.role_equipe === 'remplacant' ? 'remplacant' : 'principal';
+    if (!club) {
+      onToast?.('Le nom du club est obligatoire', 'error');
+      return;
+    }
+    if (!prenom || !nom) {
+      onToast?.('Prénom et nom obligatoires', 'error');
+      return;
+    }
+    if (!poids) {
+      onToast?.('Indiquez le poids du judoka', 'error');
+      return;
+    }
+    setAddingTeamJudoka(true);
+    setError('');
+    try {
+      const result = await chargeCompetitionTeamFromIndividuel({
+        club,
+        members: [{
+          prenom,
+          nom,
+          poids,
+          sexe,
+          role_equipe: role,
+          deja_enregistre: false,
+        }],
+      });
+      const created = result.registrations || [];
+      setRegistrations((prev) => [...created, ...prev]);
+      setEditTeamMembers((prev) => [
+        ...created.map((m) => ({
+          id: m.id,
+          nom: m.nom || '',
+          prenom: m.prenom || '',
+          poids: m.poids || '',
+          categorie: m.categorie || '',
+          sexe: m.sexe === 'F' ? 'F' : 'M',
+          role: teamMemberRole(m),
+          role_equipe: m.role_equipe,
+          taille: m.taille,
+        })),
+        ...prev,
+      ]);
+      setEditTeamTarget((prev) => (prev ? {
+        ...prev,
+        members: [...created, ...(prev.members || [])],
+        ids: [...created.map((r) => r.id), ...(prev.ids || [])],
+      } : prev));
+      setEditTeamNewJudoka((prev) => ({
+        prenom: '',
+        nom: '',
+        poids: '',
+        sexe: prev.sexe,
+        role_equipe: 'principal',
+      }));
+      onToast?.(`${prenom} ${nom} ajouté(e) à l'équipe`);
+    } catch (err) {
+      setError(err.message);
+      onToast?.(err.message || 'Impossible d\'ajouter le judoka', 'error');
+    } finally {
+      setAddingTeamJudoka(false);
+    }
   };
 
   const handleSaveTeam = async (e) => {
@@ -1737,7 +1828,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
       )}
 
       {editTeamTarget && (
-        <div className="confirm-overlay" onClick={() => setEditTeamTarget(null)}>
+        <div className="confirm-overlay" onClick={() => !addingTeamJudoka && setEditTeamTarget(null)}>
           <div className="confirm-dialog competition-team-edit-modal" onClick={(e) => e.stopPropagation()}>
             <h3>Modifier l&apos;équipe</h3>
             <form onSubmit={handleSaveTeam}>
@@ -1848,14 +1939,86 @@ export default function CompetitionSettings({ onBack, onToast }) {
                 ))}
               </div>
               <div className="confirm-actions">
-                <button type="button" className="btn btn-outline" onClick={() => setEditTeamTarget(null)}>
+                <button type="button" className="btn btn-outline" onClick={() => setEditTeamTarget(null)} disabled={addingTeamJudoka}>
                   Annuler
                 </button>
-                <button type="submit" className="btn btn-primary" disabled={saving}>
+                <button type="submit" className="btn btn-primary" disabled={saving || addingTeamJudoka}>
                   {saving ? 'Enregistrement...' : 'Enregistrer'}
                 </button>
               </div>
             </form>
+
+            <div className="competition-team-add-block">
+              <div className="competition-cat-block-head">
+                <span className="competition-cat-block-kicker">Nouveau</span>
+                <h4>Ajouter un judoka</h4>
+              </div>
+              <p className="form-hint">Ajoute un judoka à cette équipe sans passer par les modifications ci-dessus.</p>
+              <form onSubmit={handleAddEditTeamJudoka}>
+                <div className="competition-team-edit-inline-fields competition-team-add-fields">
+                  <div className="form-group">
+                    <label htmlFor="edit-team-new-prenom">Prénom *</label>
+                    <input
+                      id="edit-team-new-prenom"
+                      value={editTeamNewJudoka.prenom}
+                      onChange={(e) => setEditTeamNewJudoka((prev) => ({ ...prev, prenom: e.target.value }))}
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="edit-team-new-nom">Nom *</label>
+                    <input
+                      id="edit-team-new-nom"
+                      value={editTeamNewJudoka.nom}
+                      onChange={(e) => setEditTeamNewJudoka((prev) => ({ ...prev, nom: e.target.value }))}
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="edit-team-new-poids">Poids (kg) *</label>
+                    <input
+                      id="edit-team-new-poids"
+                      value={editTeamNewJudoka.poids}
+                      onChange={(e) => setEditTeamNewJudoka((prev) => ({ ...prev, poids: e.target.value }))}
+                      placeholder="Ex. 66"
+                      inputMode="decimal"
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="edit-team-new-sexe">Sexe</label>
+                    <select
+                      id="edit-team-new-sexe"
+                      value={editTeamNewJudoka.sexe}
+                      onChange={(e) => setEditTeamNewJudoka((prev) => ({ ...prev, sexe: e.target.value }))}
+                    >
+                      <option value="M">Garçon</option>
+                      <option value="F">Fille</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="edit-team-new-role">Rôle</label>
+                    <select
+                      id="edit-team-new-role"
+                      value={editTeamNewJudoka.role_equipe}
+                      onChange={(e) => setEditTeamNewJudoka((prev) => ({ ...prev, role_equipe: e.target.value }))}
+                    >
+                      <option value="principal">Principal</option>
+                      <option value="remplacant">Remplaçant</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="confirm-actions">
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    disabled={addingTeamJudoka || saving}
+                  >
+                    {addingTeamJudoka ? 'Ajout...' : 'Ajouter le judoka'}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}

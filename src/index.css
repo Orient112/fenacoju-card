@@ -1663,6 +1663,24 @@ tbody tr:last-child td {
   justify-content: flex-end;
 }
 
+.competition-team-add-block {
+  margin-top: 1.15rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+  text-align: left;
+}
+
+.competition-team-add-block h4 {
+  margin: 0.15rem 0 0.35rem;
+  color: var(--primary);
+  font-size: 1rem;
+}
+
+.competition-team-add-fields {
+  margin: 0.75rem 0 0.85rem;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.1fr) minmax(0, 0.7fr) minmax(0, 0.8fr) minmax(0, 0.9fr);
+}
+
 .competition-club-editor-list {
   list-style: none;
   margin: 0 0 1rem;
@@ -4354,7 +4372,8 @@ tbody tr:last-child td {
   .competition-fees-grid-dual,
   .competition-charge-fields,
   .competition-edit-reg-grid,
-  .competition-team-edit-inline-fields {
+  .competition-team-edit-inline-fields,
+  .competition-team-add-fields {
     grid-template-columns: 1fr;
   }
 }
