@@ -345,7 +345,7 @@ export default function CompetitionPublicForm({ token }) {
         mode_inscription: 'individuel',
         batch,
         paiement,
-      });
+      }, { timeoutMs: Number(paiement?.montant) > 0 ? 120000 : undefined });
       const count = result.count || batch.length;
       setSuccessName(batch.length === 1
         ? `${batch[0].prenom} ${batch[0].nom}`.trim()
@@ -506,7 +506,7 @@ export default function CompetitionPublicForm({ token }) {
         members,
         allow_existing: hasLocked,
         paiement,
-      });
+      }, { timeoutMs: Number(paiement?.montant) > 0 ? 120000 : undefined });
       setSuccessName(teamClub.trim());
       setSuccessCount(result.count || members.length);
       setCompetition((prev) => (prev
@@ -1112,6 +1112,10 @@ export default function CompetitionPublicForm({ token }) {
             amountUsd={paymentAmountUsd}
             currency={fraisMonnaie}
             confirmLabel="Payer"
+            requireMobileMoney={
+              (paymentKind === 'individuel' || paymentKind === 'equipe')
+              && (paymentAmountCdf + paymentAmountUsd > 0)
+            }
             busy={submitting}
             onClose={() => { if (!submitting) { setShowPayment(false); setPaymentKind(null); } }}
             onConfirm={paymentKind === 'equipe' ? confirmTeamPayment : confirmIndividuelPayment}

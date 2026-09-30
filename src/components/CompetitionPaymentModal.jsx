@@ -18,6 +18,7 @@ export default function CompetitionPaymentModal({
   onConfirm,
   onClose,
   busy = false,
+  requireMobileMoney = false,
 }) {
   const cdf = Math.max(0, Number(amountCdf ?? (String(currency).toUpperCase() === 'USD' ? 0 : amount)) || 0);
   const usd = Math.max(0, Number(amountUsd ?? (String(currency).toUpperCase() === 'USD' ? amount : 0)) || 0);
@@ -28,37 +29,47 @@ export default function CompetitionPaymentModal({
     defaultCurrency === 'USD' && usd > 0 ? 'USD' : (cdf > 0 ? 'CDF' : defaultCurrency)
   );
   const [error, setError] = useState('');
+  const [phase, setPhase] = useState(''); // '' | 'push' | 'check'
 
   const payableAmount = payCurrency === 'USD' ? usd : cdf;
+  const effectiveMode = requireMobileMoney ? 'mobile_money' : mode;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    if (!mode) {
+    if (!effectiveMode) {
       setError('Choisissez un mode de paiement');
       return;
     }
-    if (mode === 'mobile_money') {
+    if (effectiveMode === 'mobile_money') {
       const phone = telephone.trim();
       if (!phone || phone.replace(/\D/g, '').length < 8) {
         setError('Saisissez un numéro mobile valide');
         return;
       }
+    } else if (effectiveMode === 'carte_visa' && payableAmount > 0) {
+      setError('Pour ce montant, utilisez Mobile Money (validation par push PIN)');
+      return;
     }
     try {
+      if (effectiveMode === 'mobile_money' && payableAmount > 0) {
+        setPhase('push');
+      }
       await onConfirm({
-        mode,
-        telephone: mode === 'mobile_money' ? telephone.trim() : '',
+        mode: effectiveMode,
+        telephone: effectiveMode === 'mobile_money' ? telephone.trim() : '',
         montant: payableAmount,
         monnaie: payCurrency,
       });
+      setPhase('');
     } catch (err) {
+      setPhase('');
       setError(err.message || 'Paiement impossible');
     }
   };
 
   return (
-    <div className="confirm-overlay" onClick={onClose}>
+    <div className="confirm-overlay" onClick={busy ? undefined : onClose}>
       <div className="competition-payment-modal" onClick={(e) => e.stopPropagation()}>
         <div className="competition-params-modal-head">
           <div>
@@ -77,6 +88,7 @@ export default function CompetitionPaymentModal({
             value={payCurrency}
             onChange={(e) => setPayCurrency(e.target.value === 'USD' ? 'USD' : 'CDF')}
             required
+            disabled={busy}
           >
             <option value="CDF" disabled={cdf <= 0 && usd > 0}>Franc Congolais (FC)</option>
             <option value="USD" disabled={usd <= 0 && cdf > 0}>Dollars (USD)</option>
@@ -90,20 +102,32 @@ export default function CompetitionPaymentModal({
 
         {error && <div className="form-error">{error}</div>}
 
+        {(busy || phase) && payableAmount > 0 && (
+          <div className="competition-payment-wait form-hint">
+            {phase === 'push' || busy
+              ? 'Push Mobile Money envoyé. Confirmez avec votre code PIN sur le téléphone, sans fermer cette fenêtre…'
+              : null}
+          </div>
+        )}
+
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label htmlFor="pay-mode">Mode de paiement *</label>
             <select
               id="pay-mode"
-              value={mode}
+              value={effectiveMode}
               onChange={(e) => setMode(e.target.value)}
               required
+              disabled={busy || requireMobileMoney}
             >
               <option value="mobile_money">Mobile Money</option>
-              <option value="carte_visa">Carte Visa</option>
+              {!requireMobileMoney && <option value="carte_visa">Carte Visa</option>}
             </select>
+            {requireMobileMoney && (
+              <p className="form-hint">Paiement via SimplyPaye : un push PIN sera envoyé sur ce numéro.</p>
+            )}
           </div>
-          {mode === 'mobile_money' && (
+          {effectiveMode === 'mobile_money' && (
             <div className="form-group">
               <label htmlFor="pay-phone">Numéro mobile *</label>
               <input
@@ -114,6 +138,7 @@ export default function CompetitionPaymentModal({
                 placeholder="Ex. 0990123456"
                 required
                 autoComplete="tel"
+                disabled={busy}
               />
             </div>
           )}
@@ -122,7 +147,9 @@ export default function CompetitionPaymentModal({
               Annuler
             </button>
             <button type="submit" className="btn btn-primary" disabled={busy}>
-              {busy ? 'Validation...' : confirmLabel}
+              {busy
+                ? (payableAmount > 0 ? 'Paiement en cours...' : 'Validation...')
+                : confirmLabel}
             </button>
           </div>
         </form>

@@ -208,6 +208,8 @@ CORS_ORIGIN=http://localhost:5173
 SUPABASE_URL=https://xxxxx.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=eyJ...
 SUPABASE_STORAGE_BUCKET=fenacoju-uploads
+SIMPLY_PAY_MERCHANT_CODE=votre_short_code
+SIMPLY_PAY_API_KEY=votre_cle_api
 ```
 
 ---

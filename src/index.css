@@ -4233,6 +4233,16 @@ tbody tr:last-child td {
   margin: 0.85rem 0 0.55rem;
 }
 
+.competition-payment-wait {
+  margin: 0 0 0.85rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 10px;
+  background: rgba(13, 209, 255, 0.12);
+  border: 1px solid rgba(13, 209, 255, 0.35);
+  color: #0a5f7a;
+  font-weight: 600;
+}
+
 .competition-team-club-row {
   display: flex;
   align-items: center;

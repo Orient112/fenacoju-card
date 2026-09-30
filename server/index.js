@@ -85,6 +85,11 @@ import {
   parseCompetitionClubs,
   isCompetitionConfigured,
 } from './competition.js';
+import {
+  collectSimplyPayPayment,
+  isSimplyPayConfigured,
+  normalizeCongoPhone,
+} from './simplyPay.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -395,16 +400,61 @@ app.post('/api/public/competition/:token/register', async (req, res) => {
       const unitFee = Math.max(0, Number(
         payCurrency === 'USD' ? settings.frais_individuel_usd : settings.frais_individuel_cdf
       ) || Number(settings.frais_individuel) || 0);
+      const totalDue = unitFee * body.batch.length;
+
+      let paymentMeta = {
+        paiement_statut: 'en_attente',
+        montant_paye: 0,
+        mode_paiement: '',
+      };
+
+      if (totalDue > 0) {
+        if (!body.paiement || typeof body.paiement !== 'object') {
+          return res.status(402).json({ error: 'Le paiement est obligatoire pour finaliser l\'inscription' });
+        }
+        if (String(body.paiement.mode || '').trim() !== 'mobile_money') {
+          return res.status(400).json({
+            error: 'Pour les inscriptions payantes, utilisez Mobile Money (push PIN SimplyPaye)',
+          });
+        }
+        const phone = normalizeCongoPhone(body.paiement.telephone || '');
+        if (!phone) {
+          return res.status(400).json({ error: 'Saisissez un numéro Mobile Money valide' });
+        }
+        if (!isSimplyPayConfigured()) {
+          return res.status(503).json({
+            error: 'Paiement indisponible : configurez SIMPLY_PAY_MERCHANT_CODE sur le serveur',
+          });
+        }
+
+        const paid = await collectSimplyPayPayment({
+          phone,
+          amount: totalDue,
+          currency: payCurrency,
+          reference: `COMP-IND-${settings.public_token || 'fenacoju'}-${Date.now()}`.slice(0, 64),
+        });
+
+        paymentMeta = {
+          paiement_statut: 'paye',
+          montant_paye: totalDue,
+          mode_paiement: `mobile_money|${phone}|${paid.orderNumber}`,
+        };
+      } else if (body.paiement && typeof body.paiement === 'object') {
+        paymentMeta = {
+          paiement_statut: 'paye',
+          montant_paye: 0,
+          mode_paiement: String(body.paiement.mode || 'gratuit').trim(),
+        };
+      }
+
       for (const item of body.batch) {
         const registration = await createCompetitionRegistration({
           ...item,
           mode_inscription: 'individuel',
           poids: '',
-          paiement_statut: payInfo.paiement_statut || 'en_attente',
-          mode_paiement: payInfo.mode_paiement || '',
-          montant_paye: payInfo.paiement_statut === 'paye'
-            ? Math.max(0, Number(body.paiement?.montant) || unitFee)
-            : 0,
+          paiement_statut: paymentMeta.paiement_statut,
+          mode_paiement: paymentMeta.mode_paiement,
+          montant_paye: paymentMeta.paiement_statut === 'paye' ? unitFee : 0,
         });
         created.push(registration);
       }
@@ -418,21 +468,58 @@ app.post('/api/public/competition/:token/register', async (req, res) => {
       const defaultTeamFee = Math.max(0, Number(
         payCurrency === 'USD' ? settings.frais_equipe_usd : settings.frais_equipe_cdf
       ) || Number(settings.frais_equipe) || 0);
+
+      let teamPaiement = null;
+      if (defaultTeamFee > 0) {
+        if (!body.paiement || typeof body.paiement !== 'object') {
+          return res.status(402).json({ error: 'Le paiement est obligatoire pour finaliser l\'inscription équipe' });
+        }
+        if (String(body.paiement.mode || '').trim() !== 'mobile_money') {
+          return res.status(400).json({
+            error: 'Pour les inscriptions payantes, utilisez Mobile Money (push PIN SimplyPaye)',
+          });
+        }
+        const phone = normalizeCongoPhone(body.paiement.telephone || payPhone || '');
+        if (!phone) {
+          return res.status(400).json({ error: 'Saisissez un numéro Mobile Money valide' });
+        }
+        if (!isSimplyPayConfigured()) {
+          return res.status(503).json({
+            error: 'Paiement indisponible : configurez SIMPLY_PAY_MERCHANT_CODE sur le serveur',
+          });
+        }
+
+        const paid = await collectSimplyPayPayment({
+          phone,
+          amount: defaultTeamFee,
+          currency: payCurrency,
+          reference: `COMP-EQ-${String(body.club || 'club').slice(0, 20)}-${Date.now()}`.slice(0, 64),
+        });
+
+        teamPaiement = {
+          statut: 'paye',
+          montant: defaultTeamFee,
+          mode: `mobile_money|${phone}|${paid.orderNumber}`,
+          telephone: phone,
+          monnaie: payCurrency,
+        };
+      } else if (body.paiement && typeof body.paiement === 'object') {
+        teamPaiement = {
+          statut: 'paye',
+          montant: 0,
+          mode: String(body.paiement.mode || 'gratuit').trim(),
+          telephone: normalizeCongoPhone(body.paiement.telephone || '') || '',
+          monnaie: payCurrency,
+        };
+      }
+
       const roster = await createCompetitionTeamRoster({
         club: body.club,
         sexe: body.sexe,
         members: body.members,
         allowedCategories: settings.categories_poids || [],
         allowExisting: Boolean(body.allow_existing),
-        paiement: body.paiement ? {
-          statut: 'paye',
-          montant: Math.max(0, Number(body.paiement.montant) || defaultTeamFee),
-          mode: payMode === 'mobile_money' && payPhone
-            ? `mobile_money|${payPhone}`
-            : (body.paiement.mode || payMode),
-          telephone: payPhone,
-          monnaie: payCurrency,
-        } : null,
+        paiement: teamPaiement,
       });
       return res.status(201).json(roster);
     }
@@ -513,8 +600,11 @@ app.post('/api/public/competition/:token/register', async (req, res) => {
     });
     res.status(201).json(registration);
   } catch (err) {
-    const status = /déjà inscrit/i.test(err.message || '') ? 409 : 400;
-    res.status(status).json({ error: err.message });
+    const msg = err.message || 'Erreur lors de l\'inscription';
+    let status = 400;
+    if (/déjà inscrit/i.test(msg)) status = 409;
+    else if (/paiement|mobile money|push|simply|délai|validez/i.test(msg)) status = 402;
+    res.status(status).json({ error: msg });
   }
 });
 

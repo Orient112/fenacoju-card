@@ -512,12 +512,19 @@ export async function lookupPublicCompetitionJudoka(token, cardId) {
   return res.json();
 }
 
-export async function registerPublicCompetition(token, data) {
-  const res = await fetchWithTimeout(apiUrl(`/api/public/competition/${encodeURIComponent(token)}/register`), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
+export async function registerPublicCompetition(token, data, options = {}) {
+  const timeoutMs = Number(options.timeoutMs) || (
+    data?.paiement && Number(data.paiement.montant) > 0 ? 120000 : undefined
+  );
+  const res = await fetchWithTimeout(
+    apiUrl(`/api/public/competition/${encodeURIComponent(token)}/register`),
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    },
+    timeoutMs
+  );
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || 'Erreur lors de l\'inscription');
