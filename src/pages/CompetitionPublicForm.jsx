@@ -577,23 +577,12 @@ export default function CompetitionPublicForm({ token }) {
   const weightCats = categoriesForSexe(allWeightCats, teamSexe);
   const boyCats = categoriesForSexe(allWeightCats, 'M');
   const girlCats = categoriesForSexe(allWeightCats, 'F');
+  // Clubs · Individuel → Nouvel enregistrement ; Clubs · Par équipe → Enregistrement Equipe
   const registeredClubs = (competition.competition_clubs || []).filter((c) => (
     inscriptionMode === 'equipe' ? c.cadre === 'equipe' : c.cadre === 'individuel'
   ));
-  const equipeClubsFromCompetition = [
-    ...(competition.competition_clubs || []).filter((c) => c.cadre === 'equipe').map((c) => c.nom).filter(Boolean),
-    ...((competition.team_members || []).map((m) => String(m.club || '').trim()).filter(Boolean)),
-  ];
   const namesForSelect = (current) => {
     const names = registeredClubs.map((c) => c.nom).filter(Boolean);
-    // Nouvel enregistrement (Individuel) + Enregistrement Equipe : clubs Par Équipe de la page Compétition
-    if (inscriptionMode === 'individuel' || inscriptionMode === 'equipe') {
-      for (const nom of equipeClubsFromCompetition) {
-        if (nom && !names.some((n) => n.toLowerCase() === nom.toLowerCase())) {
-          names.push(nom);
-        }
-      }
-    }
     if (current && !names.some((n) => n.toLowerCase() === String(current).toLowerCase())) {
       names.unshift(current);
     }
@@ -814,7 +803,7 @@ export default function CompetitionPublicForm({ token }) {
                       ))}
                     </select>
                     {namesForSelect(form.club).length === 0 && (
-                      <p className="form-hint">Aucun club n&apos;est encore enregistré pour cette compétition.</p>
+                      <p className="form-hint">Aucun club Individuel n&apos;est encore enregistré pour cette compétition.</p>
                     )}
                   </div>
                   <div className="form-group">
