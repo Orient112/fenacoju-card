@@ -870,6 +870,28 @@ app.post('/api/competition/logo', upload.single('logo'), async (req, res) => {
   }
 });
 
+app.delete('/api/competition/logo', async (req, res) => {
+  try {
+    const current = await getCompetitionSettings();
+    const canToggle = canToggleCompetitionAccess(req.user);
+    const isDirector = isDirecteurCompetition(req.user);
+    if (!canToggle && !(isDirector && current.access_enabled)) {
+      return res.status(403).json({ error: 'Accès non autorisé' });
+    }
+    if (current.logo_url) {
+      try { await deleteStoredFile(current.logo_url); } catch { /* ignore */ }
+    }
+    const settings = await updateCompetitionSettings({ logo_url: '' });
+    res.json({
+      ...settings,
+      configured: isCompetitionConfigured(settings),
+      logo_url: '',
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Impossible de retirer le logo' });
+  }
+});
+
 app.delete('/api/competition/public-link', async (req, res) => {
   try {
     const current = await getCompetitionSettings();

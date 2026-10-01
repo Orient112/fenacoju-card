@@ -3813,10 +3813,87 @@ tbody tr:last-child td {
   min-width: 200px;
 }
 
+.competition-logo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+}
+
 .competition-logo-controls input[type="file"] {
   display: block;
-  width: 100%;
+  max-width: 100%;
   font-size: 0.9rem;
+}
+
+.competition-description-field {
+  margin-top: 0.35rem;
+  padding: 1rem 1.05rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #f8fafc 0%, #fff 55%);
+}
+
+.competition-description-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin-bottom: 0.35rem;
+}
+
+.competition-description-head label {
+  margin: 0;
+  font-size: 1.05rem;
+  color: #0f172a;
+}
+
+.competition-description-hint {
+  margin: 0 0 0.75rem;
+}
+
+.competition-description-input {
+  width: 100%;
+  min-height: 7.5rem;
+  border: 1px solid #dbe3ee;
+  border-radius: 12px;
+  background: #fff;
+  padding: 0.85rem 1rem;
+  font: inherit;
+  line-height: 1.5;
+  color: #0f172a;
+  resize: vertical;
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.competition-description-input:focus {
+  outline: none;
+  border-color: #94a3b8;
+  box-shadow: 0 0 0 3px rgba(29, 67, 147, 0.12);
+}
+
+.competition-description-input::placeholder {
+  color: #94a3b8;
+}
+
+.competition-regs-paged {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.competition-regs-pager {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.competition-regs-pager-info {
+  font-size: 0.9rem;
+  color: #64748b;
+  min-width: 3.5rem;
+  text-align: center;
 }
 
 .btn-classer {

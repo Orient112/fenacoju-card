@@ -3,6 +3,7 @@ import {
   fetchCompetition,
   updateCompetition,
   uploadCompetitionLogo,
+  deleteCompetitionLogo,
   fetchCompetitionRegistrations,
   deleteCompetitionRegistration,
   updateCompetitionRegistration,
@@ -119,7 +120,13 @@ function formatDateFr(value) {
   }
 }
 
-function RegistrationsTable({ registrations, onEdit, onDelete }) {
+function RegistrationsTable({ registrations, onEdit, onDelete, pageSize = 5 }) {
+  const [page, setPage] = useState(0);
+
+  useEffect(() => {
+    setPage(0);
+  }, [registrations.length]);
+
   if (!registrations.length) {
     return (
       <div className="competition-empty-regs">
@@ -128,64 +135,99 @@ function RegistrationsTable({ registrations, onEdit, onDelete }) {
     );
   }
 
+  const totalPages = Math.max(1, Math.ceil(registrations.length / pageSize));
+  const safePage = Math.min(page, totalPages - 1);
+  const pageRows = registrations.slice(safePage * pageSize, safePage * pageSize + pageSize);
+
   return (
-    <div className="table-wrap">
-      <table className="data-table">
-        <thead>
-          <tr>
-            <th>Nom</th>
-            <th>Club</th>
-            <th>Poids</th>
-            <th>Type</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {registrations.map((r) => (
-            <tr key={r.id}>
-              <td data-label="Nom">{`${r.prenom || ''} ${r.nom || ''}`.trim()}</td>
-              <td data-label="Club">{r.club || '—'}</td>
-              <td data-label="Poids">
-                {r.poids ? (
-                  <span className="badge badge-actif">{r.poids} kg</span>
-                ) : (
-                  <span className="badge badge-pending">À peser</span>
-                )}
-              </td>
-              <td data-label="Type">
-                <span className={`badge ${r.deja_enregistre ? 'badge-actif' : 'badge-pending'}`}>
-                  {r.deja_enregistre ? 'Système' : 'Nouveau'}
-                </span>
-              </td>
-              <td data-label="Actions">
-                <div className="actions-cell">
-                  <button
-                    type="button"
-                    className="btn btn-outline btn-sm"
-                    title="Modifier"
-                    onClick={() => onEdit(r)}
-                  >
-                    Modifier
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-danger btn-sm btn-icon"
-                    title="Supprimer"
-                    onClick={() => onDelete(r)}
-                  >
-                    🗑️
-                  </button>
-                </div>
-              </td>
+    <div className="competition-regs-paged">
+      <div className="table-wrap">
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Nom</th>
+              <th>Club</th>
+              <th>Poids</th>
+              <th>Type</th>
+              <th>Actions</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {pageRows.map((r) => (
+              <tr key={r.id}>
+                <td data-label="Nom">{`${r.prenom || ''} ${r.nom || ''}`.trim()}</td>
+                <td data-label="Club">{r.club || '—'}</td>
+                <td data-label="Poids">
+                  {r.poids ? (
+                    <span className="badge badge-actif">{r.poids} kg</span>
+                  ) : (
+                    <span className="badge badge-pending">À peser</span>
+                  )}
+                </td>
+                <td data-label="Type">
+                  <span className={`badge ${r.deja_enregistre ? 'badge-actif' : 'badge-pending'}`}>
+                    {r.deja_enregistre ? 'Système' : 'Nouveau'}
+                  </span>
+                </td>
+                <td data-label="Actions">
+                  <div className="actions-cell">
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm"
+                      title="Modifier"
+                      onClick={() => onEdit(r)}
+                    >
+                      Modifier
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-danger btn-sm btn-icon"
+                      title="Supprimer"
+                      onClick={() => onDelete(r)}
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {totalPages > 1 && (
+        <div className="competition-regs-pager">
+          <button
+            type="button"
+            className="btn btn-outline btn-sm"
+            disabled={safePage <= 0}
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+          >
+            Précédent
+          </button>
+          <span className="competition-regs-pager-info">
+            {safePage + 1} / {totalPages}
+          </span>
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            disabled={safePage >= totalPages - 1}
+            onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+          >
+            Suivant
+          </button>
+        </div>
+      )}
     </div>
   );
 }
 
-function TeamClubsTable({ clubs, onEdit, onDelete, onCharge }) {
+function TeamClubsTable({ clubs, onEdit, onDelete, onCharge, pageSize = 5 }) {
+  const [page, setPage] = useState(0);
+
+  useEffect(() => {
+    setPage(0);
+  }, [clubs.length]);
+
   if (!clubs.length) {
     return (
       <div className="competition-empty-regs">
@@ -194,55 +236,84 @@ function TeamClubsTable({ clubs, onEdit, onDelete, onCharge }) {
     );
   }
 
+  const totalPages = Math.max(1, Math.ceil(clubs.length / pageSize));
+  const safePage = Math.min(page, totalPages - 1);
+  const pageRows = clubs.slice(safePage * pageSize, safePage * pageSize + pageSize);
+
   return (
-    <div className="table-wrap">
-      <table className="data-table">
-        <thead>
-          <tr>
-            <th>Club</th>
-            <th>Judokas</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {clubs.map((team) => (
-            <tr key={team.club}>
-              <td data-label="Club">{team.club}</td>
-              <td data-label="Judokas">{team.members?.length || team.ids.length}</td>
-              <td data-label="Actions">
-                <div className="actions-cell">
-                  <button
-                    type="button"
-                    className="btn btn-outline btn-sm btn-icon"
-                    title="Modifier"
-                    onClick={() => onEdit(team)}
-                  >
-                    ✏️
-                  </button>
-                  {onCharge && (
+    <div className="competition-regs-paged">
+      <div className="table-wrap">
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Club</th>
+              <th>Judokas</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {pageRows.map((team) => (
+              <tr key={team.club}>
+                <td data-label="Club">{team.club}</td>
+                <td data-label="Judokas">{team.members?.length || team.ids.length}</td>
+                <td data-label="Actions">
+                  <div className="actions-cell">
                     <button
                       type="button"
-                      className="btn btn-primary btn-sm btn-icon"
-                      title="Charger des judokas individuels"
-                      onClick={() => onCharge(team)}
+                      className="btn btn-outline btn-sm btn-icon"
+                      title="Modifier"
+                      onClick={() => onEdit(team)}
                     >
-                      📥
+                      ✏️
                     </button>
-                  )}
-                  <button
-                    type="button"
-                    className="btn btn-danger btn-sm btn-icon"
-                    title="Supprimer l'équipe"
-                    onClick={() => onDelete(team)}
-                  >
-                    🗑️
-                  </button>
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+                    {onCharge && (
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-sm btn-icon"
+                        title="Charger des judokas individuels"
+                        onClick={() => onCharge(team)}
+                      >
+                        📥
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="btn btn-danger btn-sm btn-icon"
+                      title="Supprimer l'équipe"
+                      onClick={() => onDelete(team)}
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {totalPages > 1 && (
+        <div className="competition-regs-pager">
+          <button
+            type="button"
+            className="btn btn-outline btn-sm"
+            disabled={safePage <= 0}
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+          >
+            Précédent
+          </button>
+          <span className="competition-regs-pager-info">
+            {safePage + 1} / {totalPages}
+          </span>
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            disabled={safePage >= totalPages - 1}
+            onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+          >
+            Suivant
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -253,11 +324,13 @@ function ParamsFormFields({
   onCategoriesChange,
   onIndividualCategoriesChange,
   onLogoSelected,
+  onLogoRemoved,
   logoUploading = false,
 }) {
   const teamCats = Array.isArray(form.categories_poids) ? form.categories_poids : [];
   const individualCats = Array.isArray(form.categories_poids_individuel) ? form.categories_poids_individuel : [];
   const logoSrc = form.logo_url ? resolveMediaUrl(form.logo_url) : '/fenacoju-logo.png';
+  const hasCustomLogo = Boolean(form.logo_url);
 
   const renderCatEditor = (cats, onUpdate, prefix) => {
     const updateCat = (index, field, value) => {
@@ -400,33 +473,49 @@ function ParamsFormFields({
             height="64"
           />
           <div className="competition-logo-controls">
-            <input
-              id="comp-logo"
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              disabled={logoUploading}
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                e.target.value = '';
-                if (file) onLogoSelected?.(file);
-              }}
-            />
-            <p className="form-hint">
-              JPG, PNG ou WebP · remplace le logo FENACOJU sur les pages d&apos;inscription.
-              {form.logo_url ? ' Logo personnalisé actif.' : ' Logo FENACOJU par défaut.'}
-            </p>
+            <div className="competition-logo-actions">
+              <input
+                id="comp-logo"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                disabled={logoUploading}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = '';
+                  if (file) onLogoSelected?.(file);
+                }}
+              />
+              {hasCustomLogo && (
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm"
+                  disabled={logoUploading}
+                  onClick={() => onLogoRemoved?.()}
+                >
+                  Retirer le logo
+                </button>
+              )}
+            </div>
+            <p className="form-hint">Formats pris en charge (JPG, PNG ou WebP)</p>
           </div>
         </div>
       </div>
-      <div className="form-group form-group-full">
-        <label htmlFor="comp-desc">Description</label>
+      <div className="form-group form-group-full competition-description-field">
+        <div className="competition-description-head">
+          <span className="competition-cat-block-kicker">Présentation</span>
+          <label htmlFor="comp-desc">Description</label>
+        </div>
+        <p className="form-hint competition-description-hint">
+          Texte affiché aux judokas sur la page d&apos;inscription publique.
+        </p>
         <textarea
           id="comp-desc"
           name="description"
+          className="competition-description-input"
           value={form.description}
           onChange={onChange}
-          rows={3}
-          placeholder="Informations utiles pour les judokas..."
+          rows={5}
+          placeholder="Ex. Horaires, lieu exact, consignes d'arrivée, documents à prévoir…"
         />
       </div>
       <div className="competition-fees-block">
@@ -700,6 +789,22 @@ export default function CompetitionSettings({ onBack, onToast }) {
     } catch (err) {
       setError(err.message);
       onToast?.(err.message || 'Impossible de charger le logo', 'error');
+    } finally {
+      setLogoUploading(false);
+    }
+  };
+
+  const handleLogoRemoved = async () => {
+    setLogoUploading(true);
+    setError('');
+    try {
+      const updated = await deleteCompetitionLogo();
+      setSettings((prev) => ({ ...prev, ...updated, logo_url: '' }));
+      setForm((prev) => ({ ...prev, logo_url: '' }));
+      onToast?.('Logo retiré — logo FENACOJU par défaut');
+    } catch (err) {
+      setError(err.message);
+      onToast?.(err.message || 'Impossible de retirer le logo', 'error');
     } finally {
       setLogoUploading(false);
     }
@@ -1500,6 +1605,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
                   onCategoriesChange={handleCategoriesChange}
                   onIndividualCategoriesChange={handleIndividualCategoriesChange}
                   onLogoSelected={handleLogoSelected}
+                  onLogoRemoved={handleLogoRemoved}
                   logoUploading={logoUploading}
                 />
                 <div className="form-actions">
@@ -1711,6 +1817,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
                 onCategoriesChange={handleCategoriesChange}
                 onIndividualCategoriesChange={handleIndividualCategoriesChange}
                 onLogoSelected={handleLogoSelected}
+                onLogoRemoved={handleLogoRemoved}
                 logoUploading={logoUploading}
               />
               <div className="form-actions">

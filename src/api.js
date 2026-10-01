@@ -457,6 +457,15 @@ export async function uploadCompetitionLogo(file) {
   return res.json();
 }
 
+export async function deleteCompetitionLogo() {
+  const res = await apiFetch('/api/competition/logo', { method: 'DELETE' });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Impossible de retirer le logo');
+  }
+  return res.json();
+}
+
 export async function deleteCompetitionPublicLink() {
   const res = await apiFetch('/api/competition/public-link', { method: 'DELETE' });
   if (!res.ok) {

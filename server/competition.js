@@ -229,7 +229,7 @@ function ensureDefaults(raw = {}) {
       if (meta.frais_equipe_usd != null) {
         settings.frais_equipe_usd = Math.max(0, Number(meta.frais_equipe_usd) || 0);
       }
-      if (meta.logo_url) {
+      if (meta.logo_url !== undefined) {
         settings.logo_url = String(meta.logo_url || '').trim();
       }
       settings.frais_individuel = settings.frais_monnaie === 'USD'
