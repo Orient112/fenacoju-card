@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { fetchPublicCompetitionRegistrations, updatePublicCompetitionWeight } from '../api';
+import { fetchPublicCompetitionRegistrations, updatePublicCompetitionWeight, resolveMediaUrl } from '../api';
 
 const FILTERS = [
   { key: 'all', label: 'Tous' },
@@ -256,7 +256,12 @@ export default function CompetitionWeighPage({ token }) {
     <div className="competition-public-page">
       <div className="competition-public-shell competition-weigh-shell">
         <header className="competition-public-brand">
-          <img src="/fenacoju-logo.png" alt="FENACOJU" width="56" height="56" />
+          <img
+            src={resolveMediaUrl(competition.logo_url) || '/fenacoju-logo.png'}
+            alt={competition.nom || 'FENACOJU'}
+            width="56"
+            height="56"
+          />
           <div className="competition-public-brand-text">
             <p className="competition-public-kicker">
               Pesée · {isTeamMode ? 'Par équipe' : (weighMode === 'individuel' ? 'Individuel' : 'FENACOJU')}

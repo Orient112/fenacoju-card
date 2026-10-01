@@ -443,6 +443,20 @@ export async function updateCompetition(data) {
   return res.json();
 }
 
+export async function uploadCompetitionLogo(file) {
+  const formData = new FormData();
+  formData.append('logo', file);
+  const res = await apiFetch('/api/competition/logo', {
+    method: 'POST',
+    body: formData,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Impossible de charger le logo');
+  }
+  return res.json();
+}
+
 export async function deleteCompetitionPublicLink() {
   const res = await apiFetch('/api/competition/public-link', { method: 'DELETE' });
   if (!res.ok) {

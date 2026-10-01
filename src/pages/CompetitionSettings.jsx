@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   fetchCompetition,
   updateCompetition,
+  uploadCompetitionLogo,
   fetchCompetitionRegistrations,
   deleteCompetitionRegistration,
   updateCompetitionRegistration,
@@ -9,6 +10,7 @@ import {
   chargeCompetitionTeamFromIndividuel,
   competitionPublicUrl,
   competitionWeighUrl,
+  resolveMediaUrl,
 } from '../api';
 import { exportCompetitionListToPdf } from '../utils/exportCompetitionListPdf';
 import { exportCompetitionDrawToPdf } from '../utils/exportCompetitionDrawPdf';
@@ -245,9 +247,17 @@ function TeamClubsTable({ clubs, onEdit, onDelete, onCharge }) {
   );
 }
 
-function ParamsFormFields({ form, onChange, onCategoriesChange, onIndividualCategoriesChange }) {
+function ParamsFormFields({
+  form,
+  onChange,
+  onCategoriesChange,
+  onIndividualCategoriesChange,
+  onLogoSelected,
+  logoUploading = false,
+}) {
   const teamCats = Array.isArray(form.categories_poids) ? form.categories_poids : [];
   const individualCats = Array.isArray(form.categories_poids_individuel) ? form.categories_poids_individuel : [];
+  const logoSrc = form.logo_url ? resolveMediaUrl(form.logo_url) : '/fenacoju-logo.png';
 
   const renderCatEditor = (cats, onUpdate, prefix) => {
     const updateCat = (index, field, value) => {
@@ -378,6 +388,35 @@ function ParamsFormFields({ form, onChange, onCategoriesChange, onIndividualCate
           value={form.date_fin}
           onChange={onChange}
         />
+      </div>
+      <div className="form-group form-group-full competition-logo-field">
+        <label htmlFor="comp-logo">Logo de la compétition</label>
+        <div className="competition-logo-row">
+          <img
+            src={logoSrc}
+            alt="Logo compétition"
+            className="competition-logo-preview"
+            width="64"
+            height="64"
+          />
+          <div className="competition-logo-controls">
+            <input
+              id="comp-logo"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              disabled={logoUploading}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = '';
+                if (file) onLogoSelected?.(file);
+              }}
+            />
+            <p className="form-hint">
+              JPG, PNG ou WebP · remplace le logo FENACOJU sur les pages d&apos;inscription.
+              {form.logo_url ? ' Logo personnalisé actif.' : ' Logo FENACOJU par défaut.'}
+            </p>
+          </div>
+        </div>
       </div>
       <div className="form-group form-group-full">
         <label htmlFor="comp-desc">Description</label>
@@ -530,6 +569,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
     date_fin: '',
     lieu: '',
     description: '',
+    logo_url: '',
     categories_poids: [],
     categories_poids_individuel: [],
     frais_monnaie: 'CDF',
@@ -538,6 +578,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
     frais_equipe_cdf: 0,
     frais_equipe_usd: 0,
   });
+  const [logoUploading, setLogoUploading] = useState(false);
   const formRef = useRef(form);
   const savingRef = useRef(false);
 
@@ -556,6 +597,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
       date_fin: data.date_fin || '',
       lieu: data.lieu || '',
       description: data.description || '',
+      logo_url: data.logo_url || '',
       categories_poids: Array.isArray(data.categories_poids) ? data.categories_poids : [],
       categories_poids_individuel: Array.isArray(data.categories_poids_individuel) ? data.categories_poids_individuel : [],
       frais_monnaie: String(data.frais_monnaie || '').toUpperCase() === 'USD' ? 'USD' : 'CDF',
@@ -644,6 +686,23 @@ export default function CompetitionSettings({ onBack, onToast }) {
 
   const handleIndividualCategoriesChange = (next) => {
     setForm((prev) => ({ ...prev, categories_poids_individuel: next }));
+  };
+
+  const handleLogoSelected = async (file) => {
+    if (!file) return;
+    setLogoUploading(true);
+    setError('');
+    try {
+      const updated = await uploadCompetitionLogo(file);
+      setSettings((prev) => ({ ...prev, ...updated }));
+      setForm((prev) => ({ ...prev, logo_url: updated.logo_url || '' }));
+      onToast?.('Logo de la compétition mis à jour');
+    } catch (err) {
+      setError(err.message);
+      onToast?.(err.message || 'Impossible de charger le logo', 'error');
+    } finally {
+      setLogoUploading(false);
+    }
   };
 
   const handleSave = async (e) => {
@@ -1170,8 +1229,8 @@ export default function CompetitionSettings({ onBack, onToast }) {
     setSaving(true);
     setError('');
     try {
+      let updatedList = [];
       if (editTeamMembers.length) {
-        const updatedList = [];
         for (const member of editTeamMembers) {
           const updated = await updateCompetitionRegistration(member.id, {
             club,
@@ -1195,7 +1254,33 @@ export default function CompetitionSettings({ onBack, onToast }) {
       if (JSON.stringify(nextClubs) !== JSON.stringify(current)) {
         await persistCompetitionClubs(nextClubs);
       }
-      setEditTeamTarget(null);
+      const byId = new Map(updatedList.map((row) => [row.id, row]));
+      if (updatedList.length) {
+        setEditTeamMembers((prev) => prev.map((m) => {
+          const refreshed = byId.get(m.id);
+          if (!refreshed) return m;
+          return {
+            id: refreshed.id,
+            nom: refreshed.nom || '',
+            prenom: refreshed.prenom || '',
+            poids: refreshed.poids || '',
+            categorie: refreshed.categorie || m.categorie || '',
+            sexe: refreshed.sexe === 'F' ? 'F' : (m.sexe === 'F' ? 'F' : 'M'),
+            role: teamMemberRole(refreshed),
+            role_equipe: refreshed.role_equipe,
+            taille: refreshed.taille,
+          };
+        }));
+      }
+      setEditTeamTarget((prev) => (prev ? {
+        ...prev,
+        club,
+        members: (prev.members || []).map((m) => {
+          const refreshed = byId.get(m.id);
+          return refreshed ? { ...m, ...refreshed, club } : { ...m, club };
+        }),
+      } : prev));
+      setEditTeamClub(club);
       onToast?.('Équipe mise à jour');
     } catch (err) {
       setError(err.message);
@@ -1414,6 +1499,8 @@ export default function CompetitionSettings({ onBack, onToast }) {
                   onChange={handleChange}
                   onCategoriesChange={handleCategoriesChange}
                   onIndividualCategoriesChange={handleIndividualCategoriesChange}
+                  onLogoSelected={handleLogoSelected}
+                  logoUploading={logoUploading}
                 />
                 <div className="form-actions">
                   <button type="submit" className="btn btn-primary" disabled={saving}>
@@ -1623,6 +1710,8 @@ export default function CompetitionSettings({ onBack, onToast }) {
                 onChange={handleChange}
                 onCategoriesChange={handleCategoriesChange}
                 onIndividualCategoriesChange={handleIndividualCategoriesChange}
+                onLogoSelected={handleLogoSelected}
+                logoUploading={logoUploading}
               />
               <div className="form-actions">
                 <button type="button" className="btn btn-outline" onClick={() => setShowParamsModal(false)}>
@@ -1990,11 +2079,15 @@ export default function CompetitionSettings({ onBack, onToast }) {
                     <select
                       id="edit-team-new-sexe"
                       value={editTeamNewJudoka.sexe}
-                      onChange={(e) => setEditTeamNewJudoka((prev) => ({ ...prev, sexe: e.target.value }))}
+                      disabled
+                      title="Sexe fixé selon l'équipe du club (Garçon ou Fille)"
                     >
                       <option value="M">Garçon</option>
                       <option value="F">Fille</option>
                     </select>
+                    <p className="form-hint">
+                      Fixé sur {editTeamNewJudoka.sexe === 'F' ? 'Fille' : 'Garçon'} pour ce club.
+                    </p>
                   </div>
                   <div className="form-group">
                     <label htmlFor="edit-team-new-role">Rôle</label>

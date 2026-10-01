@@ -3,6 +3,7 @@ import {
   fetchPublicCompetition,
   lookupPublicCompetitionJudoka,
   registerPublicCompetition,
+  resolveMediaUrl,
   CATEGORIES,
 } from '../api';
 import CompetitionPaymentModal, { formatMoney } from '../components/CompetitionPaymentModal';
@@ -629,7 +630,12 @@ export default function CompetitionPublicForm({ token }) {
     <div className="competition-public-page">
       <div className="competition-public-shell">
         <header className="competition-public-brand">
-          <img src="/fenacoju-logo.png" alt="FENACOJU" width="56" height="56" />
+          <img
+            src={resolveMediaUrl(competition.logo_url) || '/fenacoju-logo.png'}
+            alt={competition.nom || 'FENACOJU'}
+            width="56"
+            height="56"
+          />
           <div className="competition-public-brand-text">
             <p className="competition-public-kicker">FENACOJU</p>
             <h1>{competition.nom}</h1>
@@ -962,9 +968,11 @@ export default function CompetitionPublicForm({ token }) {
                       />
                     </div>
                   </div>
-                  <button type="button" className="btn btn-outline" onClick={classifyTeamEntry}>
-                    Classer dans la catégorie
-                  </button>
+                  <div className="competition-team-classify-row">
+                    <button type="button" className="btn btn-classer" onClick={classifyTeamEntry}>
+                      Classer
+                    </button>
+                  </div>
                 </div>
                 )}
 
@@ -972,15 +980,22 @@ export default function CompetitionPublicForm({ token }) {
                   {weightCats.map((cat) => {
                     const bucket = teamRoster[cat.key];
                     return (
-                      <section key={cat.key} className="competition-team-cat-block">
-                        <h4>{cat.label} <span>({cat.min}–{cat.max} kg)</span></h4>
+                      <section key={cat.key} className="competition-team-cat-card">
+                        <div className="competition-team-cat-meta">
+                          <span className="competition-team-cat-label">{cat.label}</span>
+                          <span className="competition-team-cat-range">{cat.min}–{cat.max} kg</span>
+                        </div>
                         {!bucket?.principal && !bucket?.remplacant ? (
-                          <p className="form-hint">Aucun judoka classé</p>
+                          <p className="competition-team-cat-empty">Aucun judoka classé</p>
                         ) : (
-                          <ul>
+                          <ul className="competition-team-cat-list">
                             {bucket.principal && (
-                              <li>
-                                <strong>Principal</strong> — {bucket.principal.nom_complet} ({bucket.principal.poids} kg)
+                              <li className="competition-team-judoka-row">
+                                <div className="competition-team-judoka-main">
+                                  <span className="competition-team-role-tag">Principal</span>
+                                  <span className="competition-team-judoka-name">{bucket.principal.nom_complet}</span>
+                                  <span className="competition-team-judoka-weight">{bucket.principal.poids} kg</span>
+                                </div>
                                 {bucket.principal.locked ? (
                                   <span className="badge badge-actif">Chargé</span>
                                 ) : (
@@ -999,8 +1014,12 @@ export default function CompetitionPublicForm({ token }) {
                               </li>
                             )}
                             {bucket.remplacant && (
-                              <li>
-                                <strong>Remplaçant</strong> — {bucket.remplacant.nom_complet} ({bucket.remplacant.poids} kg)
+                              <li className="competition-team-judoka-row">
+                                <div className="competition-team-judoka-main">
+                                  <span className="competition-team-role-tag">Remplaçant</span>
+                                  <span className="competition-team-judoka-name">{bucket.remplacant.nom_complet}</span>
+                                  <span className="competition-team-judoka-weight">{bucket.remplacant.poids} kg</span>
+                                </div>
                                 {bucket.remplacant.locked ? (
                                   <span className="badge badge-actif">Chargé</span>
                                 ) : (
@@ -1019,7 +1038,7 @@ export default function CompetitionPublicForm({ token }) {
                               </li>
                             )}
                             {bucket.principal && bucket.remplacant && !bucket.principal.locked && !bucket.remplacant.locked && (
-                              <li>
+                              <li className="competition-team-judoka-row competition-team-judoka-swap">
                                 <button
                                   type="button"
                                   className="btn btn-outline btn-sm"

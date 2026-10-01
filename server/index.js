@@ -266,6 +266,7 @@ app.get('/api/public/competition/:token', async (req, res) => {
       date_fin: settings.date_fin || '',
       lieu: settings.lieu,
       description: settings.description || '',
+      logo_url: settings.logo_url || '',
       public_token: settings.public_token,
       categories_poids: settings.categories_poids || [],
       competition_clubs: settings.competition_clubs || [],
@@ -820,6 +821,9 @@ app.put('/api/competition', async (req, res) => {
     if (body.frais_equipe_usd !== undefined) {
       patch.frais_equipe_usd = Math.max(0, Number(body.frais_equipe_usd) || 0);
     }
+    if (body.logo_url !== undefined) {
+      patch.logo_url = String(body.logo_url || '').trim();
+    }
     if (body.public_enabled !== undefined) {
       const next = { ...current, ...patch };
       if (body.public_enabled && !isCompetitionConfigured(next)) {
@@ -837,6 +841,32 @@ app.put('/api/competition', async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/competition/logo', upload.single('logo'), async (req, res) => {
+  try {
+    const current = await getCompetitionSettings();
+    const canToggle = canToggleCompetitionAccess(req.user);
+    const isDirector = isDirecteurCompetition(req.user);
+    if (!canToggle && !(isDirector && current.access_enabled)) {
+      return res.status(403).json({ error: 'Accès non autorisé' });
+    }
+    if (!req.file) {
+      return res.status(400).json({ error: 'Choisissez un fichier image (JPG, PNG ou WebP)' });
+    }
+    const logoUrl = await saveUploadedFile(req.file, 'competition-logos');
+    if (current.logo_url && current.logo_url !== logoUrl) {
+      try { await deleteStoredFile(current.logo_url); } catch { /* ignore */ }
+    }
+    const settings = await updateCompetitionSettings({ logo_url: logoUrl });
+    res.json({
+      ...settings,
+      configured: isCompetitionConfigured(settings),
+      logo_url: settings.logo_url,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Impossible de charger le logo' });
   }
 });
 

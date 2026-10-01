@@ -3787,6 +3787,152 @@ tbody tr:last-child td {
   font-size: 1rem;
 }
 
+.competition-logo-field {
+  margin-top: 0.25rem;
+}
+
+.competition-logo-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.competition-logo-preview {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  padding: 4px;
+}
+
+.competition-logo-controls {
+  flex: 1;
+  min-width: 200px;
+}
+
+.competition-logo-controls input[type="file"] {
+  display: block;
+  width: 100%;
+  font-size: 0.9rem;
+}
+
+.btn-classer {
+  background: #1a7f4b;
+  color: #fff;
+  border: 1px solid #16663c;
+  font-weight: 700;
+  min-width: 7.5rem;
+}
+
+.btn-classer:hover:not(:disabled) {
+  background: #16663c;
+  color: #fff;
+  border-color: #125232;
+}
+
+.competition-team-roster {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin: 1rem 0 1.25rem;
+}
+
+.competition-team-cat-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #f8fafc 0%, #fff 48%);
+  padding: 0.85rem 1rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.competition-team-cat-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.65rem;
+  padding-bottom: 0.45rem;
+  border-bottom: 1px solid #eef2f7;
+}
+
+.competition-team-cat-label,
+.competition-team-cat-range,
+.competition-team-judoka-weight,
+.competition-team-role-tag {
+  font-weight: 400;
+}
+
+.competition-team-cat-label {
+  color: #334155;
+  font-size: 0.98rem;
+}
+
+.competition-team-cat-range {
+  color: #64748b;
+  font-size: 0.88rem;
+  white-space: nowrap;
+}
+
+.competition-team-cat-empty {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+.competition-team-cat-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.competition-team-judoka-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  background: #fff;
+  border: 1px solid #e8eef5;
+  border-radius: 10px;
+  padding: 0.55rem 0.7rem;
+}
+
+.competition-team-judoka-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.45rem 0.7rem;
+  min-width: 0;
+}
+
+.competition-team-role-tag {
+  color: #64748b;
+  font-size: 0.82rem;
+  letter-spacing: 0.01em;
+}
+
+.competition-team-judoka-name {
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 0.98rem;
+}
+
+.competition-team-judoka-weight {
+  color: #64748b;
+  font-size: 0.88rem;
+}
+
+.competition-team-judoka-swap {
+  justify-content: flex-start;
+  background: transparent;
+  border-style: dashed;
+}
+
 .competition-team-classified {
   list-style: none;
   margin: 0;

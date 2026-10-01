@@ -14,6 +14,7 @@ const DEFAULT_SETTINGS = {
   date_fin: '',
   lieu: '',
   description: '',
+  logo_url: '',
   public_enabled: false,
   public_token: '',
   categories_poids: [],
@@ -198,6 +199,7 @@ function ensureDefaults(raw = {}) {
   settings.frais_equipe = settings.frais_monnaie === 'USD'
     ? settings.frais_equipe_usd
     : settings.frais_equipe_cdf;
+  settings.logo_url = String(settings.logo_url || '').trim();
   const desc = String(settings.description || '');
   const metaMatch = desc.match(META_RE);
   if (metaMatch) {
@@ -226,6 +228,9 @@ function ensureDefaults(raw = {}) {
       }
       if (meta.frais_equipe_usd != null) {
         settings.frais_equipe_usd = Math.max(0, Number(meta.frais_equipe_usd) || 0);
+      }
+      if (meta.logo_url) {
+        settings.logo_url = String(meta.logo_url || '').trim();
       }
       settings.frais_individuel = settings.frais_monnaie === 'USD'
         ? settings.frais_individuel_usd
@@ -267,6 +272,7 @@ function toDbSettings(settings) {
       frais_equipe: String(settings.frais_monnaie || '').toUpperCase() === 'USD'
         ? Math.max(0, Number(settings.frais_equipe_usd) || 0)
         : Math.max(0, Number(settings.frais_equipe_cdf ?? settings.frais_equipe) || 0),
+      logo_url: String(settings.logo_url || '').trim(),
     })}-->`,
     public_enabled: Boolean(settings.public_enabled),
     public_token: settings.public_token || '',
@@ -370,6 +376,7 @@ export function toPublicCompetition(settings, extras = {}) {
     frais_equipe_usd: Math.max(0, Number(settings.frais_equipe_usd) || 0),
     frais_individuel: Math.max(0, Number(settings.frais_individuel) || 0),
     frais_equipe: Math.max(0, Number(settings.frais_equipe) || 0),
+    logo_url: String(settings.logo_url || '').trim(),
     ...extras,
   };
 }
