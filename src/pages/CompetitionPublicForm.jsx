@@ -628,7 +628,6 @@ export default function CompetitionPublicForm({ token }) {
             />
           </div>
           <div className="competition-public-brand-text">
-            <p className="competition-public-kicker">FENACOJU</p>
             <h1>{competition.nom}</h1>
             <p>
               {competition.lieu}
