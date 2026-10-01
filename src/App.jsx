@@ -1289,6 +1289,8 @@ export default function App() {
               </button>
             )}
           </nav>
+        </header>
+        <footer className="app-user-footer">
           <div className="header-user">
             <div className="header-user-meta">
               <span className="header-user-name">{getUserDisplayName(user)}</span>
@@ -1298,7 +1300,7 @@ export default function App() {
               Déconnexion
             </button>
           </div>
-        </header>
+        </footer>
       </div>
 
       {showCreateModal && (
