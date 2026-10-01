@@ -203,9 +203,16 @@ export function interpretSimplyPayCheckStatus(data = {}) {
     return 'failed';
   }
 
-  // En attente (sandbox code=1 + « en attente » ; prod status=2)
-  if (/en attente|pending|pas encore|validez le push/i.test(msg + ' ' + title)
-    && !/succ[eè]s|r[eé]ussi|effectu[eé]|pay[eé]/i.test(msg)) {
+  // Doc officielle : code === "1" = paiement réussi
+  // (sandbox peut renvoyer code 1 + « en attente » → rester pending)
+  if (code === '1') {
+    if (/en attente|pending/i.test(msg + ' ' + title) && !/r[eé]ussi|succ[eè]s|effectu[eé]/i.test(msg)) {
+      return 'pending';
+    }
+    return 'success';
+  }
+
+  if (/en attente|pending|pas encore|validez le push/i.test(msg + ' ' + title)) {
     return 'pending';
   }
   if (status === '2' || status === '4' || status === 'pending') {
@@ -215,11 +222,7 @@ export function interpretSimplyPayCheckStatus(data = {}) {
     return 'pending';
   }
 
-  // Succès
   if (status === '0' || status === 'success' || status === 'paid' || tone === 'success') {
-    return 'success';
-  }
-  if (code === '1' && !/en attente|pending|confirmation/i.test(msg)) {
     return 'success';
   }
   if (

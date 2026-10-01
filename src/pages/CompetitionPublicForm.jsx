@@ -3,7 +3,6 @@ import {
   fetchPublicCompetition,
   lookupPublicCompetitionJudoka,
   registerPublicCompetition,
-  waitPublicCompetitionPayment,
   CATEGORIES,
 } from '../api';
 import CompetitionPaymentModal, { formatMoney } from '../components/CompetitionPaymentModal';
@@ -341,19 +340,9 @@ export default function CompetitionPublicForm({ token }) {
     setSubmitting(true);
     setError('');
     const batch = (paymentItems.length ? paymentItems : basket).map(({ _key, ...rest }) => rest);
-    let finalPaiement = paiement;
     const needsPay = Number(paiement?.montant) > 0 && paiement?.mode === 'mobile_money';
 
-    try {
-      if (needsPay) {
-        finalPaiement = await waitPublicCompetitionPayment(token, paiement);
-      }
-    } catch (err) {
-      setSubmitting(false);
-      throw err;
-    }
-
-    // Paiement confirmé (ou gratuit) → fermer le modal puis enregistrer
+    // Le modal a déjà confirmé le paiement (orderNumber présent si payant)
     setShowPayment(false);
     setPaymentKind(null);
     setStep('finalizing');
@@ -362,7 +351,7 @@ export default function CompetitionPublicForm({ token }) {
       const result = await registerPublicCompetition(token, {
         mode_inscription: 'individuel',
         batch,
-        paiement: finalPaiement,
+        paiement,
       });
       const count = result.count || batch.length;
       setSuccessName(batch.length === 1
@@ -376,10 +365,10 @@ export default function CompetitionPublicForm({ token }) {
       setBasket([]);
       setStep('success');
     } catch (err) {
-      setStep(inscriptionMode === 'equipe' ? 'team' : 'form');
+      setStep('form');
       setError(
-        needsPay
-          ? `Paiement reçu, mais l'inscription a échoué : ${err.message || 'erreur'}. Réessayez via « Nouvelle inscription » ou contactez l'organisation — vous ne serez pas débité une seconde fois.`
+        needsPay && paiement?.orderNumber
+          ? `Paiement reçu, mais l'inscription a échoué : ${err.message || 'erreur'}. Contactez l'organisation — vous ne serez pas débité une seconde fois.`
           : (err.message || 'Inscription impossible')
       );
     } finally {
@@ -484,13 +473,10 @@ export default function CompetitionPublicForm({ token }) {
     setSubmitting(true);
     setError('');
     const needsPay = Number(paiement?.montant) > 0 && paiement?.mode === 'mobile_money';
-    let finalPaiement = paiement;
     let members = [];
     let hasLocked = false;
 
     try {
-      members = [];
-      hasLocked = false;
       for (const bucket of Object.values(teamRoster)) {
         if (bucket.principal) {
           if (bucket.principal.locked) {
@@ -525,9 +511,6 @@ export default function CompetitionPublicForm({ token }) {
       if (!members.length) {
         throw new Error('Cette équipe est déjà enregistrée pour ce club');
       }
-      if (needsPay) {
-        finalPaiement = await waitPublicCompetitionPayment(token, paiement);
-      }
     } catch (err) {
       setSubmitting(false);
       throw err;
@@ -544,7 +527,7 @@ export default function CompetitionPublicForm({ token }) {
         sexe: teamSexe,
         members,
         allow_existing: hasLocked,
-        paiement: finalPaiement,
+        paiement,
       });
       setSuccessName(teamClub.trim());
       setSuccessCount(result.count || members.length);
@@ -555,7 +538,7 @@ export default function CompetitionPublicForm({ token }) {
     } catch (err) {
       setStep('team');
       setError(
-        needsPay
+        needsPay && paiement?.orderNumber
           ? `Paiement reçu, mais l'inscription équipe a échoué : ${err.message || 'erreur'}. Contactez l'organisation — vous ne serez pas débité une seconde fois.`
           : (err.message || 'Inscription équipe impossible')
       );
@@ -1176,6 +1159,7 @@ export default function CompetitionPublicForm({ token }) {
               && (paymentAmountCdf + paymentAmountUsd > 0)
             }
             busy={submitting}
+            competitionToken={token}
             onClose={() => { if (!submitting) { setShowPayment(false); setPaymentKind(null); } }}
             onConfirm={paymentKind === 'equipe' ? confirmTeamPayment : confirmIndividuelPayment}
           />
