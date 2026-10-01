@@ -743,118 +743,24 @@ export default function App() {
 
   return (
     <>
-      <header className="header">
-        <div className="header-brand">
-          <img src="/fenacoju-logo.png" alt="FENACOJU" className="header-logo-img" width="52" height="52" decoding="async" />
-          <div>
-            <h1>FENACOJU Base</h1>
-            <p>Gestion des Clubs et Judokas Congolais</p>
-          </div>
-        </div>
-        <nav className="header-nav">
-          <button
-            className={`nav-btn ${view === 'list' ? 'active' : ''}`}
-            onClick={() => { setView('list'); setEditing(null); setEditingUser(null); setCreateType(null); }}
-          >
-            Dashboard
-          </button>
-          {showHeaderCreate && (
-            <button
-              className={`nav-btn ${view === 'user-form' && !editingUser ? 'active' : ''}`}
-              onClick={openCreateModal}
-            >
-              Créer
-            </button>
+      <div className="app-shell">
+        <div className="app-content">
+          {!serverOnline && (
+            <div className="server-banner">
+              {import.meta.env.PROD ? (
+                <>
+                  Serveur temporairement indisponible — le backend Render peut mettre jusqu&apos;à une minute à démarrer.
+                  Actualisez la page dans quelques secondes.
+                </>
+              ) : (
+                <>
+                  Serveur hors ligne — Dans le terminal, lancez <code>npm run dev</code> et ouvrez <code>http://localhost:5173</code>
+                </>
+              )}
+            </div>
           )}
-          {perms.canMessage !== false && (
-            <button
-              className={`nav-btn ${view === 'messages' ? 'active' : ''}`}
-              onClick={() => { setView('messages'); setEditing(null); setEditingUser(null); setCreateType(null); }}
-            >
-              Messages{unreadMessages > 0 ? ` (${unreadMessages})` : ''}
-            </button>
-          )}
-          {canScanQr && (
-            <button
-              className="nav-btn"
-              onClick={() => setShowQrScan(true)}
-              disabled={!serverOnline}
-            >
-              Scan QR
-            </button>
-          )}
-          {canToggleCompetition && (
-            <label
-              className={`competition-access-toggle ${competitionAccess ? 'is-on' : ''}`}
-              title="Activer / désactiver le bouton Compétition du Directeur Compétition"
-            >
-              <span>Compétition</span>
-              <input
-                type="checkbox"
-                checked={competitionAccess}
-                onChange={handleCompetitionAccessToggle}
-                disabled={competitionToggleBusy || !serverOnline}
-              />
-              <span className="toggle-slider" />
-            </label>
-          )}
-          {showCompetitionButton && (
-            <button
-              className={`nav-btn ${view === 'competition' ? 'active' : ''}`}
-              onClick={() => {
-                if (!competitionButtonEnabled) {
-                  showToast('Le bouton Compétition n\'est pas encore activé par Admin / Coordon', 'error');
-                  return;
-                }
-                setView('competition');
-                setEditing(null);
-                setEditingUser(null);
-                setCreateType(null);
-              }}
-              disabled={!serverOnline || !competitionButtonEnabled}
-              title={competitionButtonEnabled ? 'Paramètres compétition' : 'En attente d\'activation Admin / Coordon'}
-            >
-              Compétition
-            </button>
-          )}
-          {perms.export && !showCompetitionButton && (
-            <button
-              className="nav-btn"
-              onClick={handleExport}
-              disabled={!serverOnline || exportingPdf}
-              title={isAdminOrCoordon(user) ? `Exporter en PDF l’onglet ${dashboardTab}` : 'Exporter'}
-            >
-              {exportingPdf && isAdminOrCoordon(user) ? 'Export...' : 'Exporter'}
-            </button>
-          )}
-          <div className="header-user">
-            <span className="header-user-name">
-              {getUserDisplayName(user)}
-              <span className="role-badge">{getRoleLabel(user)}</span>
-            </span>
-            <button className="nav-btn nav-btn-logout" onClick={handleLogout}>
-              Déconnexion
-            </button>
-          </div>
-        </nav>
-      </header>
 
-      {!serverOnline && (
-        <div className="server-banner">
-          {import.meta.env.PROD ? (
-            <>
-              Serveur temporairement indisponible — le backend Render peut mettre jusqu&apos;à une minute à démarrer.
-              Actualisez la page dans quelques secondes.
-            </>
-          ) : (
-            <>
-              Serveur hors ligne — Dans le terminal, lancez <code>npm run dev</code> et ouvrez <code>http://localhost:5173</code>
-            </>
-          )}
-        </div>
-      )}
-
-      <main className={`container ${loading ? 'is-loading' : ''}`}>
+          <main className={`container ${loading ? 'is-loading' : ''}`}>
         {view === 'list' && (
           <>
             {perms.viewStats && (
@@ -1296,6 +1202,104 @@ export default function App() {
           </Suspense>
         )}
       </main>
+        </div>
+
+        <header className="header app-rail">
+          <div className="header-brand">
+            <img src="/fenacoju-logo.png" alt="FENACOJU" className="header-logo-img" width="52" height="52" decoding="async" />
+            <div>
+              <h1>FENACOJU Base</h1>
+              <p>Gestion des Clubs et Judokas Congolais</p>
+            </div>
+          </div>
+          <nav className="header-nav">
+            <button
+              className={`nav-btn ${view === 'list' ? 'active' : ''}`}
+              onClick={() => { setView('list'); setEditing(null); setEditingUser(null); setCreateType(null); }}
+            >
+              Dashboard
+            </button>
+            {showHeaderCreate && (
+              <button
+                className={`nav-btn ${view === 'user-form' && !editingUser ? 'active' : ''}`}
+                onClick={openCreateModal}
+              >
+                Créer
+              </button>
+            )}
+            {perms.canMessage !== false && (
+              <button
+                className={`nav-btn ${view === 'messages' ? 'active' : ''}`}
+                onClick={() => { setView('messages'); setEditing(null); setEditingUser(null); setCreateType(null); }}
+              >
+                Messages{unreadMessages > 0 ? ` (${unreadMessages})` : ''}
+              </button>
+            )}
+            {canScanQr && (
+              <button
+                className="nav-btn"
+                onClick={() => setShowQrScan(true)}
+                disabled={!serverOnline}
+              >
+                Scan QR
+              </button>
+            )}
+            {canToggleCompetition && (
+              <label
+                className={`competition-access-toggle ${competitionAccess ? 'is-on' : ''}`}
+                title="Activer / désactiver le bouton Compétition du Directeur Compétition"
+              >
+                <span>Compétition</span>
+                <input
+                  type="checkbox"
+                  checked={competitionAccess}
+                  onChange={handleCompetitionAccessToggle}
+                  disabled={competitionToggleBusy || !serverOnline}
+                />
+                <span className="toggle-slider" />
+              </label>
+            )}
+            {showCompetitionButton && (
+              <button
+                className={`nav-btn ${view === 'competition' ? 'active' : ''}`}
+                onClick={() => {
+                  if (!competitionButtonEnabled) {
+                    showToast('Le bouton Compétition n\'est pas encore activé par Admin / Coordon', 'error');
+                    return;
+                  }
+                  setView('competition');
+                  setEditing(null);
+                  setEditingUser(null);
+                  setCreateType(null);
+                }}
+                disabled={!serverOnline || !competitionButtonEnabled}
+                title={competitionButtonEnabled ? 'Paramètres compétition' : 'En attente d\'activation Admin / Coordon'}
+              >
+                Compétition
+              </button>
+            )}
+            {perms.export && !showCompetitionButton && (
+              <button
+                className="nav-btn"
+                onClick={handleExport}
+                disabled={!serverOnline || exportingPdf}
+                title={isAdminOrCoordon(user) ? `Exporter en PDF l’onglet ${dashboardTab}` : 'Exporter'}
+              >
+                {exportingPdf && isAdminOrCoordon(user) ? 'Export...' : 'Exporter'}
+              </button>
+            )}
+          </nav>
+          <div className="header-user">
+            <span className="header-user-name">
+              {getUserDisplayName(user)}
+              <span className="role-badge">{getRoleLabel(user)}</span>
+            </span>
+            <button className="nav-btn nav-btn-logout" onClick={handleLogout}>
+              Déconnexion
+            </button>
+          </div>
+        </header>
+      </div>
 
       {showCreateModal && (
         <Suspense fallback={null}>
