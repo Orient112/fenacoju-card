@@ -215,48 +215,60 @@ canvas {
 .header-nav {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0;
   flex: 1;
 }
 
 .nav-btn {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 0;
   color: white;
-  padding: 0.65rem 0.9rem;
-  border-radius: 12px;
+  padding: 0.75rem 0.15rem;
   cursor: pointer;
-  font-size: 0.875rem;
-  font-weight: 600;
-  transition: transform 0.22s ease, background 0.22s ease, box-shadow 0.22s ease;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: color 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
   font-family: inherit;
   text-align: left;
   width: 100%;
+  box-shadow: none;
 }
 
 .nav-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-  transform: translateX(3px);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+  background: transparent;
+  transform: none;
+  box-shadow: none;
+  color: #fff;
+  border-bottom-color: rgba(255, 255, 255, 0.45);
+  opacity: 0.95;
 }
 
 .nav-btn.active {
-  background: white;
-  color: var(--primary-dark);
+  background: transparent;
+  color: var(--gold);
   border-color: transparent;
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.16);
+  border-bottom-color: var(--gold);
+  box-shadow: none;
+  font-weight: 700;
 }
 
 .nav-btn-logout {
-  background: var(--accent) !important;
-  border-color: var(--accent) !important;
-  color: white !important;
+  background: transparent !important;
+  border: none !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.18) !important;
+  border-radius: 0 !important;
+  color: #fecaca !important;
+  margin-top: 0.25rem;
+  padding-top: 0.85rem !important;
 }
 
 .nav-btn-logout:hover {
-  background: var(--accent-light) !important;
-  border-color: var(--accent-light) !important;
-  color: white !important;
+  background: transparent !important;
+  border-color: transparent !important;
+  border-top-color: rgba(254, 202, 202, 0.55) !important;
+  color: #fff !important;
 }
 
 .btn-icon {
@@ -1465,14 +1477,28 @@ tbody tr:last-child td {
   .nav-btn {
     flex-shrink: 0;
     width: auto;
-    padding: 0.55rem 0.9rem;
+    padding: 0.55rem 0.35rem;
     font-size: 0.8rem;
     text-align: center;
-    border-radius: 999px;
+    border-radius: 0;
+    border: none;
+    border-bottom: 2px solid transparent;
+    background: transparent;
   }
 
   .nav-btn:hover {
-    transform: translateY(-1px);
+    transform: none;
+  }
+
+  .nav-btn.active {
+    background: transparent;
+    color: var(--gold);
+    border-bottom-color: var(--gold);
+    box-shadow: none;
+  }
+
+  .header-nav {
+    gap: 0.75rem;
   }
 
   .header-user {
@@ -1520,9 +1546,12 @@ tbody tr:last-child td {
 
   .competition-access-toggle {
     width: auto;
-    border-radius: 999px;
-    padding: 0.45rem 0.7rem;
+    border-radius: 0;
+    padding: 0.45rem 0.2rem;
     flex-shrink: 0;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
   }
 
   .container {
@@ -2170,7 +2199,7 @@ tbody tr:last-child td {
   object-fit: cover;
   object-position: center 35%;
   transform: scale(1.04);
-  opacity: 0.1;
+  opacity: 0.05;
   animation: fenacoju-rise 1.1s ease both;
 }
 
@@ -4077,14 +4106,16 @@ tbody tr:last-child td {
   gap: 0.55rem;
   color: white;
   font-size: 0.82rem;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
   user-select: none;
-  padding: 0.65rem 0.9rem;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  padding: 0.75rem 0.15rem;
+  border-radius: 0;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.18);
   width: 100%;
+  box-shadow: none;
 }
 
 .competition-access-toggle.is-on {
@@ -4670,28 +4701,42 @@ tbody tr:last-child td {
   display: flex;
   align-items: center;
   gap: 1rem;
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.06));
-  color: white;
-  border-radius: 20px;
-  padding: 1.2rem 1.35rem;
-  box-shadow: 0 20px 50px rgba(7, 20, 51, 0.28);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  backdrop-filter: blur(14px);
+  background: transparent;
+  color: var(--text);
+  border-radius: 0;
+  padding: 0.35rem 0;
+  box-shadow: none;
+  border: none;
+  backdrop-filter: none;
 }
 
-.competition-public-brand img {
+.competition-public-logo-wrap {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  padding: 0.7rem;
+  border-radius: 18px;
+  background:
+    linear-gradient(145deg, var(--primary-dark) 0%, var(--primary) 55%, var(--primary-light) 100%);
+  box-shadow: 0 12px 28px rgba(18, 45, 102, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.competition-public-brand img,
+.competition-public-logo-wrap img {
   background: white;
   border-radius: 50%;
   padding: 4px;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+  box-shadow: none;
+  display: block;
 }
 
 .competition-public-kicker {
   font-size: 0.75rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  opacity: 0.85;
+  opacity: 1;
+  color: #64748b;
   margin-bottom: 0.15rem;
 }
 
@@ -4700,6 +4745,11 @@ tbody tr:last-child td {
   font-size: clamp(1.35rem, 2.4vw, 1.7rem);
   line-height: 1.25;
   letter-spacing: -0.02em;
+  color: var(--primary-dark);
+}
+
+.competition-public-brand p {
+  color: #64748b;
 }
 
 .competition-public-brand p {
@@ -5465,12 +5515,14 @@ tbody tr:last-child td {
 
 .competition-count-badge {
   margin-left: auto;
-  background: rgba(255, 255, 255, 0.16);
-  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: #fff;
+  border: 1px solid #e2e8f0;
   border-radius: 14px;
   padding: 0.65rem 0.9rem;
   text-align: center;
   min-width: 84px;
+  color: var(--primary-dark);
+  box-shadow: 0 6px 16px rgba(18, 45, 102, 0.06);
 }
 
 .competition-count-badge strong {
@@ -6471,3 +6523,67 @@ a.competition-action-btn,
     padding: 0.85rem 0.8rem;
   }
 }
+
+.messages-compose-attach {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem 0.75rem;
+}
+
+.messages-attach-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #334155;
+  font-size: 0.8rem;
+  font-weight: 600;
+  max-width: 100%;
+}
+
+.messages-attach-remove {
+  border: none;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0;
+}
+
+.message-attachment {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.45rem;
+  padding: 0.4rem 0.65rem;
+  border-radius: 10px;
+  background: rgba(29, 67, 147, 0.08);
+  color: var(--primary-dark);
+  font-size: 0.86rem;
+  font-weight: 600;
+  text-decoration: none;
+  word-break: break-word;
+}
+
+.message-bubble.mine .message-attachment {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+
+.message-attachment.is-pending {
+  opacity: 0.75;
+}
+
+.competition-regs-search {
+  margin-bottom: 0.35rem;
+}
+
+.competition-regs-search .search-input {
+  width: 100%;
+  background-color: #fff;
+}
+

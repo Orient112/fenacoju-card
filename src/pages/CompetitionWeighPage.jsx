@@ -256,12 +256,14 @@ export default function CompetitionWeighPage({ token }) {
     <div className="competition-public-page">
       <div className="competition-public-shell competition-weigh-shell">
         <header className="competition-public-brand">
-          <img
-            src={resolveMediaUrl(competition.logo_url) || '/fenacoju-logo.png'}
-            alt={competition.nom || 'FENACOJU'}
-            width="56"
-            height="56"
-          />
+          <div className="competition-public-logo-wrap">
+            <img
+              src={resolveMediaUrl(competition.logo_url) || '/fenacoju-logo.png'}
+              alt={competition.nom || 'FENACOJU'}
+              width="56"
+              height="56"
+            />
+          </div>
           <div className="competition-public-brand-text">
             <p className="competition-public-kicker">
               Pesée · {isTeamMode ? 'Par équipe' : (weighMode === 'individuel' ? 'Individuel' : 'FENACOJU')}

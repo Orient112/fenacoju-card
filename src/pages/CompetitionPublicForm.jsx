@@ -619,12 +619,14 @@ export default function CompetitionPublicForm({ token }) {
     <div className="competition-public-page">
       <div className="competition-public-shell">
         <header className="competition-public-brand">
-          <img
-            src={resolveMediaUrl(competition.logo_url) || '/fenacoju-logo.png'}
-            alt={competition.nom || 'FENACOJU'}
-            width="56"
-            height="56"
-          />
+          <div className="competition-public-logo-wrap">
+            <img
+              src={resolveMediaUrl(competition.logo_url) || '/fenacoju-logo.png'}
+              alt={competition.nom || 'FENACOJU'}
+              width="56"
+              height="56"
+            />
+          </div>
           <div className="competition-public-brand-text">
             <p className="competition-public-kicker">FENACOJU</p>
             <h1>{competition.nom}</h1>

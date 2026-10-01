@@ -3,8 +3,12 @@ import {
   fetchMessageContacts,
   fetchConversation,
   sendMessage,
+  resolveMediaUrl,
   USER_TYPES,
 } from '../api';
+
+const ATTACHMENT_ACCEPT = '.doc,.docx,.pdf,.jpg,.jpeg,.png,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf,image/jpeg,image/png';
+const ATTACHMENT_EXT = /\.(doc|docx|pdf|jpe?g|png)$/i;
 
 function getContactName(contact) {
   if (contact.type === 'club') return contact.nom_club;
@@ -72,11 +76,13 @@ export default function Messages({ currentUser, onUnreadChange }) {
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState('');
   const [subject, setSubject] = useState('');
+  const [attachment, setAttachment] = useState(null);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const threadRef = useRef(null);
+  const fileInputRef = useRef(null);
   const selectedIdRef = useRef(null);
 
   const selected = contacts.find((c) => c.id === selectedId);
@@ -138,10 +144,34 @@ export default function Messages({ currentUser, onUnreadChange }) {
     }
   }, [messages]);
 
+  const handleAttachmentChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) {
+      setAttachment(null);
+      return;
+    }
+    if (!ATTACHMENT_EXT.test(file.name)) {
+      setError('Formats autorisés : DOC, PDF, JPG, PNG');
+      e.target.value = '';
+      setAttachment(null);
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setError('Fichier trop volumineux (maximum 10 Mo)');
+      e.target.value = '';
+      setAttachment(null);
+      return;
+    }
+    setError('');
+    setAttachment(file);
+  };
+
   const handleSend = async (e) => {
     e.preventDefault();
-    if (!selectedId || !draft.trim()) return;
+    if (!selectedId || sending) return;
     const text = draft.trim();
+    const file = attachment;
+    if (!text && !file) return;
     const topic = subject;
     const tempId = `tmp-${Date.now()}`;
     const optimistic = {
@@ -149,21 +179,26 @@ export default function Messages({ currentUser, onUnreadChange }) {
       from_id: currentUser.id,
       to_id: selectedId,
       subject: topic,
-      body: text,
+      body: text || (file ? `Pièce jointe : ${file.name}` : ''),
+      attachment_name: file?.name || '',
+      attachment_url: file ? 'pending' : '',
       read: false,
       created_at: new Date().toISOString(),
     };
     setDraft('');
+    setAttachment(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
     setSending(true);
     setError('');
     setMessages((prev) => [...prev, optimistic]);
     try {
-      const saved = await sendMessage(selectedId, topic, text);
+      const saved = await sendMessage(selectedId, topic, text, file || undefined);
       setMessages((prev) => prev.map((m) => (m.id === tempId ? saved : m)));
       loadContacts();
     } catch (err) {
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
       setDraft(text);
+      setAttachment(file);
       setError(err.message);
     } finally {
       setSending(false);
@@ -255,7 +290,20 @@ export default function Messages({ currentUser, onUnreadChange }) {
                   return (
                     <div key={m.id} className={`message-bubble ${mine ? 'mine' : 'theirs'}`}>
                       {m.subject && <div className="message-subject">{m.subject}</div>}
-                      <div className="message-body">{m.body}</div>
+                      {m.body && <div className="message-body">{m.body}</div>}
+                      {m.attachment_url && m.attachment_url !== 'pending' && (
+                        <a
+                          className="message-attachment"
+                          href={resolveMediaUrl(m.attachment_url)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          📎 {m.attachment_name || 'Fichier joint'}
+                        </a>
+                      )}
+                      {m.attachment_url === 'pending' && (
+                        <div className="message-attachment is-pending">📎 {m.attachment_name || 'Fichier…'}</div>
+                      )}
                       <div className="message-meta">
                         <span className="message-time">{formatMessageTime(m.created_at)}</span>
                         {mine && (
@@ -283,11 +331,46 @@ export default function Messages({ currentUser, onUnreadChange }) {
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
                   rows={2}
-                  required
+                  required={!attachment}
                 />
-                <button type="submit" className="btn messages-send-btn" disabled={sending || !draft.trim()}>
+                <button type="submit" className="btn messages-send-btn" disabled={sending || (!draft.trim() && !attachment)}>
                   {sending ? 'Envoi...' : 'Envoyer'}
                 </button>
+              </div>
+              <div className="messages-compose-attach">
+                <input
+                  ref={fileInputRef}
+                  id="message-attachment"
+                  type="file"
+                  accept={ATTACHMENT_ACCEPT}
+                  onChange={handleAttachmentChange}
+                  hidden
+                />
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={sending}
+                >
+                  Joindre un fichier
+                </button>
+                <span className="form-hint">DOC, PDF, JPG, PNG · max 10 Mo</span>
+                {attachment && (
+                  <span className="messages-attach-name">
+                    {attachment.name}
+                    <button
+                      type="button"
+                      className="messages-attach-remove"
+                      onClick={() => {
+                        setAttachment(null);
+                        if (fileInputRef.current) fileInputRef.current.value = '';
+                      }}
+                      aria-label="Retirer la pièce jointe"
+                    >
+                      ×
+                    </button>
+                  </span>
+                )}
               </div>
             </form>
           </>

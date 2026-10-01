@@ -1194,6 +1194,55 @@ app.post('/api/messages', async (req, res) => {
   }
 });
 
+const messageAttachmentUpload = multer({
+  storage: memoryStorage,
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowedMime = [
+      'image/jpeg',
+      'image/jpg',
+      'image/png',
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/octet-stream',
+    ];
+    const ext = String(path.extname(file.originalname || '')).toLowerCase();
+    const allowedExt = ['.jpg', '.jpeg', '.png', '.pdf', '.doc', '.docx'];
+    const ok = allowedMime.includes(file.mimetype) || allowedExt.includes(ext);
+    cb(ok ? null : new Error('Formats autorisés : DOC, PDF, JPG, PNG'), ok);
+  },
+});
+
+app.post('/api/messages/with-attachment', (req, res) => {
+  messageAttachmentUpload.single('attachment')(req, res, async (err) => {
+    if (err) {
+      const msg = err.code === 'LIMIT_FILE_SIZE'
+        ? 'Fichier trop volumineux (maximum 10 Mo)'
+        : (err.message || 'Fichier non accepté');
+      return res.status(400).json({ error: msg });
+    }
+    try {
+      const toId = req.body?.to_id;
+      const subject = req.body?.subject || '';
+      const body = req.body?.body || '';
+      let attachment = null;
+      if (req.file) {
+        const url = await saveUploadedFile(req.file, 'message-attachments');
+        attachment = {
+          url,
+          name: req.file.originalname || 'fichier',
+          type: req.file.mimetype || '',
+        };
+      }
+      const message = await sendMessage(req.user, toId, subject, body, attachment);
+      res.status(201).json(message);
+    } catch (e) {
+      res.status(403).json({ error: e.message });
+    }
+  });
+});
+
 app.get('/api/stats', async (req, res) => {
   try {
     const judokas = await getAllJudokas();

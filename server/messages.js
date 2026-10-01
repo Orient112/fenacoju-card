@@ -82,9 +82,11 @@ export async function markConversationRead(userId, otherId) {
   if (changed) writeMessagesJson(messages);
 }
 
-export async function sendMessage(sender, recipientId, subject, body) {
-  const text = body?.trim();
-  if (!recipientId || !text) throw new Error('Destinataire et message requis');
+export async function sendMessage(sender, recipientId, subject, body, attachment = null) {
+  const text = String(body || '').trim();
+  if (!recipientId || (!text && !attachment?.url)) {
+    throw new Error('Destinataire et message ou pièce jointe requis');
+  }
 
   const recipient = await getUserById(recipientId);
   if (!recipient) throw new Error('Destinataire introuvable');
@@ -97,14 +99,34 @@ export async function sendMessage(sender, recipientId, subject, body) {
     from_id: sender.id,
     to_id: recipientId,
     subject: subject?.trim() || '',
-    body: text,
+    body: text || (attachment?.name ? `Pièce jointe : ${attachment.name}` : ''),
+    attachment_url: attachment?.url || '',
+    attachment_name: attachment?.name || '',
+    attachment_type: attachment?.type || '',
     read: false,
     created_at: new Date().toISOString(),
   };
 
   if (isSupabaseEnabled()) {
-    const { error } = await getSupabase().from('messages').insert(message);
-    if (error) throw new Error(error.message);
+    const payload = { ...message };
+    const { error } = await getSupabase().from('messages').insert(payload);
+    if (error) {
+      // Schéma sans colonnes pièce jointe → conserver le lien dans le corps
+      const fallback = {
+        id: message.id,
+        from_id: message.from_id,
+        to_id: message.to_id,
+        subject: message.subject,
+        body: message.attachment_url
+          ? `${message.body}${message.body ? '\n\n' : ''}📎 ${message.attachment_name}\n${message.attachment_url}`
+          : message.body,
+        read: false,
+        created_at: message.created_at,
+      };
+      const retry = await getSupabase().from('messages').insert(fallback);
+      if (retry.error) throw new Error(retry.error.message);
+      return { ...message, ...fallback };
+    }
   } else {
     const messages = readMessagesJson();
     messages.push(message);

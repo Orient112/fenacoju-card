@@ -120,12 +120,24 @@ function formatDateFr(value) {
   }
 }
 
-function RegistrationsTable({ registrations, onEdit, onDelete, pageSize = 5 }) {
+function RegistrationsTable({ registrations, onEdit, onDelete, pageSize = 4 }) {
   const [page, setPage] = useState(0);
+  const [search, setSearch] = useState('');
+
+  const term = search.trim().toLowerCase();
+  const filtered = term
+    ? registrations.filter((r) => {
+      const hay = [
+        r.nom, r.prenom, r.club, r.poids, r.categorie,
+        r.deja_enregistre ? 'systeme' : 'nouveau',
+      ].filter(Boolean).join(' ').toLowerCase();
+      return hay.includes(term);
+    })
+    : registrations;
 
   useEffect(() => {
     setPage(0);
-  }, [registrations.length]);
+  }, [filtered.length, term]);
 
   if (!registrations.length) {
     return (
@@ -135,12 +147,28 @@ function RegistrationsTable({ registrations, onEdit, onDelete, pageSize = 5 }) {
     );
   }
 
-  const totalPages = Math.max(1, Math.ceil(registrations.length / pageSize));
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage = Math.min(page, totalPages - 1);
-  const pageRows = registrations.slice(safePage * pageSize, safePage * pageSize + pageSize);
+  const pageRows = filtered.slice(safePage * pageSize, safePage * pageSize + pageSize);
 
   return (
     <div className="competition-regs-paged">
+      <div className="competition-regs-search">
+        <input
+          type="search"
+          className="search-input"
+          placeholder="Rechercher un inscrit..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          aria-label="Rechercher un inscrit individuel"
+        />
+      </div>
+      {filtered.length === 0 ? (
+        <div className="competition-empty-regs">
+          <p>Aucun résultat pour « {search} ».</p>
+        </div>
+      ) : (
+        <>
       <div className="table-wrap">
         <table className="data-table">
           <thead>
@@ -217,16 +245,24 @@ function RegistrationsTable({ registrations, onEdit, onDelete, pageSize = 5 }) {
           </button>
         </div>
       )}
+        </>
+      )}
     </div>
   );
 }
 
-function TeamClubsTable({ clubs, onEdit, onDelete, onCharge, pageSize = 5 }) {
+function TeamClubsTable({ clubs, onEdit, onDelete, onCharge, pageSize = 4 }) {
   const [page, setPage] = useState(0);
+  const [search, setSearch] = useState('');
+
+  const term = search.trim().toLowerCase();
+  const filtered = term
+    ? clubs.filter((team) => String(team.club || '').toLowerCase().includes(term))
+    : clubs;
 
   useEffect(() => {
     setPage(0);
-  }, [clubs.length]);
+  }, [filtered.length, term]);
 
   if (!clubs.length) {
     return (
@@ -236,12 +272,28 @@ function TeamClubsTable({ clubs, onEdit, onDelete, onCharge, pageSize = 5 }) {
     );
   }
 
-  const totalPages = Math.max(1, Math.ceil(clubs.length / pageSize));
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage = Math.min(page, totalPages - 1);
-  const pageRows = clubs.slice(safePage * pageSize, safePage * pageSize + pageSize);
+  const pageRows = filtered.slice(safePage * pageSize, safePage * pageSize + pageSize);
 
   return (
     <div className="competition-regs-paged">
+      <div className="competition-regs-search">
+        <input
+          type="search"
+          className="search-input"
+          placeholder="Rechercher un club..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          aria-label="Rechercher un club par équipe"
+        />
+      </div>
+      {filtered.length === 0 ? (
+        <div className="competition-empty-regs">
+          <p>Aucun résultat pour « {search} ».</p>
+        </div>
+      ) : (
+        <>
       <div className="table-wrap">
         <table className="data-table">
           <thead>
@@ -313,6 +365,8 @@ function TeamClubsTable({ clubs, onEdit, onDelete, onCharge, pageSize = 5 }) {
             Suivant
           </button>
         </div>
+      )}
+        </>
       )}
     </div>
   );

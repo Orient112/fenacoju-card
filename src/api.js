@@ -392,7 +392,24 @@ export async function fetchConversation(userId) {
   return res.json();
 }
 
-export async function sendMessage(toId, subject, body) {
+export async function sendMessage(toId, subject, body, file) {
+  if (file) {
+    const formData = new FormData();
+    formData.append('to_id', toId);
+    formData.append('subject', subject || '');
+    formData.append('body', body || '');
+    formData.append('attachment', file);
+    const res = await apiFetch('/api/messages/with-attachment', {
+      method: 'POST',
+      body: formData,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Erreur lors de l\'envoi');
+    }
+    return res.json();
+  }
+
   const res = await apiFetch('/api/messages', {
     method: 'POST',
     body: JSON.stringify({ to_id: toId, subject, body }),
