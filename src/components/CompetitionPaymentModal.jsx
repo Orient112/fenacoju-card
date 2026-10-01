@@ -207,7 +207,6 @@ export default function CompetitionPaymentModal({
         <div className="competition-payment-modal-inner">
           <div className="competition-payment-head">
             <div>
-              <p className="competition-payment-kicker">SimplyPaye · Sécurisé</p>
               <h3>{title}</h3>
               {summary ? <p className="competition-payment-summary">{summary}</p> : null}
             </div>
@@ -220,11 +219,6 @@ export default function CompetitionPaymentModal({
             >
               ×
             </button>
-          </div>
-
-          <div className="competition-payment-total">
-            <span>Montant à régler</span>
-            <strong>{formatMoney(payableAmount, payCurrency)}</strong>
           </div>
 
           {error && <div className="form-error">{error}</div>}
@@ -266,9 +260,10 @@ export default function CompetitionPaymentModal({
                 </select>
               </div>
             </div>
-            {requireMobileMoney && (
-              <p className="form-hint">Paiement via SimplyPaye : un push PIN sera envoyé sur ce numéro.</p>
-            )}
+            <div className="competition-payment-total">
+              <span>Montant à régler</span>
+              <strong>{formatMoney(payableAmount, payCurrency)}</strong>
+            </div>
             {effectiveMode === 'mobile_money' && (
               <div className="form-group">
                 <label htmlFor="pay-phone">Numéro mobile *</label>

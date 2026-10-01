@@ -675,7 +675,27 @@ export default function CompetitionPublicForm({ token }) {
           </div>
         )}
 
-        {error && step !== 'success' && <div className="form-error">{error}</div>}
+        {error && step !== 'success' && step !== 'team' && <div className="form-error">{error}</div>}
+
+        {error && step === 'team' && (
+          <div className="confirm-overlay competition-error-overlay" onClick={() => setError('')}>
+            <div
+              className="competition-error-modal"
+              role="alertdialog"
+              aria-modal="true"
+              aria-labelledby="competition-error-title"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 id="competition-error-title">Erreur d&apos;enregistrement</h3>
+              <p>{error}</p>
+              <div className="confirm-actions">
+                <button type="button" className="btn btn-primary" onClick={() => setError('')}>
+                  Fermer
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {competition.closed ? (
           <div className="empty-state competition-success">
