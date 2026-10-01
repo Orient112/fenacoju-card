@@ -99,7 +99,7 @@ export async function sendMessage(sender, recipientId, subject, body, attachment
     from_id: sender.id,
     to_id: recipientId,
     subject: subject?.trim() || '',
-    body: text || (attachment?.name ? `Pièce jointe : ${attachment.name}` : ''),
+    body: text,
     attachment_url: attachment?.url || '',
     attachment_name: attachment?.name || '',
     attachment_type: attachment?.type || '',
@@ -111,21 +111,32 @@ export async function sendMessage(sender, recipientId, subject, body, attachment
     const payload = { ...message };
     const { error } = await getSupabase().from('messages').insert(payload);
     if (error) {
-      // Schéma sans colonnes pièce jointe → conserver le lien dans le corps
+      // Schéma sans colonnes pièce jointe → marqueur invisible pour l'UI
+      const marker = attachment?.url
+        ? `\n\n__FENACOJU_ATT__${Buffer.from(JSON.stringify({
+          n: attachment.name || 'fichier',
+          u: attachment.url,
+          t: attachment.type || '',
+        }), 'utf8').toString('base64')}`
+        : '';
       const fallback = {
         id: message.id,
         from_id: message.from_id,
         to_id: message.to_id,
         subject: message.subject,
-        body: message.attachment_url
-          ? `${message.body}${message.body ? '\n\n' : ''}📎 ${message.attachment_name}\n${message.attachment_url}`
-          : message.body,
+        body: `${message.body || ''}${marker}`.trim(),
         read: false,
         created_at: message.created_at,
       };
       const retry = await getSupabase().from('messages').insert(fallback);
       if (retry.error) throw new Error(retry.error.message);
-      return { ...message, ...fallback };
+      return {
+        ...message,
+        body: message.body,
+        attachment_url: attachment?.url || '',
+        attachment_name: attachment?.name || '',
+        attachment_type: attachment?.type || '',
+      };
     }
   } else {
     const messages = readMessagesJson();

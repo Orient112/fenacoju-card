@@ -94,20 +94,6 @@ canvas {
   50% { opacity: 1; }
 }
 
-@media (max-width: 980px) {
-  .login-page {
-    grid-template-columns: 1fr;
-  }
-
-  .login-visual {
-    min-height: 38vh;
-  }
-
-  .login-panel::before {
-    display: none;
-  }
-}
-
 /* App shell — bande menus fixe à gauche */
 .app-shell {
   display: flex;
@@ -379,7 +365,7 @@ canvas {
 
 .stat-card {
   background: linear-gradient(180deg, #ffffff 0%, #f7faff 100%);
-  border-radius: 16px;
+  border-radius: 0;
   padding: 1.2rem 1.25rem;
   box-shadow: 0 8px 24px rgba(18, 45, 102, 0.08);
   border: 1px solid rgba(219, 228, 240, 0.95);
@@ -1744,52 +1730,11 @@ tbody tr:last-child td {
   }
 
   .login-page {
-    grid-template-columns: 1fr;
-    min-height: 100dvh;
-  }
-
-  .login-visual {
-    min-height: 42vh;
-    max-height: 46vh;
-  }
-
-  .login-visual-brand {
-    left: 1.1rem;
-    bottom: 1.1rem;
-  }
-
-  .login-visual-tagline {
-    white-space: nowrap;
-    font-size: 0.82rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 100%;
-  }
-
-  .login-visual-kicker {
-    letter-spacing: 0.06em;
-    font-size: 0.62rem;
-    line-height: 1.3;
-  }
-
-  .login-visual-logo {
-    width: 56px;
-    height: 56px;
-  }
-
-  .login-panel {
-    padding: 1.25rem 1rem max(1.5rem, env(safe-area-inset-bottom));
-    align-items: flex-start;
-  }
-
-  .login-panel::before {
-    display: none;
+    padding: 1rem;
   }
 
   .login-card {
     padding: 1.5rem 1.25rem;
-    margin-top: 0;
-    max-width: none;
   }
 
   .login-header h2 {
@@ -2172,147 +2117,42 @@ tbody tr:last-child td {
   border-left-color: #6366f1;
 }
 
-/* Login page — immersif corporate */
+/* Login page — centrée */
 .login-page {
   min-height: 100vh;
   min-height: 100dvh;
-  display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
-  background: var(--primary-dark);
-  overflow: hidden;
-}
-
-.login-visual {
-  position: relative;
-  min-height: 100vh;
-  min-height: 100dvh;
-  overflow: hidden;
-  isolation: isolate;
-  background: linear-gradient(165deg, var(--primary-dark) 0%, var(--primary) 55%, var(--primary-light) 100%);
-}
-
-.login-visual-img {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center 35%;
-  transform: scale(1.04);
-  opacity: 0.05;
-  animation: fenacoju-rise 1.1s ease both;
-}
-
-.login-visual-veil {
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(90deg, rgba(18, 45, 102, 0.15) 0%, rgba(18, 45, 102, 0.55) 70%, rgba(18, 45, 102, 0.92) 100%),
-    linear-gradient(180deg, rgba(18, 45, 102, 0.35) 0%, transparent 35%, rgba(10, 20, 48, 0.75) 100%);
-}
-
-.login-visual-mist {
-  position: absolute;
-  left: -10%;
-  right: -10%;
-  bottom: -8%;
-  height: 42%;
-  background:
-    radial-gradient(ellipse at center, rgba(255, 255, 255, 0.28), transparent 62%),
-    radial-gradient(ellipse at 30% 70%, rgba(245, 197, 24, 0.18), transparent 50%);
-  filter: blur(18px);
-  animation: fenacoju-mist 8s ease-in-out infinite;
-  pointer-events: none;
-}
-
-.login-visual-brand {
-  position: absolute;
-  left: clamp(1.25rem, 4vw, 3.5rem);
-  bottom: clamp(1.5rem, 5vh, 3.5rem);
-  z-index: 2;
-  color: #fff;
-  max-width: min(460px, 88%);
-  animation: fenacoju-rise 0.8s 0.15s ease both;
-}
-
-.login-visual-logo {
-  width: 72px;
-  height: 72px;
-  object-fit: contain;
-  background: #fff;
-  border-radius: 50%;
-  padding: 5px;
-  margin-bottom: 1rem;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
-}
-
-.login-visual-kicker {
-  font-size: 0.72rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  opacity: 0.85;
-  margin-bottom: 0.35rem;
-  max-width: 100%;
-}
-
-.login-visual-brand h1 {
-  font-family: var(--font-display);
-  font-size: clamp(2.4rem, 5vw, 3.6rem);
-  font-weight: 900;
-  letter-spacing: -0.03em;
-  line-height: 1;
-  margin-bottom: 0.55rem;
-}
-
-.login-visual-tagline {
-  font-size: 1rem;
-  line-height: 1.35;
-  opacity: 0.92;
-  max-width: none;
-  white-space: nowrap;
-}
-
-.login-panel {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: clamp(1.25rem, 4vw, 2.5rem);
+  padding: 1.5rem;
   background:
-    linear-gradient(165deg, #f8fbff 0%, #eef3fa 55%, #e8eef8 100%);
-  position: relative;
-  animation: fenacoju-rise 0.7s 0.1s ease both;
-}
-
-.login-panel::before {
-  content: '';
-  position: absolute;
-  inset: 12% auto 12% 0;
-  width: 1px;
-  background: linear-gradient(180deg, transparent, rgba(29, 67, 147, 0.25), transparent);
-  animation: fenacoju-pulse-line 3.2s ease-in-out infinite;
+    radial-gradient(ellipse 60% 45% at 50% 0%, rgba(29, 67, 147, 0.16), transparent 55%),
+    linear-gradient(180deg, #f7faff 0%, var(--bg) 100%);
+  box-sizing: border-box;
 }
 
 .login-card {
-  background: rgba(255, 255, 255, 0.96);
+  background: rgba(255, 255, 255, 0.98);
   border-radius: calc(var(--radius) + 6px);
   padding: 2.25rem 2rem;
   width: 100%;
   max-width: 420px;
   box-shadow: 0 24px 60px rgba(18, 45, 102, 0.14);
   border: 1px solid rgba(219, 228, 240, 0.95);
-  backdrop-filter: blur(10px);
+  animation: fenacoju-rise 0.45s ease both;
 }
 
 .login-header {
-  text-align: left;
+  text-align: center;
   margin-bottom: 1.75rem;
 }
 
 .login-logo {
-  width: 52px;
-  height: 52px;
+  width: 64px;
+  height: 64px;
   object-fit: contain;
-  margin-bottom: 0.9rem;
+  margin: 0 auto 0.9rem;
+  display: block;
 }
 
 .login-header h2 {
@@ -2339,62 +2179,6 @@ tbody tr:last-child td {
   padding: 0.9rem;
   font-size: 1rem;
   margin-top: 0.65rem;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.login-btn:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 10px 24px rgba(29, 67, 147, 0.28);
-}
-
-.login-demo {
-  border-top: 1px solid var(--border);
-  padding-top: 1.25rem;
-}
-
-.login-demo-title {
-  font-size: 0.75rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-muted);
-  margin-bottom: 0.75rem;
-  text-align: center;
-}
-
-.login-demo-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.login-demo-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.6rem 0.85rem;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: #f8fafc;
-  cursor: pointer;
-  font-family: inherit;
-  transition: all 0.2s;
-}
-
-.login-demo-item:hover {
-  border-color: var(--primary-light);
-  background: #f0f7ff;
-}
-
-.login-demo-type {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--primary);
-}
-
-.login-demo-email {
-  font-size: 0.75rem;
-  color: var(--text-muted);
 }
 
 /* Header user */
@@ -4662,26 +4446,12 @@ tbody tr:last-child td {
   min-height: 100dvh;
   padding: 1.5rem clamp(1rem, 3vw, 2.5rem) 2.5rem;
   background:
-    radial-gradient(ellipse 55% 45% at 8% 0%, rgba(13, 209, 255, 0.16), transparent 55%),
-    radial-gradient(ellipse 50% 40% at 95% 8%, rgba(227, 6, 19, 0.1), transparent 50%),
-    radial-gradient(ellipse 60% 50% at 50% 100%, rgba(29, 67, 147, 0.12), transparent 55%),
-    linear-gradient(180deg, #071433 0%, #122d66 28%, #eef3fa 28%, #f7faff 100%);
+    radial-gradient(ellipse 50% 40% at 50% 0%, rgba(29, 67, 147, 0.06), transparent 55%),
+    linear-gradient(180deg, #f7faff 0%, var(--bg) 100%);
   box-sizing: border-box;
   width: 100%;
   position: relative;
   overflow-x: hidden;
-}
-
-.competition-public-page::before {
-  content: '';
-  position: absolute;
-  inset: 0 0 auto;
-  height: 28vh;
-  pointer-events: none;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 70%);
-  animation: fenacoju-sheen 14s ease-in-out infinite;
-  background-size: 160% 160%;
 }
 
 .competition-public-shell {
@@ -4714,12 +4484,11 @@ tbody tr:last-child td {
   flex-shrink: 0;
   display: grid;
   place-items: center;
-  padding: 0.7rem;
-  border-radius: 18px;
-  background:
-    linear-gradient(145deg, var(--primary-dark) 0%, var(--primary) 55%, var(--primary-light) 100%);
-  box-shadow: 0 12px 28px rgba(18, 45, 102, 0.28);
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  border: none;
 }
 
 .competition-public-brand img,

@@ -9,6 +9,50 @@ import {
 
 const ATTACHMENT_ACCEPT = '.doc,.docx,.pdf,.jpg,.jpeg,.png,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf,image/jpeg,image/png';
 const ATTACHMENT_EXT = /\.(doc|docx|pdf|jpe?g|png)$/i;
+const ATT_MARKER_RE = /__FENACOJU_ATT__([A-Za-z0-9+/=]+)/;
+const URL_RE = /https?:\/\/[^\s]+/gi;
+
+function parseMessageContent(message) {
+  let text = String(message?.body || '');
+  let attachmentUrl = message?.attachment_url && message.attachment_url !== 'pending'
+    ? message.attachment_url
+    : '';
+  let attachmentName = message?.attachment_name || '';
+
+  const markerMatch = text.match(ATT_MARKER_RE);
+  if (markerMatch) {
+    try {
+      const json = decodeURIComponent(escape(atob(markerMatch[1])));
+      const parsed = JSON.parse(json);
+      if (parsed?.u) {
+        attachmentUrl = attachmentUrl || parsed.u;
+        attachmentName = attachmentName || parsed.n || 'Fichier joint';
+      }
+    } catch {
+      // ignore
+    }
+    text = text.replace(ATT_MARKER_RE, '').trim();
+  }
+
+  // Anciens messages : URL brute / ligne 📎 dans le corps
+  if (!attachmentUrl) {
+    const urls = text.match(URL_RE) || [];
+    const fileUrl = urls.find((u) => /message-attachments|\/uploads\/|\.(pdf|docx?|jpe?g|png)(\?|$)/i.test(u));
+    if (fileUrl) {
+      attachmentUrl = fileUrl;
+      const nameLine = text.match(/📎\s*([^\n]+)/);
+      attachmentName = attachmentName || nameLine?.[1]?.trim() || 'Fichier joint';
+    }
+  }
+
+  text = text
+    .replace(/📎[^\n]*/g, '')
+    .replace(URL_RE, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+  return { text, attachmentUrl, attachmentName };
+}
 
 function getContactName(contact) {
   if (contact.type === 'club') return contact.nom_club;
@@ -287,21 +331,24 @@ export default function Messages({ currentUser, onUnreadChange }) {
                 messages.map((m) => {
                   const mine = m.from_id === currentUser.id;
                   const isRead = m.read === true || m.read === 'true';
+                  const { text, attachmentUrl, attachmentName } = parseMessageContent(m);
+                  const pending = m.attachment_url === 'pending';
                   return (
                     <div key={m.id} className={`message-bubble ${mine ? 'mine' : 'theirs'}`}>
                       {m.subject && <div className="message-subject">{m.subject}</div>}
-                      {m.body && <div className="message-body">{m.body}</div>}
-                      {m.attachment_url && m.attachment_url !== 'pending' && (
+                      {text && <div className="message-body">{text}</div>}
+                      {attachmentUrl && (
                         <a
                           className="message-attachment"
-                          href={resolveMediaUrl(m.attachment_url)}
+                          href={resolveMediaUrl(attachmentUrl)}
                           target="_blank"
                           rel="noopener noreferrer"
+                          download={attachmentName || undefined}
                         >
-                          📎 {m.attachment_name || 'Fichier joint'}
+                          📎 {attachmentName || 'Télécharger la pièce jointe'}
                         </a>
                       )}
-                      {m.attachment_url === 'pending' && (
+                      {pending && !attachmentUrl && (
                         <div className="message-attachment is-pending">📎 {m.attachment_name || 'Fichier…'}</div>
                       )}
                       <div className="message-meta">
