@@ -182,8 +182,58 @@ export async function initiateSimplyPayPayment({
 }
 
 /**
+ * Interprète la réponse checkstatus SimplyPaye.
+ * Production observée : pending status=2 code=0 ; failed status=1 code=0 + message d'échec.
+ * Succès docs : code=1 ; SDK / prod : status=0 ou message de succès (pas « en attente »).
+ */
+export function interpretSimplyPayCheckStatus(data = {}) {
+  const code = String(data.code ?? '');
+  const status = String(data.status ?? '').toLowerCase();
+  const msg = String(data.message || '').toLowerCase();
+  const tone = String(data.guidance?.tone || '').toLowerCase();
+  const title = String(data.guidance?.title || '').toLowerCase();
+
+  if (/aucune transaction|introuvable|not found/i.test(msg)) {
+    return 'failed';
+  }
+  if (tone === 'error' || /échou|echec|échec|n'a pas r[eé]ussi|annul|refus|expire|timeout|insuffisant|failed|cancelled/i.test(msg + ' ' + title)) {
+    return 'failed';
+  }
+  if (code === '2' || status === 'failed' || status === 'cancelled') {
+    return 'failed';
+  }
+
+  // En attente (sandbox code=1 + « en attente » ; prod status=2)
+  if (/en attente|pending|pas encore|validez le push/i.test(msg + ' ' + title)
+    && !/succ[eè]s|r[eé]ussi|effectu[eé]|pay[eé]/i.test(msg)) {
+    return 'pending';
+  }
+  if (status === '2' || status === '4' || status === 'pending') {
+    return 'pending';
+  }
+  if (tone === 'info' && /attente|confirm|pending/i.test(msg + ' ' + title)) {
+    return 'pending';
+  }
+
+  // Succès
+  if (status === '0' || status === 'success' || status === 'paid' || tone === 'success') {
+    return 'success';
+  }
+  if (code === '1' && !/en attente|pending|confirmation/i.test(msg)) {
+    return 'success';
+  }
+  if (
+    /succ[eè]s|transaction r[eé]ussie|paiement r[eé]ussi|pay[eé] avec|effectu[eé]/i.test(msg)
+    && !/n'a pas|pas r[eé]ussi|échou|echec|échec|attente/i.test(msg)
+  ) {
+    return 'success';
+  }
+
+  return 'pending';
+}
+
+/**
  * Vérifie le statut d'une transaction.
- * Succès uniquement si code === "1"
  */
 export async function checkSimplyPayStatus(orderNumber) {
   const { apiKey } = getConfig();
@@ -215,10 +265,15 @@ export async function checkSimplyPayStatus(orderNumber) {
     throw new Error(msg);
   }
 
+  const outcome = interpretSimplyPayCheckStatus(data);
   const code = String(data.code ?? '');
   return {
-    success: code === '1',
+    success: outcome === 'success',
+    pending: outcome === 'pending',
+    failed: outcome === 'failed',
+    outcome,
     code,
+    status: data.status != null ? String(data.status) : '',
     message: data.message || '',
     reference: data.reference || '',
     montant: data.montant,
@@ -265,11 +320,7 @@ export async function collectSimplyPayPayment({
         status: last,
       };
     }
-    const msg = String(last.message || '').toLowerCase();
-    if (
-      last.code === '2'
-      || /annul|refus|échou|echec|échec|expire|timeout|insuffisant/.test(msg)
-    ) {
+    if (last.failed) {
       throw new Error(last.message || 'Le paiement n\'a pas abouti');
     }
     await sleep(pollIntervalMs);

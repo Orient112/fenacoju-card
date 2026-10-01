@@ -340,12 +340,25 @@ export default function CompetitionPublicForm({ token }) {
   const confirmIndividuelPayment = async (paiement) => {
     setSubmitting(true);
     setError('');
+    const batch = (paymentItems.length ? paymentItems : basket).map(({ _key, ...rest }) => rest);
+    let finalPaiement = paiement;
+    const needsPay = Number(paiement?.montant) > 0 && paiement?.mode === 'mobile_money';
+
     try {
-      const batch = (paymentItems.length ? paymentItems : basket).map(({ _key, ...rest }) => rest);
-      let finalPaiement = paiement;
-      if (Number(paiement?.montant) > 0 && paiement?.mode === 'mobile_money') {
+      if (needsPay) {
         finalPaiement = await waitPublicCompetitionPayment(token, paiement);
       }
+    } catch (err) {
+      setSubmitting(false);
+      throw err;
+    }
+
+    // Paiement confirmé (ou gratuit) → fermer le modal puis enregistrer
+    setShowPayment(false);
+    setPaymentKind(null);
+    setStep('finalizing');
+
+    try {
       const result = await registerPublicCompetition(token, {
         mode_inscription: 'individuel',
         batch,
@@ -359,13 +372,16 @@ export default function CompetitionPublicForm({ token }) {
       setCompetition((prev) => (prev
         ? { ...prev, registrations_count: (prev.registrations_count || 0) + count }
         : prev));
-      setShowPayment(false);
-      setPaymentKind(null);
       setPaymentItems([]);
       setBasket([]);
       setStep('success');
     } catch (err) {
-      throw err;
+      setStep(inscriptionMode === 'equipe' ? 'team' : 'form');
+      setError(
+        needsPay
+          ? `Paiement reçu, mais l'inscription a échoué : ${err.message || 'erreur'}. Réessayez via « Nouvelle inscription » ou contactez l'organisation — vous ne serez pas débité une seconde fois.`
+          : (err.message || 'Inscription impossible')
+      );
     } finally {
       setSubmitting(false);
     }
@@ -467,9 +483,14 @@ export default function CompetitionPublicForm({ token }) {
   const confirmTeamPayment = async (paiement) => {
     setSubmitting(true);
     setError('');
+    const needsPay = Number(paiement?.montant) > 0 && paiement?.mode === 'mobile_money';
+    let finalPaiement = paiement;
+    let members = [];
+    let hasLocked = false;
+
     try {
-      const members = [];
-      let hasLocked = false;
+      members = [];
+      hasLocked = false;
       for (const bucket of Object.values(teamRoster)) {
         if (bucket.principal) {
           if (bucket.principal.locked) {
@@ -504,10 +525,19 @@ export default function CompetitionPublicForm({ token }) {
       if (!members.length) {
         throw new Error('Cette équipe est déjà enregistrée pour ce club');
       }
-      let finalPaiement = paiement;
-      if (Number(paiement?.montant) > 0 && paiement?.mode === 'mobile_money') {
+      if (needsPay) {
         finalPaiement = await waitPublicCompetitionPayment(token, paiement);
       }
+    } catch (err) {
+      setSubmitting(false);
+      throw err;
+    }
+
+    setShowPayment(false);
+    setPaymentKind(null);
+    setStep('finalizing');
+
+    try {
       const result = await registerPublicCompetition(token, {
         mode_inscription: 'equipe',
         club: teamClub.trim(),
@@ -521,11 +551,14 @@ export default function CompetitionPublicForm({ token }) {
       setCompetition((prev) => (prev
         ? { ...prev, registrations_count: (prev.registrations_count || 0) + (result.count || members.length) }
         : prev));
-      setShowPayment(false);
-      setPaymentKind(null);
       setStep('success');
     } catch (err) {
-      throw err;
+      setStep('team');
+      setError(
+        needsPay
+          ? `Paiement reçu, mais l'inscription équipe a échoué : ${err.message || 'erreur'}. Contactez l'organisation — vous ne serez pas débité une seconde fois.`
+          : (err.message || 'Inscription équipe impossible')
+      );
     } finally {
       setSubmitting(false);
     }
@@ -1048,16 +1081,33 @@ export default function CompetitionPublicForm({ token }) {
               </form>
             )}
 
+            {step === 'finalizing' && (
+              <div className="empty-state competition-success">
+                <div className="spinner" />
+                <h3>Finalisation de l&apos;inscription…</h3>
+                <p className="form-hint">
+                  Paiement confirmé. Enregistrement
+                  {inscriptionMode === 'equipe' ? ' de l\'équipe' : ' individuel'} en cours.
+                </p>
+              </div>
+            )}
+
             {step === 'success' && (
               <div className="empty-state competition-success">
-                <h3>Inscription enregistrée</h3>
+                <h3>
+                  {inscriptionMode === 'equipe'
+                    ? 'Inscription par équipe confirmée'
+                    : 'Inscription individuelle confirmée'}
+                </h3>
                 <p>
                   {inscriptionMode === 'equipe'
-                    ? <>L&apos;équipe du club <strong>{successName}</strong> est inscrite à <strong>{competition.nom}</strong>.</>
-                    : <>{successName || 'Le judoka'} est inscrit(e) à <strong>{competition.nom}</strong>.</>}
+                    ? <>L&apos;équipe du club <strong>{successName}</strong> est bien inscrite à <strong>{competition.nom}</strong>.</>
+                    : <>{successName || 'Le judoka'} est bien inscrit(e) à <strong>{competition.nom}</strong>.</>}
                 </p>
                 <p className="form-hint">
                   {successCount > 0 ? `${successCount} inscription(s) validée(s). ` : ''}
+                  Paiement et enregistrement pris en compte.
+                  {' '}
                   {count} judoka{count > 1 ? 's' : ''} inscrit{count > 1 ? 's' : ''} au total.
                 </p>
                 <button type="button" className="btn btn-primary" onClick={resetFlow}>

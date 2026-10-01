@@ -434,7 +434,11 @@ app.get('/api/public/competition/:token/pay/status/:orderNumber', async (req, re
     const status = await checkSimplyPayStatus(req.params.orderNumber);
     res.json({
       success: status.success,
+      pending: status.pending,
+      failed: status.failed,
+      outcome: status.outcome,
       code: status.code,
+      status: status.status,
       message: status.message,
       reference: status.reference,
     });

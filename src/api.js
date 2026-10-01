@@ -598,7 +598,7 @@ export async function waitPublicCompetitionPayment(token, paiement, {
   let last = null;
   while (Date.now() - started < timeoutMs) {
     last = await checkPublicCompetitionPaymentStatus(token, orderNumber);
-    if (last.success) {
+    if (last.success || last.outcome === 'success') {
       return {
         ...paiement,
         orderNumber,
@@ -607,10 +607,13 @@ export async function waitPublicCompetitionPayment(token, paiement, {
         monnaie: initiated.currency || paiement.monnaie,
       };
     }
+    if (last.failed || last.outcome === 'failed') {
+      throw new Error(last.message || 'Le paiement n\'a pas abouti');
+    }
     const msg = String(last.message || '').toLowerCase();
     if (
       last.code === '2'
-      || /annul|refus|échou|echec|échec|expire|timeout|insuffisant/.test(msg)
+      || /annul|refus|échou|echec|échec|n'a pas r[eé]ussi|expire|timeout|insuffisant/.test(msg)
     ) {
       throw new Error(last.message || 'Le paiement n\'a pas abouti');
     }

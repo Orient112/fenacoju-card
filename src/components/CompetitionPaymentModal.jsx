@@ -105,7 +105,7 @@ export default function CompetitionPaymentModal({
         {(busy || phase) && payableAmount > 0 && (
           <div className="competition-payment-wait form-hint">
             {phase === 'push' || busy
-              ? 'Push Mobile Money envoyé. Confirmez avec votre code PIN sur le téléphone, sans fermer cette fenêtre…'
+              ? 'Paiement envoyé. Confirmez avec votre code PIN sur le téléphone, sans fermer cette fenêtre'
               : null}
           </div>
         )}
