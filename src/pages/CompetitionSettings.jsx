@@ -2192,9 +2192,6 @@ export default function CompetitionSettings({ onBack, onToast }) {
                       <option value="M">Garçon</option>
                       <option value="F">Fille</option>
                     </select>
-                    <p className="form-hint">
-                      Fixé sur {editTeamNewJudoka.sexe === 'F' ? 'Fille' : 'Garçon'} pour ce club.
-                    </p>
                   </div>
                   <div className="form-group">
                     <label htmlFor="edit-team-new-role">Rôle</label>
