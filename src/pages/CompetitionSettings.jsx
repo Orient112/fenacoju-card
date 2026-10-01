@@ -1809,19 +1809,6 @@ export default function CompetitionSettings({ onBack, onToast }) {
                 >
                   {exporting && actionMode === 'badges' ? 'Export...' : 'Badges'}
                 </button>
-                <button
-                  type="button"
-                  className="btn btn-tirage competition-action-btn"
-                  onClick={() => openActionMode('draw')}
-                  disabled={!tirageReady}
-                  title={
-                    tirageReady
-                      ? 'Lancer le tirage au sort'
-                      : 'Disponible uniquement après la clôture des inscriptions'
-                  }
-                >
-                  Tirage au sort
-                </button>
               </div>
             </div>
 

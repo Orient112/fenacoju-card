@@ -265,9 +265,12 @@ canvas {
   line-height: 1;
   box-shadow: none !important;
   transform: none !important;
-  border-radius: 6px;
+  border-radius: 4px;
   border-width: 1px;
+  border-style: solid;
   background-image: none !important;
+  filter: none !important;
+  text-shadow: none !important;
 }
 
 .btn-icon:hover,
@@ -275,6 +278,8 @@ canvas {
 .btn-icon:active {
   transform: none !important;
   box-shadow: none !important;
+  filter: none !important;
+  background-image: none !important;
 }
 
 /* Password field */
@@ -623,7 +628,9 @@ canvas {
   justify-content: center;
   box-shadow: none !important;
   transform: none !important;
-  border-radius: 6px;
+  border-radius: 4px;
+  background-image: none !important;
+  filter: none !important;
 }
 
 /* Form */
@@ -1843,6 +1850,21 @@ tbody tr:last-child td {
     flex-shrink: 0;
   }
 
+  /* Individuel : infos seules, sans intitulés */
+  .competition-inscriptions-pane:first-child .data-table tbody td {
+    justify-content: flex-start;
+    text-align: left;
+  }
+
+  .competition-inscriptions-pane:first-child .data-table tbody td::before {
+    content: none !important;
+    display: none !important;
+  }
+
+  .competition-inscriptions-pane:first-child .data-table .actions-cell {
+    justify-content: flex-start;
+  }
+
   .competition-page .data-table .actions-cell {
     justify-content: flex-end;
     flex-wrap: wrap;
@@ -1870,30 +1892,31 @@ tbody tr:last-child td {
   }
 
   .competition-regs-pager {
-    display: grid;
-    grid-template-columns: 1fr auto 1fr;
+    display: flex !important;
+    flex-direction: row;
+    flex-wrap: nowrap;
     align-items: center;
-    gap: 0.4rem;
+    justify-content: space-between;
+    gap: 0.5rem;
     width: 100%;
     max-width: 100%;
   }
 
   .competition-regs-pager .btn {
-    flex: none;
-    width: 100%;
+    flex: 0 0 auto;
+    width: auto;
     min-width: 0;
-    padding: 0.55rem 0.4rem;
+    padding: 0.55rem 0.75rem;
     font-size: 0.78rem;
     white-space: nowrap;
   }
 
-  .competition-regs-pager .btn:last-child {
-    justify-self: stretch;
-  }
-
   .competition-regs-pager-info {
+    flex: 1 1 auto;
     min-width: 0;
-    font-size: 0.8rem;
+    text-align: center;
+    font-size: 0.85rem;
+    font-weight: 600;
   }
 
   .competition-link-input,
@@ -6492,13 +6515,25 @@ a.competition-action-btn,
   }
 
   .competition-regs-pager {
-    justify-content: center;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    justify-content: space-between;
+    align-items: center;
     width: 100%;
     max-width: 100%;
+    gap: 0.5rem;
   }
 
   .competition-regs-pager .btn {
+    flex: 0 0 auto;
+    width: auto;
     min-width: 0;
+  }
+
+  .competition-regs-pager-info {
+    flex: 1 1 auto;
+    text-align: center;
   }
 
   .competition-link-row {
