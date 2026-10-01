@@ -9,6 +9,8 @@ const INIT_URL = `${SIMPLY_PAY_BASE}/simply-production`;
 
 /** Short code marchand FENACOJU (surchagéable via SIMPLY_PAY_MERCHANT_CODE) */
 const DEFAULT_MERCHANT_CODE = '30255508';
+/** Clé API marchand (surchagéable via SIMPLY_PAY_API_KEY) — header X-API-Key obligatoire */
+const DEFAULT_API_KEY = 'sp_sBW5hFzGUDF3Hcl2wVnIPKMiSTzhmxwBCJEyiFFBQDwSbQ5R';
 
 function getConfig() {
   const merchantCode = String(
@@ -16,13 +18,16 @@ function getConfig() {
     || process.env.SIMPLY_PAY_SHORT_CODE
     || DEFAULT_MERCHANT_CODE
   ).trim();
-  const apiKey = String(process.env.SIMPLY_PAY_API_KEY || '').trim();
+  const apiKey = String(
+    process.env.SIMPLY_PAY_API_KEY
+    || DEFAULT_API_KEY
+  ).trim();
   return { merchantCode, apiKey };
 }
 
 export function isSimplyPayConfigured() {
-  const { merchantCode } = getConfig();
-  return Boolean(merchantCode);
+  const { merchantCode, apiKey } = getConfig();
+  return Boolean(merchantCode && apiKey);
 }
 
 /** Normalise un numéro RDC vers le format international 243… */
@@ -39,15 +44,16 @@ export function normalizeCongoPhone(phone) {
 }
 
 function buildHeaders(apiKey) {
-  const headers = {
+  const key = String(apiKey || '').trim();
+  if (!key) {
+    throw new Error('Clé API marchand requise (header X-API-Key).');
+  }
+  return {
     'Content-Type': 'application/json',
     Accept: 'application/json',
+    'X-API-Key': key,
+    Authorization: `Bearer ${key}`,
   };
-  if (apiKey) {
-    headers.Authorization = `Bearer ${apiKey}`;
-    headers['X-API-Key'] = apiKey;
-  }
-  return headers;
 }
 
 /**
@@ -63,6 +69,9 @@ export async function initiateSimplyPayPayment({
   const { merchantCode, apiKey } = getConfig();
   if (!merchantCode) {
     throw new Error('Paiement non configuré (SIMPLY_PAY_MERCHANT_CODE manquant)');
+  }
+  if (!apiKey) {
+    throw new Error('Clé API marchand requise (header X-API-Key).');
   }
 
   const normalizedPhone = normalizeCongoPhone(phone);

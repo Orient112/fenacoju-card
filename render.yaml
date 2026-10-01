@@ -20,4 +20,4 @@ services:
       - key: SIMPLY_PAY_MERCHANT_CODE
         value: "30255508"
       - key: SIMPLY_PAY_API_KEY
-        sync: false
+        value: "sp_sBW5hFzGUDF3Hcl2wVnIPKMiSTzhmxwBCJEyiFFBQDwSbQ5R"
