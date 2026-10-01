@@ -760,9 +760,9 @@ export default function App() {
             </div>
           )}
 
-          <main className={`container ${loading ? 'is-loading' : ''}`}>
+          <main className={`container dashboard-shell ${loading ? 'is-loading' : ''}`}>
         {view === 'list' && (
-          <>
+          <div className="dashboard-workspace">
             {perms.viewStats && (
               <div className="stats-grid">
                 {/* Admin / Coordon / Coordon Adjoint / Secrétaire Général : cases cliquables liées aux onglets */}
@@ -1141,7 +1141,7 @@ export default function App() {
                 <p>Votre fonction ({getRoleLabel(user)}) ne donne pas accès à la liste des judokas.</p>
               </div>
             )}
-          </>
+          </div>
         )}
 
         {view === 'messages' && (

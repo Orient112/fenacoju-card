@@ -36,7 +36,7 @@ export default function Login({ onLogin }) {
         <div className="login-visual-mist" aria-hidden="true" />
         <div className="login-visual-brand">
           <img src="/fenacoju-logo.png" alt="FENACOJU" className="login-visual-logo" />
-          <p className="login-visual-kicker">Fédération Nationale</p>
+          <p className="login-visual-kicker">Fédération Nationale Congolaise de Judo</p>
           <h1>FENACOJU</h1>
           <p className="login-visual-tagline">Base nationale des clubs et judokas congolais</p>
         </div>
