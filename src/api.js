@@ -1,5 +1,9 @@
 const TOKEN_KEY = 'fenacoju_token';
-const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+/** En prod sans VITE_API_URL (Vercel), basculer sur Render pour éviter le timeout serverless 30s. */
+const API_BASE = (
+  import.meta.env.VITE_API_URL
+  || (import.meta.env.PROD ? 'https://fenacoju-card-api.onrender.com' : '')
+).replace(/\/$/, '');
 /** Render free peut mettre ~30–50s à démarrer (cold start). */
 const DEFAULT_TIMEOUT_MS = import.meta.env.PROD ? 45000 : 15000;
 const AUTH_TIMEOUT_MS = import.meta.env.PROD ? 45000 : 10000;
@@ -530,6 +534,93 @@ export async function registerPublicCompetition(token, data, options = {}) {
     throw new Error(err.error || 'Erreur lors de l\'inscription');
   }
   return res.json();
+}
+
+/** Initie le push Mobile Money (requête courte). */
+export async function initiatePublicCompetitionPayment(token, paiement) {
+  const res = await fetchWithTimeout(
+    apiUrl(`/api/public/competition/${encodeURIComponent(token)}/pay/initiate`),
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        telephone: paiement.telephone,
+        amount: paiement.montant,
+        currency: paiement.monnaie || 'CDF',
+        reference: paiement.reference || undefined,
+      }),
+    },
+    45000
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Impossible d\'envoyer le push de paiement');
+  }
+  return res.json();
+}
+
+/** Vérifie une fois le statut SimplyPaye. */
+export async function checkPublicCompetitionPaymentStatus(token, orderNumber) {
+  const res = await fetchWithTimeout(
+    apiUrl(
+      `/api/public/competition/${encodeURIComponent(token)}/pay/status/${encodeURIComponent(orderNumber)}`
+    ),
+    {},
+    30000
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Vérification du paiement impossible');
+  }
+  return res.json();
+}
+
+/**
+ * Initie le push puis poll jusqu'à confirmation (code === "1").
+ * Évite les timeouts serverless en gardant chaque requête courte.
+ */
+export async function waitPublicCompetitionPayment(token, paiement, {
+  pollIntervalMs = 4000,
+  timeoutMs = 100000,
+  onPhase,
+} = {}) {
+  if (onPhase) onPhase('push');
+  const initiated = await initiatePublicCompetitionPayment(token, paiement);
+  const orderNumber = initiated.orderNumber;
+  if (!orderNumber) {
+    throw new Error('Impossible d\'obtenir le numéro de transaction');
+  }
+
+  if (onPhase) onPhase('check');
+  const started = Date.now();
+  await new Promise((r) => setTimeout(r, Math.min(pollIntervalMs, 5000)));
+
+  let last = null;
+  while (Date.now() - started < timeoutMs) {
+    last = await checkPublicCompetitionPaymentStatus(token, orderNumber);
+    if (last.success) {
+      return {
+        ...paiement,
+        orderNumber,
+        telephone: initiated.phone || paiement.telephone,
+        montant: initiated.amount ?? paiement.montant,
+        monnaie: initiated.currency || paiement.monnaie,
+      };
+    }
+    const msg = String(last.message || '').toLowerCase();
+    if (
+      last.code === '2'
+      || /annul|refus|échou|echec|échec|expire|timeout|insuffisant/.test(msg)
+    ) {
+      throw new Error(last.message || 'Le paiement n\'a pas abouti');
+    }
+    await new Promise((r) => setTimeout(r, pollIntervalMs));
+  }
+
+  throw new Error(
+    last?.message
+      || 'Délai dépassé : validez le push Mobile Money puis réessayez'
+  );
 }
 
 export function competitionPublicUrl(token) {

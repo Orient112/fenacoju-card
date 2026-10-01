@@ -13,6 +13,9 @@ const DEFAULT_MERCHANT_CODE = '30255508';
 /** Clé API marchand (surchagéable via SIMPLY_PAY_API_KEY) — header X-API-Key obligatoire */
 const DEFAULT_API_KEY = 'sp_QjT7rCTdXmIGnoS6dYRJIGpMBpykK6E5gNQRSPuT7WAMGEHP';
 
+/** orderNumber SimplyPaye : alphanumérique uniquement (évite path traversal → GET simply-production) */
+const ORDER_NUMBER_RE = /^[A-Za-z0-9_-]{6,80}$/;
+
 function getConfig() {
   const merchantCode = String(
     process.env.SIMPLY_PAY_MERCHANT_CODE
@@ -44,17 +47,35 @@ export function normalizeCongoPhone(phone) {
   return digits;
 }
 
-function buildHeaders(apiKey) {
+function assertSafeOrderNumber(orderNumber) {
+  const id = String(orderNumber || '').trim();
+  if (!ORDER_NUMBER_RE.test(id)) {
+    throw new Error('Numéro de transaction SimplyPaye invalide');
+  }
+  return id;
+}
+
+function buildHeaders(apiKey, { withJsonBody = false } = {}) {
   const key = String(apiKey || '').trim();
   if (!key) {
     throw new Error('Clé API marchand requise (header X-API-Key).');
   }
-  // SDK officiel : uniquement X-API-Key (pas de Bearer)
-  return {
-    'Content-Type': 'application/json',
+  const headers = {
     Accept: 'application/json',
     'X-API-Key': key,
   };
+  if (withJsonBody) headers['Content-Type'] = 'application/json';
+  return headers;
+}
+
+function parseJsonResponse(text, context) {
+  let data = {};
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    throw new Error(`Réponse SimplyPaye invalide lors de ${context}`);
+  }
+  return data;
 }
 
 /**
@@ -96,17 +117,19 @@ export async function initiateSimplyPayPayment({
 
   const res = await fetch(INIT_URL, {
     method: 'POST',
-    headers: buildHeaders(apiKey),
+    headers: buildHeaders(apiKey, { withJsonBody: true }),
     body: JSON.stringify(body),
+    redirect: 'manual',
   });
 
-  const text = await res.text();
-  let data = {};
-  try {
-    data = text ? JSON.parse(text) : {};
-  } catch {
-    throw new Error('Réponse SimplyPaye invalide lors de l\'initiation');
+  if (res.status >= 300 && res.status < 400) {
+    throw new Error(
+      'Redirect SimplyPaye inattendu sur l\'initiation (POST). Réessayez dans un instant.'
+    );
   }
+
+  const text = await res.text();
+  const data = parseJsonResponse(text, 'l\'initiation');
 
   if (!res.ok) {
     const msg = data.message || data.error || `Échec d'initiation du paiement (${res.status})`;
@@ -116,30 +139,35 @@ export async function initiateSimplyPayPayment({
         + 'Connectez-vous au portail marchand de ce code, régénérez la clé API, puis mettez à jour SIMPLY_PAY_API_KEY.'
       );
     }
+    if (res.status === 405 || /GET method is not supported/i.test(String(msg))) {
+      throw new Error(
+        'Erreur technique SimplyPaye (méthode HTTP). Réessayez ; si le problème continue, contactez le support.'
+      );
+    }
     throw new Error(msg);
   }
 
-  const orderNumber = data?.simply_pay?.orderNumber
+  const rawOrder = data?.simply_pay?.orderNumber
     || data?.transaction?.orderNumberFlex
     || data?.orderNumber
     || '';
-  const simplyCode = String(data?.simply_pay?.code ?? '');
-
-  if (!orderNumber) {
+  if (!rawOrder) {
     throw new Error(
       data?.simply_pay?.message
       || data?.message
       || 'Impossible d\'obtenir le numéro de transaction SimplyPaye'
     );
   }
+  const orderNumber = assertSafeOrderNumber(rawOrder);
+  const simplyCode = String(data?.simply_pay?.code ?? '');
+  const simplyMessage = String(data?.simply_pay?.message || data?.message || '');
 
-  // code "0" = push envoyé avec succès (pas encore payé)
+  // À l'initiation : "0" = push envoyé. "1" avec message d'échec = refus immédiat.
+  if (simplyCode === '1' && /ne peut|réessayer|reessayer|échou|echec|refus|invalide/i.test(simplyMessage)) {
+    throw new Error(simplyMessage || 'Le push de paiement n\'a pas pu être envoyé');
+  }
   if (simplyCode && simplyCode !== '0' && simplyCode !== '1') {
-    throw new Error(
-      data?.simply_pay?.message
-      || data?.message
-      || 'Le push de paiement n\'a pas pu être envoyé'
-    );
+    throw new Error(simplyMessage || 'Le push de paiement n\'a pas pu être envoyé');
   }
 
   return {
@@ -148,9 +176,7 @@ export async function initiateSimplyPayPayment({
     phone: normalizedPhone,
     amount: montant,
     currency: devise,
-    message: data?.simply_pay?.message
-      || data?.message
-      || 'Validez le push sur votre téléphone',
+    message: simplyMessage || 'Validez le push sur votre téléphone',
     raw: data,
   };
 }
@@ -161,23 +187,32 @@ export async function initiateSimplyPayPayment({
  */
 export async function checkSimplyPayStatus(orderNumber) {
   const { apiKey } = getConfig();
-  const id = String(orderNumber || '').trim();
-  if (!id) throw new Error('orderNumber manquant pour la vérification');
+  const id = assertSafeOrderNumber(orderNumber);
 
   const res = await fetch(
     `${SIMPLY_PAY_BASE}/checkstatus-ordernumber/${encodeURIComponent(id)}`,
     {
       method: 'GET',
-      headers: buildHeaders(apiKey),
+      headers: buildHeaders(apiKey, { withJsonBody: false }),
+      redirect: 'manual',
     }
   );
 
+  if (res.status >= 300 && res.status < 400) {
+    throw new Error('Redirect SimplyPaye inattendu lors de la vérification');
+  }
+
   const text = await res.text();
-  let data = {};
-  try {
-    data = text ? JSON.parse(text) : {};
-  } catch {
-    throw new Error('Réponse SimplyPaye invalide lors de la vérification');
+  const data = parseJsonResponse(text, 'la vérification');
+
+  if (!res.ok) {
+    const msg = data.message || data.error || `Vérification paiement échouée (${res.status})`;
+    if (res.status === 405 || /GET method is not supported/i.test(String(msg))) {
+      throw new Error(
+        'Erreur technique SimplyPaye pendant la vérification. Réessayez le paiement.'
+      );
+    }
+    throw new Error(msg);
   }
 
   const code = String(data.code ?? '');
@@ -199,6 +234,7 @@ function sleep(ms) {
 
 /**
  * Initie puis attend la confirmation utilisateur (polling).
+ * Préférer le flux client (initiate + poll status) sur les hébergeurs à timeout court.
  */
 export async function collectSimplyPayPayment({
   phone,
@@ -218,7 +254,6 @@ export async function collectSimplyPayPayment({
   const started = Date.now();
   let last = null;
 
-  // Premier délai pour laisser le push arriver
   await sleep(Math.min(pollIntervalMs, 5000));
 
   while (Date.now() - started < timeoutMs) {
@@ -230,7 +265,6 @@ export async function collectSimplyPayPayment({
         status: last,
       };
     }
-    // code explicite d'échec définitif (hors attente)
     const msg = String(last.message || '').toLowerCase();
     if (
       last.code === '2'

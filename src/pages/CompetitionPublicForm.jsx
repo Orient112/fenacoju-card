@@ -3,6 +3,7 @@ import {
   fetchPublicCompetition,
   lookupPublicCompetitionJudoka,
   registerPublicCompetition,
+  waitPublicCompetitionPayment,
   CATEGORIES,
 } from '../api';
 import CompetitionPaymentModal, { formatMoney } from '../components/CompetitionPaymentModal';
@@ -341,11 +342,15 @@ export default function CompetitionPublicForm({ token }) {
     setError('');
     try {
       const batch = (paymentItems.length ? paymentItems : basket).map(({ _key, ...rest }) => rest);
+      let finalPaiement = paiement;
+      if (Number(paiement?.montant) > 0 && paiement?.mode === 'mobile_money') {
+        finalPaiement = await waitPublicCompetitionPayment(token, paiement);
+      }
       const result = await registerPublicCompetition(token, {
         mode_inscription: 'individuel',
         batch,
-        paiement,
-      }, { timeoutMs: Number(paiement?.montant) > 0 ? 120000 : undefined });
+        paiement: finalPaiement,
+      });
       const count = result.count || batch.length;
       setSuccessName(batch.length === 1
         ? `${batch[0].prenom} ${batch[0].nom}`.trim()
@@ -499,14 +504,18 @@ export default function CompetitionPublicForm({ token }) {
       if (!members.length) {
         throw new Error('Cette équipe est déjà enregistrée pour ce club');
       }
+      let finalPaiement = paiement;
+      if (Number(paiement?.montant) > 0 && paiement?.mode === 'mobile_money') {
+        finalPaiement = await waitPublicCompetitionPayment(token, paiement);
+      }
       const result = await registerPublicCompetition(token, {
         mode_inscription: 'equipe',
         club: teamClub.trim(),
         sexe: teamSexe,
         members,
         allow_existing: hasLocked,
-        paiement,
-      }, { timeoutMs: Number(paiement?.montant) > 0 ? 120000 : undefined });
+        paiement: finalPaiement,
+      });
       setSuccessName(teamClub.trim());
       setSuccessCount(result.count || members.length);
       setCompetition((prev) => (prev

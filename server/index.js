@@ -88,6 +88,8 @@ import {
 } from './competition.js';
 import {
   collectSimplyPayPayment,
+  initiateSimplyPayPayment,
+  checkSimplyPayStatus,
   isSimplyPayConfigured,
   normalizeCongoPhone,
 } from './simplyPay.js';
@@ -371,6 +373,76 @@ app.get('/api/public/competition/:token/judoka/:cardId', async (req, res) => {
   }
 });
 
+/** Initie un push Mobile Money SimplyPaye (requête courte — adapté Vercel). */
+app.post('/api/public/competition/:token/pay/initiate', async (req, res) => {
+  try {
+    const settings = await getCompetitionSettings();
+    if (!settings.public_enabled || settings.public_token !== req.params.token) {
+      return res.status(404).json({ error: 'Formulaire de compétition indisponible' });
+    }
+    if (!isSimplyPayConfigured()) {
+      return res.status(503).json({
+        error: 'Paiement indisponible : configurez SIMPLY_PAY_MERCHANT_CODE sur le serveur',
+      });
+    }
+
+    const body = req.body || {};
+    const phone = normalizeCongoPhone(body.telephone || body.phone || '');
+    if (!phone) {
+      return res.status(400).json({ error: 'Saisissez un numéro Mobile Money valide' });
+    }
+    const amount = Math.max(0, Number(body.amount ?? body.montant) || 0);
+    if (amount <= 0) {
+      return res.status(400).json({ error: 'Montant de paiement invalide' });
+    }
+    const currency = String(body.currency || body.monnaie || 'CDF').toUpperCase() === 'USD'
+      ? 'USD'
+      : 'CDF';
+    const reference = String(body.reference || `COMP-${Date.now()}`).slice(0, 64);
+
+    const initiated = await initiateSimplyPayPayment({
+      phone,
+      amount,
+      currency,
+      reference,
+    });
+
+    res.json({
+      orderNumber: initiated.orderNumber,
+      reference: initiated.reference,
+      phone: initiated.phone,
+      amount: initiated.amount,
+      currency: initiated.currency,
+      message: initiated.message,
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'Initiation du paiement impossible' });
+  }
+});
+
+/** Vérifie le statut d'un paiement SimplyPaye (polling côté client). */
+app.get('/api/public/competition/:token/pay/status/:orderNumber', async (req, res) => {
+  try {
+    const settings = await getCompetitionSettings();
+    if (!settings.public_enabled || settings.public_token !== req.params.token) {
+      return res.status(404).json({ error: 'Formulaire de compétition indisponible' });
+    }
+    if (!isSimplyPayConfigured()) {
+      return res.status(503).json({ error: 'Paiement indisponible' });
+    }
+
+    const status = await checkSimplyPayStatus(req.params.orderNumber);
+    res.json({
+      success: status.success,
+      code: status.code,
+      message: status.message,
+      reference: status.reference,
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'Vérification impossible' });
+  }
+});
+
 app.post('/api/public/competition/:token/register', async (req, res) => {
   try {
     const settings = await getCompetitionSettings();
@@ -432,12 +504,24 @@ app.post('/api/public/competition/:token/register', async (req, res) => {
           });
         }
 
-        const paid = await collectSimplyPayPayment({
-          phone,
-          amount: totalDue,
-          currency: payCurrency,
-          reference: `COMP-IND-${settings.public_token || 'fenacoju'}-${Date.now()}`.slice(0, 64),
-        });
+        const existingOrder = String(body.paiement.orderNumber || body.paiement.order_number || '').trim();
+        let paid;
+        if (existingOrder) {
+          const status = await checkSimplyPayStatus(existingOrder);
+          if (!status.success) {
+            return res.status(402).json({
+              error: status.message || 'Paiement non confirmé. Validez le push PIN puis réessayez.',
+            });
+          }
+          paid = { orderNumber: existingOrder, phone };
+        } else {
+          paid = await collectSimplyPayPayment({
+            phone,
+            amount: totalDue,
+            currency: payCurrency,
+            reference: `COMP-IND-${settings.public_token || 'fenacoju'}-${Date.now()}`.slice(0, 64),
+          });
+        }
 
         paymentMeta = {
           paiement_statut: 'paye',
@@ -494,12 +578,24 @@ app.post('/api/public/competition/:token/register', async (req, res) => {
           });
         }
 
-        const paid = await collectSimplyPayPayment({
-          phone,
-          amount: defaultTeamFee,
-          currency: payCurrency,
-          reference: `COMP-EQ-${String(body.club || 'club').slice(0, 20)}-${Date.now()}`.slice(0, 64),
-        });
+        const existingOrder = String(body.paiement.orderNumber || body.paiement.order_number || '').trim();
+        let paid;
+        if (existingOrder) {
+          const status = await checkSimplyPayStatus(existingOrder);
+          if (!status.success) {
+            return res.status(402).json({
+              error: status.message || 'Paiement non confirmé. Validez le push PIN puis réessayez.',
+            });
+          }
+          paid = { orderNumber: existingOrder, phone };
+        } else {
+          paid = await collectSimplyPayPayment({
+            phone,
+            amount: defaultTeamFee,
+            currency: payCurrency,
+            reference: `COMP-EQ-${String(body.club || 'club').slice(0, 20)}-${Date.now()}`.slice(0, 64),
+          });
+        }
 
         teamPaiement = {
           statut: 'paye',
