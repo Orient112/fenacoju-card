@@ -17,3 +17,7 @@ services:
         value: fenacoju-uploads
       - key: CORS_ORIGIN
         value: https://fenacoju-card.vercel.app
+      - key: SIMPLY_PAY_MERCHANT_CODE
+        value: "30255508"
+      - key: SIMPLY_PAY_API_KEY
+        sync: false

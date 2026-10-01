@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import dotenv from 'dotenv';
 import express from 'express';
 import cors from 'cors';
 import multer from 'multer';
@@ -92,6 +93,9 @@ import {
 } from './simplyPay.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// Garantit le chargement du .env à la racine du projet (local + certains hébergeurs)
+dotenv.config({ path: path.join(__dirname, '..', '.env') });
+
 const app = express();
 const PORT = process.env.PORT || 3001;
 
@@ -189,6 +193,7 @@ app.get('/api/health', (_req, res) => {
   res.json({
     ok: true,
     storage: isSupabaseEnabled() ? 'supabase' : 'local',
+    simplyPay: isSimplyPayConfigured(),
   });
 });
 

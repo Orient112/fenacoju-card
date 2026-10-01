@@ -7,11 +7,14 @@
 const SIMPLY_PAY_BASE = 'https://api-simply-pay.net/api';
 const INIT_URL = `${SIMPLY_PAY_BASE}/simply-production`;
 
+/** Short code marchand FENACOJU (surchagéable via SIMPLY_PAY_MERCHANT_CODE) */
+const DEFAULT_MERCHANT_CODE = '30255508';
+
 function getConfig() {
   const merchantCode = String(
     process.env.SIMPLY_PAY_MERCHANT_CODE
     || process.env.SIMPLY_PAY_SHORT_CODE
-    || ''
+    || DEFAULT_MERCHANT_CODE
   ).trim();
   const apiKey = String(process.env.SIMPLY_PAY_API_KEY || '').trim();
   return { merchantCode, apiKey };
