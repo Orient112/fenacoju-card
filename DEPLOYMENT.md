@@ -212,6 +212,8 @@ SIMPLY_PAY_MERCHANT_CODE=votre_short_code
 SIMPLY_PAY_API_KEY=votre_cle_api
 ```
 
+> **Important :** `SIMPLY_PAY_MERCHANT_CODE` et `SIMPLY_PAY_API_KEY` doivent appartenir au **même** compte marchand SimplyPaye. Une mauvaise paire provoque `401 Clé API marchand invalide`.
+
 ---
 
 ## Dépannage

@@ -1,5 +1,6 @@
 /**
  * SimplyPaye — paiement Mobile Money (production)
+ * Aligné sur @simplypaye/sdk : header X-API-Key uniquement, pas de Bearer ni apiKey dans le body.
  * Docs: POST /api/simply-production + GET /api/checkstatus-ordernumber/{orderNumber}
  * Succès uniquement si checkstatus.code === "1"
  */
@@ -10,7 +11,7 @@ const INIT_URL = `${SIMPLY_PAY_BASE}/simply-production`;
 /** Short code marchand FENACOJU (surchagéable via SIMPLY_PAY_MERCHANT_CODE) */
 const DEFAULT_MERCHANT_CODE = '30255508';
 /** Clé API marchand (surchagéable via SIMPLY_PAY_API_KEY) — header X-API-Key obligatoire */
-const DEFAULT_API_KEY = 'sp_sBW5hFzGUDF3Hcl2wVnIPKMiSTzhmxwBCJEyiFFBQDwSbQ5R';
+const DEFAULT_API_KEY = 'sp_QjT7rCTdXmIGnoS6dYRJIGpMBpykK6E5gNQRSPuT7WAMGEHP';
 
 function getConfig() {
   const merchantCode = String(
@@ -48,11 +49,11 @@ function buildHeaders(apiKey) {
   if (!key) {
     throw new Error('Clé API marchand requise (header X-API-Key).');
   }
+  // SDK officiel : uniquement X-API-Key (pas de Bearer)
   return {
     'Content-Type': 'application/json',
     Accept: 'application/json',
     'X-API-Key': key,
-    Authorization: `Bearer ${key}`,
   };
 }
 
@@ -92,7 +93,6 @@ export async function initiateSimplyPayPayment({
     currency: devise,
   };
   if (reference) body.reference = String(reference).slice(0, 64);
-  if (apiKey) body.apiKey = apiKey;
 
   const res = await fetch(INIT_URL, {
     method: 'POST',
@@ -109,9 +109,14 @@ export async function initiateSimplyPayPayment({
   }
 
   if (!res.ok) {
-    throw new Error(
-      data.message || data.error || `Échec d'initiation du paiement (${res.status})`
-    );
+    const msg = data.message || data.error || `Échec d'initiation du paiement (${res.status})`;
+    if (res.status === 401 && /invalide/i.test(String(msg))) {
+      throw new Error(
+        `${msg}. Sur SimplyPaye, cette clé n'est pas liée au code marchand ${merchantCode}. `
+        + 'Connectez-vous au portail marchand de ce code, régénérez la clé API, puis mettez à jour SIMPLY_PAY_API_KEY.'
+      );
+    }
+    throw new Error(msg);
   }
 
   const orderNumber = data?.simply_pay?.orderNumber
