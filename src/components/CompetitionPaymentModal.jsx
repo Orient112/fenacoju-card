@@ -201,101 +201,112 @@ export default function CompetitionPaymentModal({
   };
 
   return (
-    <div className="confirm-overlay" onClick={locked ? undefined : onClose}>
+    <div className="confirm-overlay competition-payment-overlay" onClick={locked ? undefined : onClose}>
       <div className="competition-payment-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="competition-params-modal-head">
-          <div>
-            <h3>{title}</h3>
-            {summary ? <p className="form-hint">{summary}</p> : null}
-          </div>
-          <button type="button" className="btn btn-outline btn-sm" onClick={onClose} disabled={locked}>
-            Fermer
-          </button>
-        </div>
-
-        <div className="form-group competition-payment-currency">
-          <label htmlFor="pay-currency">Monnaie de paiement *</label>
-          <select
-            id="pay-currency"
-            value={payCurrency}
-            onChange={(e) => setPayCurrency(e.target.value === 'USD' ? 'USD' : 'CDF')}
-            required
-            disabled={locked || Boolean(orderNumber)}
-          >
-            <option value="CDF" disabled={cdf <= 0 && usd > 0}>Franc Congolais (FC)</option>
-            <option value="USD" disabled={usd <= 0 && cdf > 0}>Dollars (USD)</option>
-          </select>
-        </div>
-
-        <div className="competition-payment-total">
-          <span>Montant à régler</span>
-          <strong>{formatMoney(payableAmount, payCurrency)}</strong>
-        </div>
-
-        {error && <div className="form-error">{error}</div>}
-        {!error && info && (
-          <div className="competition-payment-wait form-hint">{info}</div>
-        )}
-        {!error && !info && (paying || phase === 'push' || phase === 'check') && payableAmount > 0 && (
-          <div className="competition-payment-wait form-hint">
-            Paiement envoyé. Confirmez avec votre code PIN sur le téléphone, sans fermer cette fenêtre
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label htmlFor="pay-mode">Mode de paiement *</label>
-            <select
-              id="pay-mode"
-              value={effectiveMode}
-              onChange={(e) => setMode(e.target.value)}
-              required
-              disabled={locked || requireMobileMoney || Boolean(orderNumber)}
+        <div className="competition-payment-glow" aria-hidden="true" />
+        <div className="competition-payment-modal-inner">
+          <div className="competition-payment-head">
+            <div>
+              <p className="competition-payment-kicker">SimplyPaye · Sécurisé</p>
+              <h3>{title}</h3>
+              {summary ? <p className="competition-payment-summary">{summary}</p> : null}
+            </div>
+            <button
+              type="button"
+              className="competition-payment-close"
+              onClick={onClose}
+              disabled={locked}
+              aria-label="Fermer"
             >
-              <option value="mobile_money">Mobile Money</option>
-              {!requireMobileMoney && <option value="carte_visa">Carte Visa</option>}
-            </select>
+              ×
+            </button>
+          </div>
+
+          <div className="competition-payment-total">
+            <span>Montant à régler</span>
+            <strong>{formatMoney(payableAmount, payCurrency)}</strong>
+          </div>
+
+          {error && <div className="form-error">{error}</div>}
+          {!error && info && (
+            <div className="competition-payment-wait">{info}</div>
+          )}
+          {!error && !info && (paying || phase === 'push' || phase === 'check') && payableAmount > 0 && (
+            <div className="competition-payment-wait">
+              Paiement envoyé. Confirmez avec votre code PIN sur le téléphone, sans fermer cette fenêtre
+            </div>
+          )}
+
+          <form className="competition-payment-form" onSubmit={handleSubmit}>
+            <div className="competition-payment-grid">
+              <div className="form-group competition-payment-currency">
+                <label htmlFor="pay-currency">Monnaie de paiement *</label>
+                <select
+                  id="pay-currency"
+                  value={payCurrency}
+                  onChange={(e) => setPayCurrency(e.target.value === 'USD' ? 'USD' : 'CDF')}
+                  required
+                  disabled={locked || Boolean(orderNumber)}
+                >
+                  <option value="CDF" disabled={cdf <= 0 && usd > 0}>Franc Congolais (FC)</option>
+                  <option value="USD" disabled={usd <= 0 && cdf > 0}>Dollars (USD)</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label htmlFor="pay-mode">Mode de paiement *</label>
+                <select
+                  id="pay-mode"
+                  value={effectiveMode}
+                  onChange={(e) => setMode(e.target.value)}
+                  required
+                  disabled={locked || requireMobileMoney || Boolean(orderNumber)}
+                >
+                  <option value="mobile_money">Mobile Money</option>
+                  {!requireMobileMoney && <option value="carte_visa">Carte Visa</option>}
+                </select>
+              </div>
+            </div>
             {requireMobileMoney && (
               <p className="form-hint">Paiement via SimplyPaye : un push PIN sera envoyé sur ce numéro.</p>
             )}
-          </div>
-          {effectiveMode === 'mobile_money' && (
-            <div className="form-group">
-              <label htmlFor="pay-phone">Numéro mobile *</label>
-              <input
-                id="pay-phone"
-                type="tel"
-                value={telephone}
-                onChange={(e) => setTelephone(e.target.value)}
-                placeholder="Ex. 0990123456"
-                required
-                autoComplete="tel"
-                disabled={locked || Boolean(orderNumber)}
-              />
-            </div>
-          )}
-          <div className="form-actions">
-            <button type="button" className="btn btn-outline" onClick={onClose} disabled={locked}>
-              Annuler
-            </button>
-            {phase === 'verify' && orderNumber ? (
-              <button
-                type="button"
-                className="btn btn-primary"
-                disabled={locked}
-                onClick={handleVerify}
-              >
-                {paying ? 'Vérification…' : 'Vérifier le paiement'}
-              </button>
-            ) : (
-              <button type="submit" className="btn btn-primary" disabled={locked}>
-                {paying
-                  ? (payableAmount > 0 ? 'Paiement en cours…' : 'Validation…')
-                  : confirmLabel}
-              </button>
+            {effectiveMode === 'mobile_money' && (
+              <div className="form-group">
+                <label htmlFor="pay-phone">Numéro mobile *</label>
+                <input
+                  id="pay-phone"
+                  type="tel"
+                  value={telephone}
+                  onChange={(e) => setTelephone(e.target.value)}
+                  placeholder="Ex. 0990123456"
+                  required
+                  autoComplete="tel"
+                  disabled={locked || Boolean(orderNumber)}
+                />
+              </div>
             )}
-          </div>
-        </form>
+            <div className="competition-payment-actions">
+              <button type="button" className="btn btn-outline" onClick={onClose} disabled={locked}>
+                Annuler
+              </button>
+              {phase === 'verify' && orderNumber ? (
+                <button
+                  type="button"
+                  className="btn btn-primary competition-payment-cta"
+                  disabled={locked}
+                  onClick={handleVerify}
+                >
+                  {paying ? 'Vérification…' : 'Vérifier le paiement'}
+                </button>
+              ) : (
+                <button type="submit" className="btn btn-primary competition-payment-cta" disabled={locked}>
+                  {paying
+                    ? (payableAmount > 0 ? 'Paiement en cours…' : 'Validation…')
+                    : confirmLabel}
+                </button>
+              )}
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );

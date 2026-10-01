@@ -285,7 +285,7 @@ export default function Messages({ currentUser, onUnreadChange }) {
                   rows={2}
                   required
                 />
-                <button type="submit" className="btn btn-primary" disabled={sending || !draft.trim()}>
+                <button type="submit" className="btn messages-send-btn" disabled={sending || !draft.trim()}>
                   {sending ? 'Envoi...' : 'Envoyer'}
                 </button>
               </div>

@@ -1290,10 +1290,10 @@ export default function App() {
             )}
           </nav>
           <div className="header-user">
-            <span className="header-user-name">
-              {getUserDisplayName(user)}
-              <span className="role-badge">{getRoleLabel(user)}</span>
-            </span>
+            <div className="header-user-meta">
+              <span className="header-user-name">{getUserDisplayName(user)}</span>
+              <span className="header-user-role">{getRoleLabel(user)}</span>
+            </div>
             <button className="nav-btn nav-btn-logout" onClick={handleLogout}>
               Déconnexion
             </button>
