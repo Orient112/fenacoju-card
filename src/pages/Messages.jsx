@@ -125,6 +125,7 @@ export default function Messages({ currentUser, onUnreadChange }) {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
+  const [contactsOpen, setContactsOpen] = useState(true);
   const threadRef = useRef(null);
   const fileInputRef = useRef(null);
   const selectedIdRef = useRef(null);
@@ -259,7 +260,32 @@ export default function Messages({ currentUser, onUnreadChange }) {
   }
 
   return (
-    <div className="messages-page">
+    <div
+      className={[
+        'messages-page',
+        contactsOpen ? 'is-contacts-open' : 'is-thread-open',
+        selected ? 'has-selection' : '',
+      ].filter(Boolean).join(' ')}
+    >
+      <div className="messages-mobile-bar">
+        <button
+          type="button"
+          className={`messages-mobile-tab ${contactsOpen ? 'active' : ''}`}
+          onClick={() => setContactsOpen(true)}
+        >
+          Contacts
+          {unreadTotal > 0 && <span className="messages-badge">{unreadTotal}</span>}
+        </button>
+        <button
+          type="button"
+          className={`messages-mobile-tab ${!contactsOpen ? 'active' : ''}`}
+          onClick={() => selected && setContactsOpen(false)}
+          disabled={!selected}
+        >
+          Conversation
+        </button>
+      </div>
+
       <aside className="messages-sidebar">
         <div className="messages-sidebar-head">
           <p className="messages-kicker">Messagerie interne</p>
@@ -288,7 +314,10 @@ export default function Messages({ currentUser, onUnreadChange }) {
                 <button
                   type="button"
                   className={`messages-contact ${selectedId === c.id ? 'active' : ''}`}
-                  onClick={() => setSelectedId(c.id)}
+                  onClick={() => {
+                    setSelectedId(c.id);
+                    setContactsOpen(false);
+                  }}
                 >
                   <span className="messages-avatar" aria-hidden="true">{contactInitials(c)}</span>
                   <span className="messages-contact-copy">
@@ -308,15 +337,23 @@ export default function Messages({ currentUser, onUnreadChange }) {
           <div className="messages-placeholder">
             <div className="messages-placeholder-mark" aria-hidden="true">F</div>
             <h3>Boîte de messagerie</h3>
-            <p>Sélectionnez un contact à gauche pour consulter ou envoyer un message officiel.</p>
+            <p>Ouvrez la liste des contacts pour consulter ou envoyer un message officiel.</p>
           </div>
         ) : (
           <>
             <div className="messages-panel-header">
+              <button
+                type="button"
+                className="messages-back-contacts"
+                onClick={() => setContactsOpen(true)}
+                aria-label="Afficher les contacts"
+              >
+                ← Contacts
+              </button>
               <span className="messages-avatar messages-avatar-lg" aria-hidden="true">
                 {contactInitials(selected)}
               </span>
-              <div>
+              <div className="messages-panel-header-copy">
                 <h3>{getContactName(selected)}</h3>
                 <span className="messages-contact-role">{getContactRole(selected)}</span>
               </div>
