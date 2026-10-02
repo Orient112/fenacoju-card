@@ -23,6 +23,16 @@ import {
 import Login from './pages/Login';
 import ResetPasswordModal from './components/ResetPasswordModal';
 import ClubInfoPanel from './components/ClubInfoPanel';
+import StatCard from './components/StatCard';
+import {
+  IconPeople,
+  IconPerson,
+  IconCheck,
+  IconAlert,
+  IconBuilding,
+  IconWhistle,
+  IconFlag,
+} from './components/ActionIcons';
 
 const Messages = lazy(() => import('./pages/Messages'));
 const JudokaForm = lazy(() => import('./components/JudokaForm'));
@@ -765,134 +775,141 @@ export default function App() {
           <div className="dashboard-workspace">
             {perms.viewStats && (
               <div className="stats-grid">
-                {/* Admin / Coordon / Coordon Adjoint / Secrétaire Général : cases cliquables liées aux onglets */}
                 {hasFullDashboardCards(user) ? (
                   <>
-                    <button type="button" className={`stat-card stat-clickable ${dashboardTab === 'judokas' ? 'stat-active' : ''}`} onClick={() => { setDashboardTab('judokas'); setView('list'); }}>
-                      <div className="stat-value">{stats.total}</div>
-                      <div className="stat-label">Judokas</div>
-                    </button>
-                    <button type="button" className={`stat-card stat-clickable ${dashboardTab === 'ligues' ? 'stat-active' : ''}`} onClick={() => { setDashboardTab('ligues'); setView('list'); }}>
-                      <div className="stat-value">{stats.ligues ?? 0}</div>
-                      <div className="stat-label">Ligues</div>
-                    </button>
-                    <button type="button" className={`stat-card stat-clickable ${dashboardTab === 'ententes' ? 'stat-active' : ''}`} onClick={() => { setDashboardTab('ententes'); setView('list'); }}>
-                      <div className="stat-value">{stats.ententes ?? 0}</div>
-                      <div className="stat-label">Ententes</div>
-                    </button>
-                    <button type="button" className={`stat-card stat-clickable ${dashboardTab === 'clubs' ? 'stat-active' : ''}`} onClick={() => { setDashboardTab('clubs'); setView('list'); }}>
-                      <div className="stat-value">{stats.clubs}</div>
-                      <div className="stat-label">Clubs</div>
-                    </button>
-                    <button type="button" className={`stat-card stat-clickable ${dashboardTab === 'entraineurs' ? 'stat-active' : ''}`} onClick={() => { setDashboardTab('entraineurs'); setView('list'); }}>
-                      <div className="stat-value">{stats.entraineurs}</div>
-                      <div className="stat-label">Entraineurs</div>
-                    </button>
-                    <button type="button" className={`stat-card accent stat-clickable ${dashboardTab === 'arbitres' ? 'stat-active' : ''}`} onClick={() => { setDashboardTab('arbitres'); setView('list'); }}>
-                      <div className="stat-value">{stats.arbitres ?? 0}</div>
-                      <div className="stat-label">Arbitres</div>
-                    </button>
-                    <button type="button" className={`stat-card success stat-clickable ${dashboardTab === 'federation' ? 'stat-active' : ''}`} onClick={() => { setDashboardTab('federation'); setView('list'); }}>
-                      <div className="stat-value">{stats.federationMembers ?? 0}</div>
-                      <div className="stat-label">Membres</div>
-                    </button>
+                    <StatCard
+                      theme="gold"
+                      icon={<IconPeople />}
+                      value={stats.total}
+                      label="Judokas"
+                      active={dashboardTab === 'judokas'}
+                      onClick={() => { setDashboardTab('judokas'); setView('list'); }}
+                    />
+                    <StatCard
+                      theme="blue"
+                      icon={<IconFlag />}
+                      value={stats.ligues ?? 0}
+                      label="Ligues"
+                      active={dashboardTab === 'ligues'}
+                      onClick={() => { setDashboardTab('ligues'); setView('list'); }}
+                    />
+                    <StatCard
+                      theme="orange"
+                      icon={<IconBuilding />}
+                      value={stats.ententes ?? 0}
+                      label="Ententes"
+                      active={dashboardTab === 'ententes'}
+                      onClick={() => { setDashboardTab('ententes'); setView('list'); }}
+                    />
+                    <StatCard
+                      theme="indigo"
+                      icon={<IconBuilding />}
+                      value={stats.clubs}
+                      label="Clubs"
+                      active={dashboardTab === 'clubs'}
+                      onClick={() => { setDashboardTab('clubs'); setView('list'); }}
+                    />
+                    <StatCard
+                      theme="cyan"
+                      icon={<IconPerson />}
+                      value={stats.entraineurs}
+                      label="Entraineurs"
+                      active={dashboardTab === 'entraineurs'}
+                      onClick={() => { setDashboardTab('entraineurs'); setView('list'); }}
+                    />
+                    <StatCard
+                      theme="red"
+                      icon={<IconWhistle />}
+                      value={stats.arbitres ?? 0}
+                      label="Arbitres"
+                      active={dashboardTab === 'arbitres'}
+                      onClick={() => { setDashboardTab('arbitres'); setView('list'); }}
+                    />
+                    <StatCard
+                      theme="green"
+                      icon={<IconCheck />}
+                      value={stats.federationMembers ?? 0}
+                      label="Membres"
+                      active={dashboardTab === 'federation'}
+                      onClick={() => { setDashboardTab('federation'); setView('list'); }}
+                    />
                   </>
                 ) : isResponsableGrade(user) ? (
                   <>
-                    <button
-                      type="button"
-                      className={`stat-card stat-clickable ${dashboardTab === 'judokas' && !judokaStatutFilter ? 'stat-active' : ''}`}
+                    <StatCard
+                      theme="gold"
+                      icon={<IconPeople />}
+                      value={stats.total}
+                      label="Judokas enregistrés"
+                      active={dashboardTab === 'judokas' && !judokaStatutFilter}
                       onClick={() => { setJudokaStatutFilter(null); setDashboardTab('judokas'); setView('list'); }}
-                    >
-                      <div className="stat-value">{stats.total}</div>
-                      <div className="stat-label">Judokas enregistrés</div>
-                    </button>
-                    <button
-                      type="button"
-                      className={`stat-card success stat-clickable ${dashboardTab === 'judokas' && judokaStatutFilter === 'actif' ? 'stat-active' : ''}`}
+                    />
+                    <StatCard
+                      theme="green"
+                      icon={<IconCheck />}
+                      value={stats.actifs}
+                      label="Actifs"
+                      active={dashboardTab === 'judokas' && judokaStatutFilter === 'actif'}
                       onClick={() => { setJudokaStatutFilter('actif'); setDashboardTab('judokas'); setView('list'); }}
-                    >
-                      <div className="stat-value">{stats.actifs}</div>
-                      <div className="stat-label">Actifs</div>
-                    </button>
-                    <button
-                      type="button"
-                      className={`stat-card accent stat-clickable ${dashboardTab === 'judokas' && judokaStatutFilter === 'inactif' ? 'stat-active' : ''}`}
+                    />
+                    <StatCard
+                      theme="orange"
+                      icon={<IconAlert />}
+                      value={Math.max(0, (stats.total || 0) - (stats.actifs || 0))}
+                      label="Inactifs"
+                      active={dashboardTab === 'judokas' && judokaStatutFilter === 'inactif'}
                       onClick={() => { setJudokaStatutFilter('inactif'); setDashboardTab('judokas'); setView('list'); }}
-                    >
-                      <div className="stat-value">{Math.max(0, (stats.total || 0) - (stats.actifs || 0))}</div>
-                      <div className="stat-label">Inactifs</div>
-                    </button>
-                    <button
-                      type="button"
-                      className={`stat-card stat-label-entraineurs stat-clickable ${dashboardTab === 'entraineurs' ? 'stat-active' : ''}`}
+                    />
+                    <StatCard
+                      theme="cyan"
+                      icon={<IconPerson />}
+                      value={stats.entraineurs}
+                      label="Entraineurs"
+                      active={dashboardTab === 'entraineurs'}
                       onClick={() => { setJudokaStatutFilter(null); setDashboardTab('entraineurs'); setView('list'); }}
-                    >
-                      <div className="stat-value">{stats.entraineurs}</div>
-                      <div className="stat-label">Entraineurs</div>
-                    </button>
-                    <button
-                      type="button"
-                      className={`stat-card stat-clickable ${dashboardTab === 'clubs' ? 'stat-active' : ''}`}
+                    />
+                    <StatCard
+                      theme="indigo"
+                      icon={<IconBuilding />}
+                      value={stats.clubs}
+                      label="Clubs"
+                      active={dashboardTab === 'clubs'}
                       onClick={() => { setJudokaStatutFilter(null); setDashboardTab('clubs'); setView('list'); }}
-                    >
-                      <div className="stat-value">{stats.clubs}</div>
-                      <div className="stat-label">Clubs</div>
-                    </button>
+                    />
                   </>
                 ) : (
                   <>
                     {showStatsJudokas && (
                       <>
-                        <div className="stat-card">
-                          <div className="stat-value">{stats.total}</div>
-                          <div className="stat-label">Judokas enregistrés</div>
-                        </div>
-                        <div className="stat-card success">
-                          <div className="stat-value">{stats.actifs}</div>
-                          <div className="stat-label">Actifs</div>
-                        </div>
-                        <div className="stat-card accent">
-                          <div className="stat-value">
-                            {user.type === 'ligue' ? (stats.ententes ?? 0) : (stats.arbitres ?? 0)}
-                          </div>
-                          <div className="stat-label">
-                            {user.type === 'ligue' ? 'Ententes' : 'Inactifs'}
-                          </div>
-                        </div>
+                        <StatCard theme="gold" icon={<IconPeople />} value={stats.total} label="Judokas enregistrés" />
+                        <StatCard theme="green" icon={<IconCheck />} value={stats.actifs} label="Actifs" />
+                        <StatCard
+                          theme="orange"
+                          icon={user.type === 'ligue' ? <IconBuilding /> : <IconAlert />}
+                          value={user.type === 'ligue' ? (stats.ententes ?? 0) : (stats.arbitres ?? 0)}
+                          label={user.type === 'ligue' ? 'Ententes' : 'Inactifs'}
+                        />
                       </>
                     )}
                     {showStatsEntraineurs && (
-                      tabs.includes('entraineurs') ? (
-                        <button
-                          className={`stat-card stat-label-entraineurs stat-clickable ${dashboardTab === 'entraineurs' ? 'stat-active' : ''}`}
-                          onClick={() => { setDashboardTab('entraineurs'); setView('list'); }}
-                        >
-                          <div className="stat-value">{stats.entraineurs}</div>
-                          <div className="stat-label">Entraineurs</div>
-                        </button>
-                      ) : (
-                        <div className="stat-card stat-label-entraineurs">
-                          <div className="stat-value">{stats.entraineurs}</div>
-                          <div className="stat-label">Entraineurs</div>
-                        </div>
-                      )
+                      <StatCard
+                        theme="cyan"
+                        icon={<IconPerson />}
+                        value={stats.entraineurs}
+                        label="Entraineurs"
+                        active={dashboardTab === 'entraineurs'}
+                        onClick={tabs.includes('entraineurs') ? () => { setDashboardTab('entraineurs'); setView('list'); } : undefined}
+                      />
                     )}
                     {user.type !== 'club' && user.type !== 'entraineur' && (
-                      tabs.includes('clubs') ? (
-                        <button
-                          className={`stat-card stat-clickable ${dashboardTab === 'clubs' ? 'stat-active' : ''}`}
-                          onClick={() => { setDashboardTab('clubs'); setView('list'); }}
-                        >
-                          <div className="stat-value">{stats.clubs}</div>
-                          <div className="stat-label">Clubs</div>
-                        </button>
-                      ) : (
-                        <div className="stat-card">
-                          <div className="stat-value">{stats.clubs}</div>
-                          <div className="stat-label">Clubs</div>
-                        </div>
-                      )
+                      <StatCard
+                        theme="indigo"
+                        icon={<IconBuilding />}
+                        value={stats.clubs}
+                        label="Clubs"
+                        active={dashboardTab === 'clubs'}
+                        onClick={tabs.includes('clubs') ? () => { setDashboardTab('clubs'); setView('list'); } : undefined}
+                      />
                     )}
                   </>
                 )}

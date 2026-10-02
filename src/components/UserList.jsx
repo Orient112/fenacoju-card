@@ -1,4 +1,5 @@
 import { USER_TYPES, ACCOUNT_STATUT_LABELS, normalizeFederationFonction } from '../api';
+import { IconEdit, IconEye, IconKey, IconTrash } from './ActionIcons';
 
 function displayName(u) {
   if (u.type === 'club') return u.nom_club;
@@ -110,11 +111,11 @@ export default function UserList({
                     {showViewAction && canViewType(u) && onView && (
                       <button
                         type="button"
-                        className="btn btn-outline btn-sm btn-icon"
+                        className="btn btn-icon btn-icon-view"
                         onClick={() => onView(u)}
                         title="Voir les détails"
                       >
-                        👁️
+                        <IconEye />
                       </button>
                     )}
                     {canValidate && needsValidation && onValidate && (
@@ -140,31 +141,31 @@ export default function UserList({
                     {canManage && (u.type !== 'admin' || allowAdminSelfManage) && onEdit && (
                       <button
                         type="button"
-                        className="btn btn-outline btn-sm btn-icon"
+                        className="btn btn-icon btn-icon-edit"
                         onClick={() => onEdit(u)}
                         title="Modifier"
                       >
-                        ✏️
+                        <IconEdit />
                       </button>
                     )}
                     {(u.type !== 'admin' || allowAdminSelfManage) && u.acces_systeme !== false && u.type !== 'entraineur' && u.type !== 'membre' && onResetPassword && (
                       <button
                         type="button"
-                        className="btn btn-outline btn-sm btn-icon"
+                        className="btn btn-icon btn-icon-key"
                         onClick={() => onResetPassword(u)}
                         title="Réinitialiser mot de passe"
                       >
-                        🔑
+                        <IconKey />
                       </button>
                     )}
                     {canManage && u.type !== 'admin' && onDelete && (
                       <button
                         type="button"
-                        className="btn btn-danger btn-sm btn-icon"
+                        className="btn btn-icon btn-icon-delete"
                         onClick={() => onDelete(u)}
                         title="Supprimer"
                       >
-                        🗑️
+                        <IconTrash />
                       </button>
                     )}
                   </div>

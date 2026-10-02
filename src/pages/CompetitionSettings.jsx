@@ -18,6 +18,7 @@ import { exportCompetitionDrawToPdf } from '../utils/exportCompetitionDrawPdf';
 import { exportCompetitionBadgesToPdf } from '../utils/exportCompetitionBadgesPdf';
 import { buildWeightDraw, buildTeamDraw } from '../utils/competitionDraw';
 import DrawAnimation from '../components/DrawAnimation';
+import { IconCharge, IconEdit, IconTrash } from '../components/ActionIcons';
 
 function isTeamRegistration(r) {
   return r?.mode_inscription === 'equipe' || String(r?.taille || '').startsWith('__mode_equipe__');
@@ -201,19 +202,19 @@ function RegistrationsTable({ registrations, onEdit, onDelete, pageSize = 4 }) {
                   <div className="actions-cell">
                     <button
                       type="button"
-                      className="btn btn-outline btn-sm"
+                      className="btn btn-icon btn-icon-edit"
                       title="Modifier"
                       onClick={() => onEdit(r)}
                     >
-                      Modifier
+                      <IconEdit />
                     </button>
                     <button
                       type="button"
-                      className="btn btn-danger btn-sm btn-icon"
+                      className="btn btn-icon btn-icon-delete"
                       title="Supprimer"
                       onClick={() => onDelete(r)}
                     >
-                      🗑️
+                      <IconTrash />
                     </button>
                   </div>
                 </td>
@@ -312,29 +313,29 @@ function TeamClubsTable({ clubs, onEdit, onDelete, onCharge, pageSize = 4 }) {
                   <div className="actions-cell">
                     <button
                       type="button"
-                      className="btn btn-outline btn-sm btn-icon"
+                      className="btn btn-icon btn-icon-edit"
                       title="Modifier"
                       onClick={() => onEdit(team)}
                     >
-                      ✏️
+                      <IconEdit />
                     </button>
                     {onCharge && (
                       <button
                         type="button"
-                        className="btn btn-primary btn-sm btn-icon"
+                        className="btn btn-icon btn-icon-key"
                         title="Charger des judokas individuels"
                         onClick={() => onCharge(team)}
                       >
-                        📥
+                        <IconCharge />
                       </button>
                     )}
                     <button
                       type="button"
-                      className="btn btn-danger btn-sm btn-icon"
+                      className="btn btn-icon btn-icon-delete"
                       title="Supprimer l'équipe"
                       onClick={() => onDelete(team)}
                     >
-                      🗑️
+                      <IconTrash />
                     </button>
                   </div>
                 </td>
@@ -448,11 +449,11 @@ function ParamsFormFields({
                     <span className="form-hint" style={{ margin: 0 }}>kg</span>
                     <button
                       type="button"
-                      className="btn btn-danger btn-sm btn-icon"
+                      className="btn btn-icon btn-icon-delete"
                       title="Retirer"
                       onClick={() => removeCat(index)}
                     >
-                      🗑️
+                      <IconTrash />
                     </button>
                   </div>
                 );
@@ -2321,22 +2322,22 @@ export default function CompetitionSettings({ onBack, onToast }) {
                         ) : (
                           <button
                             type="button"
-                            className="btn btn-outline btn-sm btn-icon"
+                            className="btn btn-icon btn-icon-edit"
                             title="Modifier"
                             disabled={saving}
                             onClick={() => setEditingClub({ id: club.id, nom: club.nom })}
                           >
-                            ✏️
+                            <IconEdit />
                           </button>
                         )}
                         <button
                           type="button"
-                          className="btn btn-danger btn-sm btn-icon"
+                          className="btn btn-icon btn-icon-delete"
                           title="Retirer"
                           disabled={saving}
                           onClick={() => handleRemoveCompetitionClub(club)}
                         >
-                          🗑️
+                          <IconTrash />
                         </button>
                       </div>
                     </li>

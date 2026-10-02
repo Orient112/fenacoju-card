@@ -1,4 +1,5 @@
 import { formatDate } from '../api';
+import { IconCard, IconEdit, IconEye, IconGrade, IconTrash } from './ActionIcons';
 
 export default function JudokaList({ judokas, onViewCard, onEdit, onDelete, onPromoteGrade, onAddNew, showActions = true }) {
   const hasActions = showActions && (onViewCard || onEdit || onDelete || onPromoteGrade);
@@ -59,41 +60,41 @@ export default function JudokaList({ judokas, onViewCard, onEdit, onDelete, onPr
                   {onViewCard && (
                     <button
                       type="button"
-                      className="btn btn-primary btn-sm btn-icon"
+                      className="btn btn-icon btn-icon-card"
                       onClick={() => onViewCard(j)}
                       title="Voir la carte"
                     >
-                      🪪
+                      <IconCard />
                     </button>
                   )}
                   {onPromoteGrade && (
                     <button
                       type="button"
-                      className="btn btn-accent btn-sm btn-icon"
+                      className="btn btn-icon btn-icon-grade"
                       onClick={() => onPromoteGrade(j)}
                       title="Passation de grade"
                     >
-                      🥋
+                      <IconGrade />
                     </button>
                   )}
                   {onEdit && (
                     <button
                       type="button"
-                      className="btn btn-outline btn-sm btn-icon"
+                      className="btn btn-icon btn-icon-edit"
                       onClick={() => onEdit(j)}
                       title="Modifier"
                     >
-                      ✏️
+                      <IconEdit />
                     </button>
                   )}
                   {onDelete && (
                     <button
                       type="button"
-                      className="btn btn-danger btn-sm btn-icon"
+                      className="btn btn-icon btn-icon-delete"
                       onClick={() => onDelete(j)}
                       title="Supprimer"
                     >
-                      🗑️
+                      <IconTrash />
                     </button>
                   )}
                 </div>

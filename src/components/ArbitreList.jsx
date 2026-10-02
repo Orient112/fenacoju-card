@@ -1,3 +1,5 @@
+import { IconEdit, IconEye, IconTrash } from './ActionIcons';
+
 export default function ArbitreList({ arbitres, canManage = false, showViewAction = false, onView, onEdit, onDelete, onAddNew }) {
   if (arbitres.length === 0) {
     return (
@@ -45,31 +47,31 @@ export default function ArbitreList({ arbitres, canManage = false, showViewActio
                   {showViewAction && onView && (
                     <button
                       type="button"
-                      className="btn btn-outline btn-sm btn-icon"
+                      className="btn btn-icon btn-icon-view"
                       onClick={() => onView(a)}
                       title="Voir les détails"
                     >
-                      👁️
+                      <IconEye />
                     </button>
                   )}
                   {canManage && onEdit && (
                     <button
                       type="button"
-                      className="btn btn-outline btn-sm btn-icon"
+                      className="btn btn-icon btn-icon-edit"
                       onClick={() => onEdit(a)}
                       title="Modifier"
                     >
-                      ✏️
+                      <IconEdit />
                     </button>
                   )}
                   {canManage && onDelete && (
                     <button
                       type="button"
-                      className="btn btn-danger btn-sm btn-icon"
+                      className="btn btn-icon btn-icon-delete"
                       onClick={() => onDelete(a)}
                       title="Supprimer"
                     >
-                      🗑️
+                      <IconTrash />
                     </button>
                   )}
                 </div>
