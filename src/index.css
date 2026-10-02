@@ -2434,6 +2434,7 @@ tbody tr:last-child td {
   padding: 0.65rem 0.85rem;
   padding-bottom: max(0.65rem, env(safe-area-inset-bottom));
   box-sizing: border-box;
+  color: #fff;
   background:
     linear-gradient(165deg, var(--primary-dark) 0%, var(--primary) 48%, var(--primary-light) 100%);
   border-top: 1px solid rgba(255, 255, 255, 0.18);
