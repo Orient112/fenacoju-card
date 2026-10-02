@@ -243,7 +243,7 @@ export default function JudokaForm({ judoka, lockedClub, registeredClubs = [], e
 
   return (
 
-    <div className="form-card">
+    <div className="form-card form-card-full">
 
       <h2>{judoka ? 'Modifier le judoka' : 'Nouvel enregistrement'}</h2>
 
