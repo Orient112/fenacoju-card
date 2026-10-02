@@ -2502,6 +2502,7 @@ tbody tr:last-child td {
   text-overflow: ellipsis;
   white-space: nowrap;
   line-height: 1.25;
+  color: #fff;
 }
 
 .header-user-role {
@@ -2516,6 +2517,7 @@ tbody tr:last-child td {
   background: none;
   border: none;
   border-radius: 0;
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .role-badge {
