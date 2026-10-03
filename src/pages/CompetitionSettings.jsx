@@ -813,10 +813,11 @@ export default function CompetitionSettings({ onBack, onToast }) {
 
   useEffect(() => {
     if (loading) return undefined;
+    if (showReceiptScan) return undefined;
     if (!settings?.access_ok && !settings?.can_toggle_access) return undefined;
     const id = setInterval(refreshSilent, 1000);
     return () => clearInterval(id);
-  }, [loading, settings?.access_ok, settings?.can_toggle_access, refreshSilent]);
+  }, [loading, showReceiptScan, settings?.access_ok, settings?.can_toggle_access, refreshSilent]);
 
   const handleChange = (e) => {
     const { name, value, type } = e.target;

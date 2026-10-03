@@ -7294,3 +7294,40 @@ a.competition-action-btn,
   color: #b91c1c;
 }
 
+/* Receipt scan — camera stable */
+.receipt-scan-modal {
+  overflow: hidden;
+}
+
+.receipt-scan-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.receipt-scan-reader {
+  width: 100% !important;
+  max-width: 420px !important;
+  height: 320px !important;
+  min-height: 320px !important;
+  margin: 0 auto;
+  border-radius: 0;
+  overflow: hidden;
+  background: #0f172a;
+  position: relative;
+}
+
+.receipt-scan-reader video,
+.receipt-scan-reader canvas {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  display: block !important;
+  transform: none !important;
+}
+
+.receipt-scan-reader img {
+  display: none !important;
+}
+

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import {
-  getCameraDisplayName,
   getCameraStartTarget,
   isMobileDevice,
   pickDesktopCamera,
@@ -13,13 +12,8 @@ import {
 } from '../utils/competitionReceipt';
 
 const SCANNER_ID = 'fenacoju-receipt-qr-reader';
-const SCAN_DEBOUNCE_MS = 1200;
-
-function getQrBoxSize(viewfinderWidth, viewfinderHeight) {
-  const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-  const size = Math.floor(minEdge * 0.72);
-  return { width: size, height: size };
-}
+const SCAN_DEBOUNCE_MS = 1400;
+const FIXED_QR_BOX = 240;
 
 export default function ReceiptScanModal({
   onClose,
@@ -27,9 +21,13 @@ export default function ReceiptScanModal({
   registrations = [],
 }) {
   const scannerRef = useRef(null);
+  const startingRef = useRef(false);
   const processingRef = useRef(false);
   const lastScanRef = useRef({ text: '', at: 0 });
-  const fileInputRef = useRef(null);
+  const competitionRef = useRef(competition);
+  const registrationsRef = useRef(registrations);
+  const mountedRef = useRef(true);
+
   const [phase, setPhase] = useState('scanning');
   const [scanSession, setScanSession] = useState(0);
   const [result, setResult] = useState(null);
@@ -38,15 +36,31 @@ export default function ReceiptScanModal({
   const [cameraReady, setCameraReady] = useState(false);
   const [isMobile] = useState(() => isMobileDevice());
   const [preferredFacing, setPreferredFacing] = useState('environment');
-  const [activeCameraLabel, setActiveCameraLabel] = useState('');
-  const [mobileCameraSwitchEnabled, setMobileCameraSwitchEnabled] = useState(false);
+
+  useEffect(() => {
+    competitionRef.current = competition;
+  }, [competition]);
+
+  useEffect(() => {
+    registrationsRef.current = registrations;
+  }, [registrations]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const stopScanner = useCallback(async () => {
     const scanner = scannerRef.current;
-    if (!scanner) return;
     scannerRef.current = null;
+    startingRef.current = false;
+    if (!scanner) return;
     try {
-      await scanner.stop();
+      if (scanner.isScanning) {
+        await scanner.stop();
+      }
     } catch {
       // déjà arrêté
     }
@@ -70,30 +84,36 @@ export default function ReceiptScanModal({
 
     const payload = parseReceiptQr(text);
     if (!payload) {
-      setError('QR Code non reconnu. Scannez le QR Code d’un reçu de paiement FENACOJU.');
+      if (mountedRef.current) {
+        setError('QR Code non reconnu. Scannez le QR Code d’un reçu de paiement FENACOJU.');
+      }
       return;
     }
 
     processingRef.current = true;
-    setLoading(true);
-    setError('');
+    if (mountedRef.current) {
+      setLoading(true);
+      setError('');
+    }
     await stopScanner();
 
     try {
       const verification = verifyReceiptAuthenticity(payload, {
-        competition,
-        registrations,
+        competition: competitionRef.current,
+        registrations: registrationsRef.current,
       });
+      if (!mountedRef.current) return;
       setResult(verification);
       setPhase('result');
     } catch (err) {
+      if (!mountedRef.current) return;
       setError(err.message || 'Impossible de vérifier ce reçu.');
       setScanSession((v) => v + 1);
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
       processingRef.current = false;
     }
-  }, [competition, registrations, stopScanner]);
+  }, [stopScanner]);
 
   useEffect(() => {
     if (phase !== 'scanning') return undefined;
@@ -103,46 +123,110 @@ export default function ReceiptScanModal({
     setError('');
 
     const startScanner = async () => {
-      const scanner = new Html5Qrcode(SCANNER_ID);
+      if (startingRef.current || scannerRef.current?.isScanning) return;
+      startingRef.current = true;
+
+      // Laisse le modal peindre le conteneur avant d’attacher le flux caméra
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      if (cancelled || !mountedRef.current) {
+        startingRef.current = false;
+        return;
+      }
+
+      const host = document.getElementById(SCANNER_ID);
+      if (!host) {
+        startingRef.current = false;
+        if (!cancelled) setError('Zone de lecture indisponible.');
+        return;
+      }
+
+      // Conteneur stable : dimensions fixes avant Html5Qrcode
+      host.innerHTML = '';
+      host.style.width = '100%';
+      host.style.maxWidth = '420px';
+      host.style.height = '320px';
+      host.style.minHeight = '320px';
+
+      await stopScanner();
+      if (cancelled) {
+        startingRef.current = false;
+        return;
+      }
+
+      const scanner = new Html5Qrcode(SCANNER_ID, { verbose: false });
       scannerRef.current = scanner;
+
       const config = {
-        fps: 24,
-        qrbox: getQrBoxSize,
+        fps: 10,
+        qrbox: FIXED_QR_BOX,
         aspectRatio: 1,
         disableFlip: false,
+        videoConstraints: isMobile
+          ? { facingMode: { ideal: preferredFacing } }
+          : { facingMode: 'user' },
       };
+
       const onScan = (text) => {
-        if (!cancelled) processQrText(text);
+        if (!cancelled && !processingRef.current) processQrText(text);
       };
 
       try {
-        const cameras = await Html5Qrcode.getCameras();
-        if (cancelled) return;
-        setMobileCameraSwitchEnabled(isMobile);
-
         let startTarget;
-        if (isMobile) {
-          startTarget = getCameraStartTarget(cameras, preferredFacing);
-        } else {
-          const desktopCamera = pickDesktopCamera(cameras);
-          startTarget = desktopCamera?.id || { facingMode: 'user' };
+        try {
+          const cameras = await Html5Qrcode.getCameras();
+          if (cancelled) return;
+          if (isMobile) {
+            startTarget = getCameraStartTarget(cameras, preferredFacing);
+          } else {
+            const desktopCamera = pickDesktopCamera(cameras);
+            startTarget = desktopCamera?.id || { facingMode: 'user' };
+          }
+        } catch {
+          startTarget = isMobile
+            ? { facingMode: preferredFacing }
+            : { facingMode: 'user' };
         }
 
-        setActiveCameraLabel(getCameraDisplayName(cameras, startTarget));
         await scanner.start(startTarget, config, onScan, () => {});
-        if (!cancelled) setCameraReady(true);
-      } catch {
-        if (!cancelled) {
-          setError('Impossible d\'accéder à la caméra. Autorisez l\'accès ou importez une photo du QR.');
+        if (cancelled) {
+          await stopScanner();
+          return;
         }
+        if (mountedRef.current) setCameraReady(true);
+      } catch {
+        // Fallback facingMode seul si l’id caméra échoue
+        try {
+          if (cancelled || !scannerRef.current) return;
+          await scanner.start(
+            { facingMode: isMobile ? preferredFacing : 'user' },
+            {
+              fps: 10,
+              qrbox: FIXED_QR_BOX,
+              aspectRatio: 1,
+              disableFlip: false,
+            },
+            onScan,
+            () => {}
+          );
+          if (!cancelled && mountedRef.current) setCameraReady(true);
+        } catch {
+          if (!cancelled && mountedRef.current) {
+            setError('Impossible d\'accéder à la caméra. Autorisez l\'accès dans le navigateur.');
+          }
+        }
+      } finally {
+        startingRef.current = false;
       }
     };
 
     startScanner();
+
     return () => {
       cancelled = true;
       stopScanner();
     };
+    // Intentionnel : ne pas dépendre de competition/registrations (polling live).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, scanSession, preferredFacing, isMobile, processQrText, stopScanner]);
 
   const handleScanAgain = () => {
@@ -154,17 +238,10 @@ export default function ReceiptScanModal({
     setScanSession((v) => v + 1);
   };
 
-  const handleFileSelect = async (event) => {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file || processingRef.current) return;
-    setError('');
-    try {
-      const text = await Html5Qrcode.scanFile(file, true);
-      await processQrText(text);
-    } catch {
-      setError('Aucun QR Code détecté dans cette image.');
-    }
+  const handleFacingChange = (facing) => {
+    if (facing === preferredFacing || loading) return;
+    setPreferredFacing(facing);
+    setScanSession((v) => v + 1);
   };
 
   const authentic = result?.authentic;
@@ -176,7 +253,7 @@ export default function ReceiptScanModal({
   return (
     <div className="card-overlay" onClick={onClose}>
       <div
-        className={`qr-scan-modal ${phase === 'result' ? 'qr-scan-modal-found' : ''}`}
+        className={`qr-scan-modal receipt-scan-modal ${phase === 'result' ? 'qr-scan-modal-found' : ''}`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className={`qr-scan-header ${authentic ? 'qr-scan-header-success' : ''}`}>
@@ -187,59 +264,34 @@ export default function ReceiptScanModal({
         </div>
 
         {phase === 'scanning' && (
-          <div className="qr-scan-body">
-            <p className="form-hint">
-              Scannez le QR Code en bas du reçu PDF pour confirmer l’authenticité du paiement.
-            </p>
-            <div id={SCANNER_ID} className="qr-scan-reader" />
-            {!cameraReady && !error && (
-              <p className="form-hint">Initialisation de la caméra…</p>
-            )}
-            {activeCameraLabel && cameraReady && (
-              <p className="form-hint">Caméra : {activeCameraLabel}</p>
-            )}
-            {mobileCameraSwitchEnabled && (
-              <div className="qr-scan-facing-switch">
+          <div className="qr-scan-body receipt-scan-body">
+            {isMobile && (
+              <div className="qr-scan-camera-switch" role="group" aria-label="Choisir la caméra">
                 <button
                   type="button"
-                  className={`btn btn-sm ${preferredFacing === 'environment' ? 'btn-primary' : 'btn-outline'}`}
-                  onClick={() => {
-                    setPreferredFacing('environment');
-                    setScanSession((v) => v + 1);
-                  }}
+                  className={`qr-scan-camera-btn ${preferredFacing === 'environment' ? 'active' : ''}`}
+                  onClick={() => handleFacingChange('environment')}
+                  disabled={loading}
                 >
-                  Arrière
+                  Caméra arrière
                 </button>
                 <button
                   type="button"
-                  className={`btn btn-sm ${preferredFacing === 'user' ? 'btn-primary' : 'btn-outline'}`}
-                  onClick={() => {
-                    setPreferredFacing('user');
-                    setScanSession((v) => v + 1);
-                  }}
+                  className={`qr-scan-camera-btn ${preferredFacing === 'user' ? 'active' : ''}`}
+                  onClick={() => handleFacingChange('user')}
+                  disabled={loading}
                 >
-                  Avant
+                  Caméra avant
                 </button>
               </div>
             )}
-            <div className="qr-scan-actions">
-              <button
-                type="button"
-                className="btn btn-outline"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                Importer une photo
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                hidden
-                onChange={handleFileSelect}
-              />
-            </div>
-            {loading && <p className="form-hint">Vérification du reçu…</p>}
-            {error && <p className="form-error">{error}</p>}
+
+            <div id={SCANNER_ID} className="qr-scan-reader receipt-scan-reader" />
+            {!cameraReady && !error && (
+              <p className="qr-scan-status">Ouverture de la caméra…</p>
+            )}
+            {loading && <p className="qr-scan-status">Vérification du reçu…</p>}
+            {error && <p className="qr-scan-error">{error}</p>}
           </div>
         )}
 
