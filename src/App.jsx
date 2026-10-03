@@ -771,21 +771,14 @@ export default function App() {
           )}
 
           <main className={`container dashboard-shell ${loading ? 'is-loading' : ''}`}>
-        {view === 'list' && (
-          <div className="dashboard-workspace">
             <div className="dashboard-topbar">
-              <div className="dashboard-topbar-search">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                  <circle cx="11" cy="11" r="7" />
-                  <path d="m20 20-3.5-3.5" />
-                </svg>
-                <input
-                  type="search"
-                  placeholder="Rechercher..."
-                  value={searchInput}
-                  onChange={(e) => setSearchInput(e.target.value)}
-                  aria-label="Rechercher"
-                />
+              <div className="dashboard-topbar-title">
+                {view === 'list' && 'Dashboard'}
+                {view === 'form' && (editing ? 'Modifier le judoka' : 'Nouvel enregistrement')}
+                {view === 'user-form' && (editingUser ? 'Modifier le compte' : 'Créer un compte')}
+                {view === 'arbitre-form' && (editingArbitre ? 'Modifier l\'arbitre' : 'Nouvel arbitre')}
+                {view === 'messages' && 'Messages'}
+                {view === 'competition' && 'Compétition'}
               </div>
               <div className="dashboard-topbar-user">
                 <span>Bonjour, {getUserDisplayName(user) || 'utilisateur'}</span>
@@ -801,44 +794,14 @@ export default function App() {
               </div>
             </div>
 
-            {perms.viewStats && (
-              <div className="dashboard-hero-cards">
-                <button
-                  type="button"
-                  className="dashboard-hero-card dashboard-hero-mint"
-                  onClick={() => { setJudokaStatutFilter(null); setDashboardTab('judokas'); setView('list'); }}
-                >
-                  <span className="hero-kicker">Effectif</span>
-                  <span className="hero-value">{stats.total ?? 0}</span>
-                  <span className="hero-label">Judokas enregistrés</span>
-                </button>
-                <button
-                  type="button"
-                  className="dashboard-hero-card dashboard-hero-orange"
-                  onClick={() => { setJudokaStatutFilter('actif'); setDashboardTab('judokas'); setView('list'); }}
-                >
-                  <span className="hero-kicker">Statut actif</span>
-                  <span className="hero-value">{stats.actifs ?? 0}</span>
-                  <span className="hero-label">Judokas actifs</span>
-                </button>
-                <button
-                  type="button"
-                  className="dashboard-hero-card dashboard-hero-cyan"
-                  onClick={() => { setJudokaStatutFilter(null); setDashboardTab(tabs.includes('clubs') ? 'clubs' : 'judokas'); setView('list'); }}
-                >
-                  <span className="hero-kicker">Structure</span>
-                  <span className="hero-value">{stats.clubs ?? 0}</span>
-                  <span className="hero-label">Clubs enregistrés</span>
-                </button>
-              </div>
-            )}
-
+        {view === 'list' && (
+          <div className="dashboard-workspace">
             {perms.viewStats && (
               <div className="stats-grid">
                 {hasFullDashboardCards(user) ? (
                   <>
                     <StatCard
-                      theme="gold"
+                      theme="blue"
                       icon={<IconPeople />}
                       value={stats.total}
                       label="Judokas"
@@ -854,7 +817,7 @@ export default function App() {
                       onClick={() => { setDashboardTab('ligues'); setView('list'); }}
                     />
                     <StatCard
-                      theme="orange"
+                      theme="blue"
                       icon={<IconBuilding />}
                       value={stats.ententes ?? 0}
                       label="Ententes"
@@ -862,7 +825,7 @@ export default function App() {
                       onClick={() => { setDashboardTab('ententes'); setView('list'); }}
                     />
                     <StatCard
-                      theme="indigo"
+                      theme="blue"
                       icon={<IconBuilding />}
                       value={stats.clubs}
                       label="Clubs"
@@ -870,7 +833,7 @@ export default function App() {
                       onClick={() => { setDashboardTab('clubs'); setView('list'); }}
                     />
                     <StatCard
-                      theme="cyan"
+                      theme="blue"
                       icon={<IconPerson />}
                       value={stats.entraineurs}
                       label="Entraineurs"
@@ -878,7 +841,7 @@ export default function App() {
                       onClick={() => { setDashboardTab('entraineurs'); setView('list'); }}
                     />
                     <StatCard
-                      theme="red"
+                      theme="blue"
                       icon={<IconWhistle />}
                       value={stats.arbitres ?? 0}
                       label="Arbitres"
@@ -886,7 +849,7 @@ export default function App() {
                       onClick={() => { setDashboardTab('arbitres'); setView('list'); }}
                     />
                     <StatCard
-                      theme="green"
+                      theme="blue"
                       icon={<IconCheck />}
                       value={stats.federationMembers ?? 0}
                       label="Membres"
@@ -897,7 +860,7 @@ export default function App() {
                 ) : isResponsableGrade(user) ? (
                   <>
                     <StatCard
-                      theme="gold"
+                      theme="blue"
                       icon={<IconPeople />}
                       value={stats.total}
                       label="Judokas enregistrés"
@@ -905,7 +868,7 @@ export default function App() {
                       onClick={() => { setJudokaStatutFilter(null); setDashboardTab('judokas'); setView('list'); }}
                     />
                     <StatCard
-                      theme="green"
+                      theme="blue"
                       icon={<IconCheck />}
                       value={stats.actifs}
                       label="Actifs"
@@ -913,7 +876,7 @@ export default function App() {
                       onClick={() => { setJudokaStatutFilter('actif'); setDashboardTab('judokas'); setView('list'); }}
                     />
                     <StatCard
-                      theme="orange"
+                      theme="blue"
                       icon={<IconAlert />}
                       value={Math.max(0, (stats.total || 0) - (stats.actifs || 0))}
                       label="Inactifs"
@@ -921,7 +884,7 @@ export default function App() {
                       onClick={() => { setJudokaStatutFilter('inactif'); setDashboardTab('judokas'); setView('list'); }}
                     />
                     <StatCard
-                      theme="cyan"
+                      theme="blue"
                       icon={<IconPerson />}
                       value={stats.entraineurs}
                       label="Entraineurs"
@@ -929,7 +892,7 @@ export default function App() {
                       onClick={() => { setJudokaStatutFilter(null); setDashboardTab('entraineurs'); setView('list'); }}
                     />
                     <StatCard
-                      theme="indigo"
+                      theme="blue"
                       icon={<IconBuilding />}
                       value={stats.clubs}
                       label="Clubs"
@@ -941,10 +904,10 @@ export default function App() {
                   <>
                     {showStatsJudokas && (
                       <>
-                        <StatCard theme="gold" icon={<IconPeople />} value={stats.total} label="Judokas enregistrés" />
-                        <StatCard theme="green" icon={<IconCheck />} value={stats.actifs} label="Actifs" />
+                        <StatCard theme="blue" icon={<IconPeople />} value={stats.total} label="Judokas enregistrés" />
+                        <StatCard theme="blue" icon={<IconCheck />} value={stats.actifs} label="Actifs" />
                         <StatCard
-                          theme="orange"
+                          theme="blue"
                           icon={user.type === 'ligue' ? <IconBuilding /> : <IconAlert />}
                           value={user.type === 'ligue' ? (stats.ententes ?? 0) : (stats.arbitres ?? 0)}
                           label={user.type === 'ligue' ? 'Ententes' : 'Inactifs'}
@@ -953,7 +916,7 @@ export default function App() {
                     )}
                     {showStatsEntraineurs && (
                       <StatCard
-                        theme="cyan"
+                        theme="blue"
                         icon={<IconPerson />}
                         value={stats.entraineurs}
                         label="Entraineurs"
@@ -963,7 +926,7 @@ export default function App() {
                     )}
                     {user.type !== 'club' && user.type !== 'entraineur' && (
                       <StatCard
-                        theme="indigo"
+                        theme="blue"
                         icon={<IconBuilding />}
                         value={stats.clubs}
                         label="Clubs"
