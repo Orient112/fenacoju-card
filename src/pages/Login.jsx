@@ -38,8 +38,7 @@ export default function Login({ onLogin }) {
           </div>
 
           <p className="login-lead">
-            Gérez les clubs, judokas et compétitions de la Fédération Nationale Congolaise de Judo
-            depuis un espace sécurisé.
+            Gestion des Clubs, Athlètes et Compétitions de la Fédération Nationale Congolaise de Judo.
           </p>
 
           <form onSubmit={handleSubmit} className="login-form" autoComplete="off">

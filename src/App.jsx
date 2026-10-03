@@ -121,9 +121,13 @@ function getUserDisplayName(user) {
 
 function getRoleLabel(user) {
   if (!user) return '';
-  if (user.type === 'admin') return 'Admin';
-  if (user.type === 'federation') return user.fonction || 'Fédération';
-  return USER_TYPES[user.type]?.label || user.type;
+  let label = '';
+  if (user.type === 'admin') label = 'Admin';
+  else if (user.type === 'federation') label = user.fonction || 'Fédération';
+  else label = USER_TYPES[user.type]?.label || user.type;
+  const text = String(label || '').trim();
+  if (!text) return '';
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 function isAdminOrCoordon(user) {
@@ -781,7 +785,7 @@ export default function App() {
                 {view === 'competition' && 'Compétition'}
               </div>
               <div className="dashboard-topbar-user">
-                <span>Bonjour, {getUserDisplayName(user) || 'utilisateur'}</span>
+                <span>{getUserDisplayName(user) || 'utilisateur'}</span>
                 <span className="dashboard-avatar" aria-hidden="true">
                   {(getUserDisplayName(user) || 'U')
                     .split(/\s+/)
@@ -1333,10 +1337,9 @@ export default function App() {
         <footer className="app-user-footer">
           <div className="header-user">
             <div className="header-user-meta">
-              <span className="header-user-name">{getUserDisplayName(user)}</span>
               <span className="header-user-role">{getRoleLabel(user)}</span>
             </div>
-            <button className="nav-btn nav-btn-logout" onClick={handleLogout}>
+            <button type="button" className="nav-btn nav-btn-logout" onClick={handleLogout}>
               Déconnexion
             </button>
           </div>
