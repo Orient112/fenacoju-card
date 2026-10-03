@@ -18,6 +18,7 @@ import { exportCompetitionDrawToPdf } from '../utils/exportCompetitionDrawPdf';
 import { exportCompetitionBadgesToPdf } from '../utils/exportCompetitionBadgesPdf';
 import { buildWeightDraw, buildTeamDraw } from '../utils/competitionDraw';
 import DrawAnimation from '../components/DrawAnimation';
+import ReceiptScanModal from '../components/ReceiptScanModal';
 import { IconCharge, IconEdit, IconTrash } from '../components/ActionIcons';
 
 function isTeamRegistration(r) {
@@ -707,6 +708,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
   const [editingClub, setEditingClub] = useState(null);
   const [chargeTeamTarget, setChargeTeamTarget] = useState(null);
   const [chargeSelections, setChargeSelections] = useState({});
+  const [showReceiptScan, setShowReceiptScan] = useState(false);
   const [form, setForm] = useState({
     nom: '',
     date_debut: '',
@@ -1594,8 +1596,12 @@ export default function CompetitionSettings({ onBack, onToast }) {
               <span className="live-dot" />
               Live
             </span>
-            <button type="button" className="btn btn-outline" onClick={onBack}>
-              Retour
+            <button
+              type="button"
+              className="btn btn-outline"
+              onClick={() => setShowReceiptScan(true)}
+            >
+              Scan Reçu
             </button>
           </div>
         </div>
@@ -2491,6 +2497,14 @@ export default function CompetitionSettings({ onBack, onToast }) {
             </div>
           </div>
         </div>
+      )}
+
+      {showReceiptScan && (
+        <ReceiptScanModal
+          competition={settings}
+          registrations={registrations}
+          onClose={() => setShowReceiptScan(false)}
+        />
       )}
     </div>
   );

@@ -14,6 +14,7 @@ import {
   splitFullName,
   sexeLabel,
 } from '../utils/weightCategories';
+import { exportCompetitionReceiptPdf } from '../utils/exportCompetitionReceiptPdf';
 
 const emptyForm = () => ({
   club: '',
@@ -95,6 +96,9 @@ export default function CompetitionPublicForm({ token }) {
   const [showPayment, setShowPayment] = useState(false);
   const [paymentKind, setPaymentKind] = useState(null);
   const [paymentItems, setPaymentItems] = useState([]);
+  const [receiptBusy, setReceiptBusy] = useState(false);
+  const [lastReceiptArgs, setLastReceiptArgs] = useState(null);
+  const [receiptError, setReceiptError] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -222,6 +226,9 @@ export default function CompetitionPublicForm({ token }) {
     setPaymentKind(null);
     setPaymentItems([]);
     setError('');
+    setLastReceiptArgs(null);
+    setReceiptError('');
+    setReceiptBusy(false);
   };
 
   const startExisting = () => {
@@ -337,9 +344,32 @@ export default function CompetitionPublicForm({ token }) {
     setShowPayment(true);
   };
 
+  const openPaymentReceipt = async (args) => {
+    setReceiptBusy(true);
+    setReceiptError('');
+    try {
+      const competitionData = {
+        ...(args.competition || competition || {}),
+        public_token: (args.competition || competition)?.public_token || token,
+        token,
+      };
+      await exportCompetitionReceiptPdf({
+        ...args,
+        competition: competitionData,
+        open: true,
+      });
+      setLastReceiptArgs({ ...args, competition: competitionData });
+    } catch (err) {
+      setReceiptError(err.message || 'Impossible de générer le reçu PDF');
+    } finally {
+      setReceiptBusy(false);
+    }
+  };
+
   const confirmIndividuelPayment = async (paiement) => {
     setSubmitting(true);
     setError('');
+    setReceiptError('');
     const batch = (paymentItems.length ? paymentItems : basket).map(({ _key, ...rest }) => rest);
     const needsPay = Number(paiement?.montant) > 0 && paiement?.mode === 'mobile_money';
 
@@ -365,6 +395,19 @@ export default function CompetitionPublicForm({ token }) {
       setPaymentItems([]);
       setBasket([]);
       setStep('success');
+
+      if (paiement && (Number(paiement.montant) > 0 || paiement.orderNumber)) {
+        const receiptArgs = {
+          competition: { ...(competition || {}), public_token: token, token },
+          mode: 'individuel',
+          paiement,
+          participants: batch,
+          registrations: result.registrations || [],
+        };
+        setLastReceiptArgs(receiptArgs);
+        // Génération automatique du reçu après paiement confirmé
+        openPaymentReceipt(receiptArgs);
+      }
     } catch (err) {
       setStep('form');
       setError(
@@ -473,6 +516,7 @@ export default function CompetitionPublicForm({ token }) {
   const confirmTeamPayment = async (paiement) => {
     setSubmitting(true);
     setError('');
+    setReceiptError('');
     const needsPay = Number(paiement?.montant) > 0 && paiement?.mode === 'mobile_money';
     let members = [];
     let hasLocked = false;
@@ -489,6 +533,9 @@ export default function CompetitionPublicForm({ token }) {
               nom_complet: bucket.principal.nom_complet,
               poids: bucket.principal.poids,
               role_equipe: 'principal',
+              categorie: bucket.cat?.label || '',
+              club: teamClub.trim(),
+              sexe: teamSexe,
             });
           }
         }
@@ -505,6 +552,9 @@ export default function CompetitionPublicForm({ token }) {
               nom_complet: bucket.remplacant.nom_complet,
               poids: bucket.remplacant.poids,
               role_equipe: 'remplacant',
+              categorie: bucket.cat?.label || '',
+              club: teamClub.trim(),
+              sexe: teamSexe,
             });
           }
         }
@@ -536,6 +586,20 @@ export default function CompetitionPublicForm({ token }) {
         ? { ...prev, registrations_count: (prev.registrations_count || 0) + (result.count || members.length) }
         : prev));
       setStep('success');
+
+      if (paiement && (Number(paiement.montant) > 0 || paiement.orderNumber)) {
+        const receiptArgs = {
+          competition: { ...(competition || {}), public_token: token, token },
+          mode: 'equipe',
+          paiement,
+          participants: members,
+          registrations: result.registrations || [],
+          club: teamClub.trim(),
+          sexe: teamSexe,
+        };
+        setLastReceiptArgs(receiptArgs);
+        openPaymentReceipt(receiptArgs);
+      }
     } catch (err) {
       setStep('team');
       setError(
@@ -1122,9 +1186,29 @@ export default function CompetitionPublicForm({ token }) {
                   {' '}
                   {count} judoka{count > 1 ? 's' : ''} inscrit{count > 1 ? 's' : ''} au total.
                 </p>
-                <button type="button" className="btn btn-primary" onClick={resetFlow}>
-                  Nouvelle inscription
-                </button>
+                {lastReceiptArgs && (
+                  <p className="form-hint">
+                    {receiptBusy
+                      ? 'Génération du reçu PDF…'
+                      : 'Votre reçu de paiement PDF s’ouvre automatiquement — conservez-le comme preuve.'}
+                  </p>
+                )}
+                {receiptError && <p className="form-error">{receiptError}</p>}
+                <div className="form-actions" style={{ justifyContent: 'center' }}>
+                  {lastReceiptArgs && (
+                    <button
+                      type="button"
+                      className="btn btn-outline"
+                      disabled={receiptBusy}
+                      onClick={() => openPaymentReceipt(lastReceiptArgs)}
+                    >
+                      {receiptBusy ? 'Génération…' : 'Télécharger le reçu'}
+                    </button>
+                  )}
+                  <button type="button" className="btn btn-primary" onClick={resetFlow}>
+                    Nouvelle inscription
+                  </button>
+                </div>
               </div>
             )}
           </>
