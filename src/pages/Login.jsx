@@ -25,71 +25,85 @@ export default function Login({ onLogin }) {
 
   return (
     <div className="login-page">
-      <div className="login-card">
-        <div className="login-header">
-          <img src="/fenacoju-logo.png" alt="FENACOJU" className="login-logo" />
-          <h2>FENACOJU Base</h2>
-          <p>Accédez à votre espace sécurisé</p>
-        </div>
+      <aside className="login-visual" aria-hidden="true">
+        <img src="/login-hero.jpg" alt="" className="login-visual-img" />
+        <div className="login-visual-shade" />
+      </aside>
 
-        <form onSubmit={handleSubmit} className="login-form" autoComplete="off">
-          {error && <div className="form-error">{error}</div>}
-
-          <div className="form-group">
-            <label htmlFor="login-identifier">Identifiant</label>
-            <input
-              id="login-identifier"
-              type="text"
-              value={identifier}
-              onChange={(e) => setIdentifier(e.target.value)}
-              placeholder=""
-              required
-              autoComplete="off"
-              name="fenacoju-identifier"
-            />
+      <section className="login-panel">
+        <div className="login-panel-inner">
+          <div className="login-brand">
+            <img src="/fenacoju-logo.png" alt="FENACOJU" className="login-logo" />
+            <span>FENACOJU Base</span>
           </div>
 
-          <div className="form-group">
-            <label htmlFor="login-password">Mot de passe</label>
-            <div className="password-field">
+          <header className="login-header">
+            <h1>Bon retour !</h1>
+            <p>
+              Gérez les clubs, judokas et compétitions de la Fédération Nationale Congolaise de Judo
+              depuis un espace sécurisé.
+            </p>
+          </header>
+
+          <form onSubmit={handleSubmit} className="login-form" autoComplete="off">
+            {error && <div className="form-error">{error}</div>}
+
+            <div className="form-group">
+              <label htmlFor="login-identifier">Identifiant</label>
               <input
-                id="login-password"
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder=""
+                id="login-identifier"
+                type="text"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                placeholder="Entrez votre identifiant"
                 required
-                autoComplete="new-password"
-                name="fenacoju-password"
+                autoComplete="off"
+                name="fenacoju-identifier"
               />
-              <button
-                type="button"
-                className="password-toggle"
-                onClick={() => setShowPassword((v) => !v)}
-                title={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
-                aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
-              >
-                {showPassword ? (
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
-                    <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
-                    <line x1="1" y1="1" x2="23" y2="23" />
-                  </svg>
-                ) : (
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                    <circle cx="12" cy="12" r="3" />
-                  </svg>
-                )}
-              </button>
             </div>
-          </div>
 
-          <button type="submit" className="btn btn-primary login-btn" disabled={loading}>
-            {loading ? 'Connexion...' : 'Se connecter'}
-          </button>
-        </form>
-      </div>
+            <div className="form-group">
+              <label htmlFor="login-password">Mot de passe</label>
+              <div className="password-field">
+                <input
+                  id="login-password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Entrez votre mot de passe"
+                  required
+                  autoComplete="new-password"
+                  name="fenacoju-password"
+                />
+                <button
+                  type="button"
+                  className="password-toggle"
+                  onClick={() => setShowPassword((v) => !v)}
+                  title={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                  aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                >
+                  {showPassword ? (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+                      <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+                      <line x1="1" y1="1" x2="23" y2="23" />
+                    </svg>
+                  ) : (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <button type="submit" className="btn login-btn" disabled={loading}>
+              {loading ? 'Connexion...' : 'Se connecter'}
+            </button>
+          </form>
+        </div>
+      </section>
     </div>
   );
 }
