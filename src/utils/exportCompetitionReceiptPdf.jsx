@@ -4,6 +4,7 @@ import { jsPDF } from 'jspdf';
 import QRCode from 'react-qr-code';
 import {
   buildReceiptPayload,
+  displayReceiptReference,
   encodeReceiptQr,
   formatReceiptAmount,
 } from './competitionReceipt';
@@ -152,7 +153,15 @@ export async function exportCompetitionReceiptPdf({
   const labelW = 42;
   const valueW = pageW - margin * 2 - labelW - 8;
   infoY = drawRow(pdf, 'Date', new Date(payload.date).toLocaleString('fr-FR'), margin + 4, infoY, labelW, valueW);
-  infoY = drawRow(pdf, 'Référence', payload.orderNumber || '—', margin + 4, infoY, labelW, valueW);
+  infoY = drawRow(
+    pdf,
+    'Référence',
+    displayReceiptReference(payload.orderNumber, payload.telephone),
+    margin + 4,
+    infoY,
+    labelW,
+    valueW
+  );
   infoY = drawRow(
     pdf,
     'Montant payé',
@@ -237,11 +246,22 @@ export async function exportCompetitionReceiptPdf({
     .replace(/[^a-z0-9]+/gi, '-')
     .replace(/^-|-$/g, '')
     .slice(0, 36);
-  const ref = (payload.orderNumber || Date.now().toString(36)).slice(0, 18);
+  const ref = displayReceiptReference(payload.orderNumber, payload.telephone)
+    .replace(/[^a-z0-9]+/gi, '')
+    .slice(0, 18)
+    || Date.now().toString(36);
   const filename = `recu-paiement-${slug}-${ref}.pdf`;
 
-  // Téléchargement direct du PDF (preuve à conserver)
+  // Télécharger puis ouvrir le PDF
   pdf.save(filename);
+  try {
+    const blob = pdf.output('blob');
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank', 'noopener,noreferrer');
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  } catch {
+    // le téléchargement a déjà eu lieu via pdf.save
+  }
 
   return { payload, filename };
 }

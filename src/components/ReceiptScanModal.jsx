@@ -7,6 +7,7 @@ import {
 } from '../utils/cameraDevices';
 import {
   formatReceiptAmount,
+  getReceiptDisplayReference,
   parseReceiptQr,
   verifyReceiptAuthenticity,
 } from '../utils/competitionReceipt';
@@ -316,7 +317,7 @@ export default function ReceiptScanModal({
                 </div>
                 <div className="qr-scan-detail-item">
                   <span className="qr-scan-detail-label">Référence</span>
-                  <span className="qr-scan-detail-value">{payload.orderNumber || '—'}</span>
+                  <span className="qr-scan-detail-value">{getReceiptDisplayReference(payload)}</span>
                 </div>
                 <div className="qr-scan-detail-item">
                   <span className="qr-scan-detail-label">Montant</span>

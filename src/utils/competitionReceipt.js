@@ -27,6 +27,40 @@ export function extractOrderNumber(modePaiementOrPaiement) {
   return '';
 }
 
+/** Référence affichée sans le numéro de téléphone du payeur (souvent collé en suffixe SimplyPaye). */
+export function displayReceiptReference(orderNumber, telephone = '') {
+  let ref = String(orderNumber || '').trim();
+  if (!ref) return '—';
+
+  const digitsPhone = String(telephone || '').replace(/\D/g, '');
+  const candidates = new Set();
+  if (digitsPhone) {
+    candidates.add(digitsPhone);
+    if (digitsPhone.startsWith('243') && digitsPhone.length > 9) {
+      candidates.add(digitsPhone.slice(3));
+    }
+    if (digitsPhone.startsWith('0') && digitsPhone.length >= 10) {
+      candidates.add(`243${digitsPhone.slice(1)}`);
+      candidates.add(digitsPhone.slice(1));
+    }
+    if (!digitsPhone.startsWith('243') && digitsPhone.length >= 9) {
+      candidates.add(`243${digitsPhone}`);
+    }
+  }
+
+  for (const phone of candidates) {
+    if (phone.length >= 9 && ref.endsWith(phone)) {
+      ref = ref.slice(0, -phone.length);
+      break;
+    }
+  }
+
+  // Sécurité : retirer un suffixe purement numérique type MSISDN (9–15 chiffres)
+  ref = ref.replace(/(\D)(\d{9,15})$/, '$1').replace(/\d{9,15}$/, '');
+  ref = ref.replace(/[-_\s.]+$/g, '').trim();
+  return ref || String(orderNumber || '').trim();
+}
+
 export function buildReceiptPayload({
   competition,
   mode,
@@ -254,4 +288,9 @@ export function formatReceiptAmount(montant, monnaie) {
     maximumFractionDigits: cur === 'USD' ? 2 : 0,
   }).replace(/\//g, '').replace(/\u202f/g, ' ').trim();
   return `${formatted} ${suffix}`;
+}
+
+export function getReceiptDisplayReference(payload) {
+  if (!payload) return '—';
+  return displayReceiptReference(payload.orderNumber, payload.telephone);
 }

@@ -1177,12 +1177,6 @@ export default function CompetitionPublicForm({ token }) {
                     ? <>L&apos;équipe du club <strong>{successName}</strong> est bien inscrite à <strong>{competition.nom}</strong>.</>
                     : <>{successName || 'Le judoka'} est bien inscrit(e) à <strong>{competition.nom}</strong>.</>}
                 </p>
-                <p className="form-hint">
-                  {successCount > 0 ? `${successCount} inscription(s) validée(s). ` : ''}
-                  Paiement et enregistrement pris en compte.
-                  {' '}
-                  {count} judoka{count > 1 ? 's' : ''} inscrit{count > 1 ? 's' : ''} au total.
-                </p>
                 {lastReceiptArgs && (
                   <p className="form-hint">
                     {receiptBusy
