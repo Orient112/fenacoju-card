@@ -217,12 +217,6 @@ export async function exportCompetitionReceiptPdf({
     y = 20;
   }
 
-  pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(10);
-  pdf.setTextColor(18, 45, 102);
-  pdf.text('QR Code du reçu — à présenter lors de la compétition', pageW / 2, y, { align: 'center' });
-  y += 4;
-
   const qrSizeMm = 42;
   const qrX = (pageW - qrSizeMm) / 2;
   pdf.addImage(qrPng, 'PNG', qrX, y, qrSizeMm, qrSizeMm);
@@ -232,7 +226,7 @@ export async function exportCompetitionReceiptPdf({
   pdf.setFontSize(7.5);
   pdf.setTextColor(100, 116, 139);
   pdf.text(
-    'Ce QR Code contient toutes les informations du reçu. Scannez-le depuis la page Compétition pour vérifier l\'authenticité.',
+    'Ce QR Code contient toutes les informations du reçu',
     pageW / 2,
     y,
     { align: 'center', maxWidth: pageW - margin * 2 }
@@ -246,30 +240,8 @@ export async function exportCompetitionReceiptPdf({
   const ref = (payload.orderNumber || Date.now().toString(36)).slice(0, 18);
   const filename = `recu-paiement-${slug}-${ref}.pdf`;
 
-  if (open) {
-    try {
-      const blob = pdf.output('blob');
-      const url = URL.createObjectURL(blob);
-      const win = window.open(url, '_blank');
-      if (!win) {
-        pdf.save(filename);
-      } else {
-        // Téléchargement de secours pour sauvegarde locale
-        setTimeout(() => {
-          try {
-            pdf.save(filename);
-          } catch {
-            // ignore
-          }
-        }, 400);
-      }
-      setTimeout(() => URL.revokeObjectURL(url), 60_000);
-    } catch {
-      pdf.save(filename);
-    }
-  } else {
-    pdf.save(filename);
-  }
+  // Téléchargement direct du PDF (preuve à conserver)
+  pdf.save(filename);
 
   return { payload, filename };
 }

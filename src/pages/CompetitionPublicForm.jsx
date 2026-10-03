@@ -405,8 +405,6 @@ export default function CompetitionPublicForm({ token }) {
           registrations: result.registrations || [],
         };
         setLastReceiptArgs(receiptArgs);
-        // Génération automatique du reçu après paiement confirmé
-        openPaymentReceipt(receiptArgs);
       }
     } catch (err) {
       setStep('form');
@@ -598,7 +596,6 @@ export default function CompetitionPublicForm({ token }) {
           sexe: teamSexe,
         };
         setLastReceiptArgs(receiptArgs);
-        openPaymentReceipt(receiptArgs);
       }
     } catch (err) {
       setStep('team');
@@ -1190,7 +1187,7 @@ export default function CompetitionPublicForm({ token }) {
                   <p className="form-hint">
                     {receiptBusy
                       ? 'Génération du reçu PDF…'
-                      : 'Votre reçu de paiement PDF s’ouvre automatiquement — conservez-le comme preuve.'}
+                      : 'Veuillez cliquer sur le bouton TELECHARGER LE REÇU pour conservez votre preuve de paiement'}
                   </p>
                 )}
                 {receiptError && <p className="form-error">{receiptError}</p>}

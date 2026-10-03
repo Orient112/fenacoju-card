@@ -179,11 +179,27 @@ export function verifyReceiptAuthenticity(payload, {
     };
   }
 
-  const paidOk = matches.every((r) => String(r.paiement_statut || '') === 'paye'
+  const dbHasPaymentMeta = matches.some((r) => (
+    String(r.paiement_statut || '') === 'paye'
     || Number(r.montant_paye) > 0
-    || Boolean(extractOrderNumber(r.mode_paiement)));
+    || Boolean(extractOrderNumber(r.mode_paiement))
+    || String(r.mode_paiement || '').includes('mobile_money')
+  ));
 
-  if (!paidOk && Number(payload.montant) > 0) {
+  // Les colonnes paiement peuvent être absentes en base (fallback insert) :
+  // si l'inscription liée existe + reçu intègre avec référence paiement → authentique.
+  const receiptProvesPayment = Boolean(orderNumber) || Number(payload.montant) > 0;
+  const identityAligned = (() => {
+    const people = payload.participants || [];
+    if (!people.length) return true;
+    return people.some((p) => matches.some((r) => {
+      const sameNom = String(r.nom || '').trim().toLowerCase() === String(p.nom || '').trim().toLowerCase();
+      const samePrenom = String(r.prenom || '').trim().toLowerCase() === String(p.prenom || '').trim().toLowerCase();
+      return sameNom && samePrenom;
+    }));
+  })();
+
+  if (!dbHasPaymentMeta && !(receiptProvesPayment && identityAligned)) {
     return {
       authentic: false,
       status: 'unpaid',
@@ -194,9 +210,11 @@ export function verifyReceiptAuthenticity(payload, {
   }
 
   const expectedAmount = Number(payload.montant) || 0;
-  if (payload.mode === 'individuel') {
-    const sum = matches.reduce((s, r) => s + (Number(r.montant_paye) || 0), 0);
-    if (expectedAmount > 0 && Math.abs(sum - expectedAmount) > 0.01) {
+  const sum = matches.reduce((s, r) => s + (Number(r.montant_paye) || 0), 0);
+  const dbAmountsPresent = matches.some((r) => Number(r.montant_paye) > 0);
+
+  if (dbAmountsPresent && expectedAmount > 0) {
+    if (payload.mode === 'individuel' && Math.abs(sum - expectedAmount) > 0.01) {
       return {
         authentic: false,
         status: 'amount_mismatch',
@@ -205,16 +223,17 @@ export function verifyReceiptAuthenticity(payload, {
         matches,
       };
     }
-  } else if (expectedAmount > 0) {
-    const teamAmount = Number(matches[0]?.montant_paye) || 0;
-    if (Math.abs(teamAmount - expectedAmount) > 0.01) {
-      return {
-        authentic: false,
-        status: 'amount_mismatch',
-        message: `Montant incohérent (reçu ${expectedAmount}, équipe ${teamAmount}).`,
-        payload,
-        matches,
-      };
+    if (payload.mode === 'equipe') {
+      const teamAmount = Number(matches[0]?.montant_paye) || 0;
+      if (Math.abs(teamAmount - expectedAmount) > 0.01) {
+        return {
+          authentic: false,
+          status: 'amount_mismatch',
+          message: `Montant incohérent (reçu ${expectedAmount}, équipe ${teamAmount}).`,
+          payload,
+          matches,
+        };
+      }
     }
   }
 
@@ -228,15 +247,11 @@ export function verifyReceiptAuthenticity(payload, {
 }
 
 export function formatReceiptAmount(montant, monnaie) {
-  const n = Number(montant) || 0;
-  const cur = String(monnaie || 'CDF').toUpperCase();
-  try {
-    return new Intl.NumberFormat('fr-FR', {
-      style: 'currency',
-      currency: cur === 'USD' ? 'USD' : 'CDF',
-      maximumFractionDigits: cur === 'USD' ? 2 : 0,
-    }).format(n);
-  } catch {
-    return `${n} ${cur}`;
-  }
+  const n = Math.max(0, Number(montant) || 0);
+  const cur = String(monnaie || 'CDF').toUpperCase() === 'USD' ? 'USD' : 'CDF';
+  const suffix = cur === 'USD' ? 'USD' : 'CDF';
+  const formatted = n.toLocaleString('fr-FR', {
+    maximumFractionDigits: cur === 'USD' ? 2 : 0,
+  }).replace(/\//g, '').replace(/\u202f/g, ' ').trim();
+  return `${formatted} ${suffix}`;
 }
