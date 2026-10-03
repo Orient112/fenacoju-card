@@ -234,10 +234,11 @@ canvas {
 }
 
 .nav-btn-logout {
-  background: #dc2626 !important;
+  background: transparent !important;
   border: none !important;
+  border-top: 1px solid #e8edf5 !important;
   border-radius: 0 !important;
-  color: #fff !important;
+  color: #dc2626 !important;
   margin-top: 0.55rem;
   padding: 0.85rem 0.75rem !important;
   width: 100% !important;
@@ -247,9 +248,10 @@ canvas {
 }
 
 .nav-btn-logout:hover {
-  background: #b91c1c !important;
+  background: #fef2f2 !important;
   border-color: transparent !important;
-  color: #fff !important;
+  border-top-color: #fecaca !important;
+  color: #b91c1c !important;
 }
 
 .btn-icon {
@@ -1727,8 +1729,8 @@ tbody tr:last-child td {
     border-radius: 0 !important;
     line-height: 1.2 !important;
     white-space: nowrap;
-    background: #dc2626 !important;
-    color: #fff !important;
+    background: transparent !important;
+    color: #dc2626 !important;
   }
 
   .competition-access-toggle {
@@ -2528,7 +2530,7 @@ tbody tr:last-child td {
   object-fit: cover;
   object-position: center;
   display: block;
-  opacity: 0.5;
+  opacity: 0.25;
 }
 
 .login-visual-shade {
@@ -2715,13 +2717,10 @@ tbody tr:last-child td {
     padding-bottom: 7.5rem;
   }
 
-  .app-user-footer .header-user-name {
+  .app-user-footer .header-user-name,
+  .app-user-footer .header-user-role,
+  .app-user-footer .header-user-meta {
     display: none !important;
-  }
-
-  .app-user-footer .header-user-role {
-    color: #0f172a;
-    font-weight: 700;
   }
 
   .app-user-footer {
@@ -2731,11 +2730,11 @@ tbody tr:last-child td {
   }
 
   .app-user-footer .header-user {
-    padding: 0.85rem 1.1rem 0;
+    padding: 0;
   }
 
   .app-user-footer .nav-btn-logout {
-    margin-top: 0.75rem;
+    margin-top: 0;
     width: 100% !important;
   }
 }
@@ -2775,24 +2774,10 @@ tbody tr:last-child td {
   min-width: 0;
 }
 
-.header-user-name {
+.header-user-name,
+.header-user-role,
+.header-user-meta {
   display: none !important;
-}
-
-.header-user-role {
-  font-size: 0.9rem;
-  font-weight: 700;
-  text-transform: none;
-  letter-spacing: 0.01em;
-  opacity: 1;
-  line-height: 1.25;
-  padding: 0;
-  margin: 0;
-  background: none;
-  border: none;
-  border-radius: 0;
-  color: #0f172a;
-  width: 100%;
 }
 
 .role-badge {
