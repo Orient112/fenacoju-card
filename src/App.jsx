@@ -773,6 +773,66 @@ export default function App() {
           <main className={`container dashboard-shell ${loading ? 'is-loading' : ''}`}>
         {view === 'list' && (
           <div className="dashboard-workspace">
+            <div className="dashboard-topbar">
+              <div className="dashboard-topbar-search">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="m20 20-3.5-3.5" />
+                </svg>
+                <input
+                  type="search"
+                  placeholder="Rechercher..."
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  aria-label="Rechercher"
+                />
+              </div>
+              <div className="dashboard-topbar-user">
+                <span>Bonjour, {getUserDisplayName(user) || 'utilisateur'}</span>
+                <span className="dashboard-avatar" aria-hidden="true">
+                  {(getUserDisplayName(user) || 'U')
+                    .split(/\s+/)
+                    .filter(Boolean)
+                    .slice(0, 2)
+                    .map((p) => p[0])
+                    .join('')
+                    .toUpperCase()}
+                </span>
+              </div>
+            </div>
+
+            {perms.viewStats && (
+              <div className="dashboard-hero-cards">
+                <button
+                  type="button"
+                  className="dashboard-hero-card dashboard-hero-mint"
+                  onClick={() => { setJudokaStatutFilter(null); setDashboardTab('judokas'); setView('list'); }}
+                >
+                  <span className="hero-kicker">Effectif</span>
+                  <span className="hero-value">{stats.total ?? 0}</span>
+                  <span className="hero-label">Judokas enregistrés</span>
+                </button>
+                <button
+                  type="button"
+                  className="dashboard-hero-card dashboard-hero-orange"
+                  onClick={() => { setJudokaStatutFilter('actif'); setDashboardTab('judokas'); setView('list'); }}
+                >
+                  <span className="hero-kicker">Statut actif</span>
+                  <span className="hero-value">{stats.actifs ?? 0}</span>
+                  <span className="hero-label">Judokas actifs</span>
+                </button>
+                <button
+                  type="button"
+                  className="dashboard-hero-card dashboard-hero-cyan"
+                  onClick={() => { setJudokaStatutFilter(null); setDashboardTab(tabs.includes('clubs') ? 'clubs' : 'judokas'); setView('list'); }}
+                >
+                  <span className="hero-kicker">Structure</span>
+                  <span className="hero-value">{stats.clubs ?? 0}</span>
+                  <span className="hero-label">Clubs enregistrés</span>
+                </button>
+              </div>
+            )}
+
             {perms.viewStats && (
               <div className="stats-grid">
                 {hasFullDashboardCards(user) ? (
