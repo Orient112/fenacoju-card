@@ -20,14 +20,16 @@ function roleLabel(r) {
   return 'Principal';
 }
 
-function groupByClub(list) {
+function groupByClub(list, { requireMembers = true } = {}) {
   const map = new Map();
   for (const r of list || []) {
     const club = clubName(r);
     if (!map.has(club)) map.set(club, []);
     map.get(club).push(r);
   }
-  return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0], 'fr'));
+  return [...map.entries()]
+    .filter(([, members]) => (requireMembers ? members.length >= 1 : true))
+    .sort((a, b) => a[0].localeCompare(b[0], 'fr'));
 }
 
 function exportTeamListToPdf(registrations, competition = {}) {
@@ -47,10 +49,12 @@ function exportTeamListToPdf(registrations, competition = {}) {
   y += 7;
   pdf.setFont('helvetica', 'normal');
   pdf.setFontSize(10);
+  const clubsCount = groupByClub(registrations, { requireMembers: true }).length;
   const meta = [
     'Cadre : Par équipe',
     competition.lieu ? `Lieu : ${competition.lieu}` : null,
     competition.date_debut ? `Date : ${competition.date_debut}` : null,
+    `Clubs : ${clubsCount}`,
     `Inscrits : ${registrations.length}`,
   ].filter(Boolean);
   pdf.text(meta.join('  ·  '), marginX, y);
@@ -113,8 +117,10 @@ function exportTeamListToPdf(registrations, competition = {}) {
 
   sections.forEach((section) => {
     if (!section.list.length) return;
+    const clubs = groupByClub(section.list, { requireMembers: true });
+    if (!clubs.length) return;
     drawGenderTitle(section.title);
-    groupByClub(section.list).forEach(([club, members]) => {
+    clubs.forEach(([club, members]) => {
       const sorted = [...members].sort((a, b) => fullName(a).localeCompare(fullName(b), 'fr'));
       drawClubTitle(club, sorted.length);
       sorted.forEach((r, idx) => {
@@ -164,10 +170,12 @@ export function exportCompetitionListToPdf(registrations, competition = {}) {
   }
 
   if (competition.cadre === 'Par équipe') {
+    // Clubs sans aucun judoka exclus (groupByClub requireMembers)
     exportTeamListToPdf(registrations, competition);
     return;
   }
 
+  // Tous les inscrits individuels, pesés ou non
   const sorted = sortRegistrationsByGenderAndWeight(registrations);
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const marginX = 14;
@@ -184,6 +192,7 @@ export function exportCompetitionListToPdf(registrations, competition = {}) {
   pdf.setFont('helvetica', 'normal');
   pdf.setFontSize(10);
   const meta = [
+    'Cadre : Individuel',
     competition.lieu ? `Lieu : ${competition.lieu}` : null,
     competition.date_debut ? `Date : ${competition.date_debut}` : null,
     `Inscrits : ${sorted.length}`,

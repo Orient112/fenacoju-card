@@ -1060,14 +1060,36 @@ export default function CompetitionSettings({ onBack, onToast }) {
   };
 
   const handleExportList = async (mode) => {
-    const list = registrations.filter((r) => (mode === 'equipe') === isTeamRegistration(r));
+    // Individuel : tous les inscrits du cadre, même non pesés
+    // Par équipe : uniquement les clubs ayant au moins 1 judoka inscrit
+    let list = registrations.filter((r) => (mode === 'equipe') === isTeamRegistration(r));
+
+    if (mode === 'equipe') {
+      const clubsWithMembers = new Set(
+        list
+          .map((r) => String(r.club || '').trim().toLowerCase())
+          .filter(Boolean)
+      );
+      list = list.filter((r) => clubsWithMembers.has(String(r.club || '').trim().toLowerCase()));
+    }
+
     if (!list.length) {
-      onToast?.(mode === 'equipe' ? 'Aucun inscrit par équipe à exporter' : 'Aucun inscrit individuel à exporter', 'error');
+      onToast?.(
+        mode === 'equipe'
+          ? 'Aucun club Par équipe avec au moins un judoka inscrit à exporter'
+          : 'Aucun inscrit individuel à exporter',
+        'error'
+      );
       return;
     }
     setExporting(true);
     try {
-      exportCompetitionListToPdf(list, { ...(settings || {}), cadre: mode === 'equipe' ? 'Par équipe' : 'Individuel' });
+      exportCompetitionListToPdf(list, {
+        ...(settings || {}),
+        cadre: mode === 'equipe' ? 'Par équipe' : 'Individuel',
+        includeUnweighed: true,
+        clubsWithMembersOnly: mode === 'equipe',
+      });
       onToast?.('Liste exportée en PDF');
     } catch (err) {
       onToast?.(err.message || 'Erreur lors de l\'export PDF', 'error');
@@ -1270,7 +1292,6 @@ export default function CompetitionSettings({ onBack, onToast }) {
     setClubsImportProgress(0);
     try {
       const imported = await extractClubsFromPdfFile(file, setClubsImportProgress);
-      setClubsImportProgress(96);
       const cadre = clubsEditorCadre;
       const current = settings?.competition_clubs || [];
       const existing = new Set(
@@ -1278,27 +1299,45 @@ export default function CompetitionSettings({ onBack, onToast }) {
           .filter((c) => c.cadre === cadre)
           .map((c) => String(c.nom || '').trim().toLowerCase())
       );
-      const toAdd = imported
-        .map((row) => ({
-          nom: String(row.nom || '').trim(),
+
+      setClubsImportProgress(96);
+      await new Promise((r) => setTimeout(r, 0));
+
+      const toAdd = [];
+      for (let i = 0; i < imported.length; i += 1) {
+        const row = imported[i];
+        const nom = String(row.nom || '').trim();
+        if (!nom || existing.has(nom.toLowerCase())) continue;
+        toAdd.push({
+          nom,
           ligue: String(row.ligue || '').trim() || '-',
           cadre,
-        }))
-        .filter((row) => row.nom && !existing.has(row.nom.toLowerCase()));
+        });
+        existing.add(nom.toLowerCase());
+        // 96% → 99% pendant la préparation des clubs à enregistrer
+        if (imported.length > 0 && (i % 5 === 0 || i === imported.length - 1)) {
+          setClubsImportProgress(96 + Math.round(((i + 1) / imported.length) * 3));
+          await new Promise((r) => setTimeout(r, 0));
+        }
+      }
 
       if (!toAdd.length) {
+        setClubsImportProgress(100);
         onToast?.('Tous les clubs du PDF sont déjà enregistrés pour ce cadre', 'error');
         return;
       }
 
+      setClubsImportProgress(99);
+      await new Promise((r) => setTimeout(r, 0));
       await persistCompetitionClubs([...current, ...toAdd]);
       setClubsImportProgress(100);
+      await new Promise((r) => setTimeout(r, 120));
       onToast?.(`${toAdd.length} club(s) importé(s) depuis le PDF`);
     } catch (err) {
       onToast?.(err.message || 'Impossible d\'importer les clubs depuis le PDF', 'error');
     } finally {
       setSaving(false);
-      setTimeout(() => setClubsImportProgress(null), 350);
+      setTimeout(() => setClubsImportProgress(null), 400);
     }
   };
 

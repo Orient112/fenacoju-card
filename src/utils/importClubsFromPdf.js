@@ -21,6 +21,16 @@ function normalizeLigue(value) {
   return ligue;
 }
 
+async function yieldUi() {
+  await new Promise((resolve) => {
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => setTimeout(resolve, 0));
+    } else {
+      setTimeout(resolve, 0);
+    }
+  });
+}
+
 function groupItemsIntoRows(items, yTolerance = 3) {
   const rows = [];
   const sorted = [...items].sort((a, b) => {
@@ -81,7 +91,6 @@ function parsePlainClubLigueLine(line) {
   let text = String(line || '').replace(/\s+/g, ' ').trim();
   if (!text) return null;
 
-  // "Club / Ligue" ou "Club | Ligue" ou "Club\tLigue"
   const splitMatch = text.match(/^(.+?)\s*[|/·•]\s*(.+)$/);
   if (splitMatch) {
     const nom = splitMatch[1].replace(/^\d+[.)\-:]\s*/, '').trim();
@@ -89,7 +98,6 @@ function parsePlainClubLigueLine(line) {
     return { nom, ligue: normalizeLigue(splitMatch[2]) };
   }
 
-  // Tabs or multi-spaces as column sep
   const parts = text.split(/\t+|\s{2,}/).map((p) => p.trim()).filter(Boolean);
   if (parts.length >= 2) {
     const nom = parts[0].replace(/^\d+[.)\-:]\s*/, '').trim();
@@ -106,10 +114,8 @@ function parsePlainClubLigueLine(line) {
 }
 
 /**
- * Extrait clubs + ligues depuis un PDF (colonnes Club / Ligue si présentes).
- * @param {File} file
- * @param {(pct: number) => void} [onProgress] 0–100
- * @returns {Promise<Array<{ nom: string, ligue: string }>>}
+ * Extrait clubs + ligues depuis un PDF.
+ * Progression réelle : lecture → pages → lignes → finalisation (0–100).
  */
 export async function extractClubsFromPdfFile(file, onProgress) {
   if (!file) throw new Error('Aucun fichier sélectionné');
@@ -119,26 +125,45 @@ export async function extractClubsFromPdfFile(file, onProgress) {
     throw new Error('Sélectionnez un fichier PDF');
   }
 
-  const report = (pct) => {
-    if (typeof onProgress === 'function') {
-      onProgress(Math.max(0, Math.min(100, Math.round(pct))));
-    }
+  let lastReported = -1;
+  const report = async (pct) => {
+    const next = Math.max(0, Math.min(100, Math.round(pct)));
+    if (next === lastReported) return;
+    lastReported = next;
+    if (typeof onProgress === 'function') onProgress(next);
+    await yieldUi();
   };
 
   ensurePdfWorker();
-  report(5);
+  await report(1);
+
   const data = await file.arrayBuffer();
-  report(12);
+  await report(4);
+
   const doc = await getDocument({ data, useSystemFonts: true }).promise;
+  await report(8);
+
   const totalPages = Math.max(doc.numPages, 1);
   const seen = new Set();
   const clubs = [];
   let bounds = null;
   let usedColumns = false;
 
+  // Plage parsing pages : 8% → 85%
+  const parseStart = 8;
+  const parseEnd = 85;
+
   for (let pageNum = 1; pageNum <= doc.numPages; pageNum += 1) {
+    const pageBase = parseStart + ((pageNum - 1) / totalPages) * (parseEnd - parseStart);
+    const pageSpan = (parseEnd - parseStart) / totalPages;
+
+    await report(pageBase + pageSpan * 0.05);
     const page = await doc.getPage(pageNum);
+    await report(pageBase + pageSpan * 0.2);
+
     const content = await page.getTextContent();
+    await report(pageBase + pageSpan * 0.35);
+
     const items = (content.items || [])
       .map((item) => {
         const str = String(item.str || '').trim();
@@ -153,8 +178,11 @@ export async function extractClubsFromPdfFile(file, onProgress) {
       .filter(Boolean);
 
     const rows = groupItemsIntoRows(items);
+    const rowCount = Math.max(rows.length, 1);
 
-    for (const row of rows) {
+    for (let rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
+      const row = rows[rowIndex];
+
       if (!bounds) {
         const detected = detectColumnBounds(row);
         if (detected) {
@@ -169,35 +197,36 @@ export async function extractClubsFromPdfFile(file, onProgress) {
         if (headerAgain) continue;
 
         const cells = cellsFromRow(row, bounds);
-        let nom = cells.club.replace(/^\d+[.)\-:]\s*/, '').trim();
-        // Parfois le n° est dans une colonne à gauche du split
-        if (!nom && cells.ligue && !HEADER_LIGUE.test(cells.ligue)) {
-          // ignorer lignes vides / en-têtes
-          continue;
-        }
+        const nom = cells.club.replace(/^\d+[.)\-:]\s*/, '').trim();
         if (!nom || SKIP_ROW.test(nom) || HEADER_CLUB.test(nom) || HEADER_LIGUE.test(nom)) continue;
         if (/^[\d\s./-]+$/.test(nom)) continue;
 
         const key = nom.toLowerCase();
-        if (seen.has(key)) continue;
-        seen.add(key);
-        clubs.push({ nom, ligue: normalizeLigue(cells.ligue) });
-        continue;
+        if (!seen.has(key)) {
+          seen.add(key);
+          clubs.push({ nom, ligue: normalizeLigue(cells.ligue) });
+        }
+      } else {
+        const parsed = parsePlainClubLigueLine(row.text);
+        if (!parsed) continue;
+        const key = parsed.nom.toLowerCase();
+        if (!seen.has(key)) {
+          seen.add(key);
+          clubs.push(parsed);
+        }
       }
 
-      // Fallback sans en-têtes de colonnes
-      const parsed = parsePlainClubLigueLine(row.text);
-      if (!parsed) continue;
-      const key = parsed.nom.toLowerCase();
-      if (seen.has(key)) continue;
-      seen.add(key);
-      clubs.push(parsed);
+      // Progression ligne par ligne (état réel)
+      if (rowIndex % 3 === 0 || rowIndex === rows.length - 1) {
+        const rowPct = (rowIndex + 1) / rowCount;
+        await report(pageBase + pageSpan * (0.35 + rowPct * 0.65));
+      }
     }
 
-    report(12 + (pageNum / totalPages) * 78);
+    await report(pageBase + pageSpan);
   }
 
-  report(95);
+  await report(90);
 
   if (!clubs.length) {
     throw new Error(
@@ -208,7 +237,7 @@ export async function extractClubsFromPdfFile(file, onProgress) {
   }
 
   clubs.sort((a, b) => a.nom.localeCompare(b.nom, 'fr'));
-  report(100);
+  await report(95);
   return clubs;
 }
 
