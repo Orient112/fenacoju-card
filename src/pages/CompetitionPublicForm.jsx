@@ -7,6 +7,7 @@ import {
   CATEGORIES,
 } from '../api';
 import CompetitionPaymentModal, { formatMoney } from '../components/CompetitionPaymentModal';
+import CompetitionClubSelect from '../components/CompetitionClubSelect';
 import {
   parseCategoriesPoids,
   categoriesForSexe,
@@ -642,12 +643,22 @@ export default function CompetitionPublicForm({ token }) {
   const registeredClubs = (competition.competition_clubs || []).filter((c) => (
     inscriptionMode === 'equipe' ? c.cadre === 'equipe' : c.cadre === 'individuel'
   ));
-  const namesForSelect = (current) => {
-    const names = registeredClubs.map((c) => c.nom).filter(Boolean);
-    if (current && !names.some((n) => n.toLowerCase() === String(current).toLowerCase())) {
-      names.unshift(current);
+  const clubsForSelect = (current) => {
+    const list = registeredClubs
+      .filter((c) => String(c.nom || '').trim())
+      .map((c) => ({
+        id: c.id,
+        nom: String(c.nom || '').trim(),
+        ligue: String(c.ligue || '').trim(),
+      }));
+    const currentName = String(current || '').trim();
+    if (
+      currentName
+      && !list.some((c) => c.nom.toLowerCase() === currentName.toLowerCase())
+    ) {
+      list.unshift({ id: `current-${currentName}`, nom: currentName, ligue: '' });
     }
-    return names;
+    return list;
   };
   const filledTeamJudokas = Object.values(teamRoster).reduce((sum, b) => (
     sum + (b.principal ? 1 : 0) + (b.remplacant ? 1 : 0)
@@ -878,13 +889,15 @@ export default function CompetitionPublicForm({ token }) {
                 <div className="form-grid">
                   <div className="form-group form-group-full">
                     <label htmlFor="club">Club *</label>
-                    <select id="club" name="club" value={form.club} onChange={handleChange} required>
-                      <option value="">— Sélectionner un club —</option>
-                      {namesForSelect(form.club).map((nom) => (
-                        <option key={nom} value={nom}>{nom}</option>
-                      ))}
-                    </select>
-                    {namesForSelect(form.club).length === 0 && (
+                    <CompetitionClubSelect
+                      id="club"
+                      name="club"
+                      value={form.club}
+                      clubs={clubsForSelect(form.club)}
+                      onChange={handleChange}
+                      required
+                    />
+                    {clubsForSelect(form.club).length === 0 && (
                       <p className="form-hint">Aucun club Individuel n&apos;est encore enregistré pour cette compétition.</p>
                     )}
                   </div>
@@ -962,9 +975,11 @@ export default function CompetitionPublicForm({ token }) {
                 <div className="form-group">
                   <label htmlFor="team-club">Nom du club *</label>
                   <div className="competition-team-club-row">
-                    <select
+                    <CompetitionClubSelect
                       id="team-club"
+                      name="team-club"
                       value={teamClub}
+                      clubs={clubsForSelect(teamClub)}
                       onChange={(e) => {
                         const nextClub = e.target.value;
                         setTeamClub(nextClub);
@@ -975,12 +990,7 @@ export default function CompetitionPublicForm({ token }) {
                       required
                       autoFocus={!teamAlreadyRegistered}
                       disabled={teamAlreadyRegistered}
-                    >
-                      <option value="">— Sélectionner un club —</option>
-                      {namesForSelect(teamClub).map((nom) => (
-                        <option key={nom} value={nom}>{nom}</option>
-                      ))}
-                    </select>
+                    />
                     {teamAlreadyRegistered && (
                       <button
                         type="button"
@@ -998,7 +1008,7 @@ export default function CompetitionPublicForm({ token }) {
                   {teamAlreadyRegistered && (
                     <p className="form-hint">Cette équipe est déjà enregistrée. Les judokas s&apos;affichent en lecture seule.</p>
                   )}
-                  {!teamAlreadyRegistered && namesForSelect(teamClub).length === 0 && (
+                  {!teamAlreadyRegistered && clubsForSelect(teamClub).length === 0 && (
                     <p className="form-hint">Aucun club Par équipe n&apos;est encore enregistré pour cette compétition.</p>
                   )}
                 </div>

@@ -20,6 +20,7 @@ import { extractClubNamesFromPdfFile } from '../utils/importClubsFromPdf';
 import { buildWeightDraw, buildTeamDraw } from '../utils/competitionDraw';
 import DrawAnimation from '../components/DrawAnimation';
 import ReceiptScanModal from '../components/ReceiptScanModal';
+import { ClubLigueLabel } from '../components/CompetitionClubSelect';
 import { IconCharge, IconEdit, IconTrash } from '../components/ActionIcons';
 
 function isTeamRegistration(r) {
@@ -706,6 +707,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
   const [addingTeamJudoka, setAddingTeamJudoka] = useState(false);
   const [clubsEditorCadre, setClubsEditorCadre] = useState(null);
   const [clubDraft, setClubDraft] = useState('');
+  const [ligueDraft, setLigueDraft] = useState('');
   const [editingClub, setEditingClub] = useState(null);
   const clubsPdfInputRef = useRef(null);
   const [chargeTeamTarget, setChargeTeamTarget] = useState(null);
@@ -1181,6 +1183,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
   const handleAddCompetitionClub = async (e) => {
     e.preventDefault();
     const nom = clubDraft.trim();
+    const ligue = ligueDraft.trim();
     if (!nom || !clubsEditorCadre) return;
     const current = settings?.competition_clubs || [];
     if (current.some((c) => c.cadre === clubsEditorCadre && String(c.nom).toLowerCase() === nom.toLowerCase())) {
@@ -1189,8 +1192,9 @@ export default function CompetitionSettings({ onBack, onToast }) {
     }
     setSaving(true);
     try {
-      await persistCompetitionClubs([...current, { nom, cadre: clubsEditorCadre }]);
+      await persistCompetitionClubs([...current, { nom, ligue, cadre: clubsEditorCadre }]);
       setClubDraft('');
+      setLigueDraft('');
       onToast?.('Club enregistré');
     } catch (err) {
       onToast?.(err.message || 'Impossible d\'enregistrer le club', 'error');
@@ -1246,6 +1250,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
       }
       setEditingClub(null);
       setClubDraft('');
+      setLigueDraft('');
       onToast?.(`Tous les clubs et judokas ${label} ont été supprimés`);
     } catch (err) {
       setError(err.message || 'Suppression impossible');
@@ -1273,7 +1278,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
       const toAdd = names
         .map((nom) => String(nom || '').trim())
         .filter((nom) => nom && !existing.has(nom.toLowerCase()))
-        .map((nom) => ({ nom, cadre }));
+        .map((nom) => ({ nom, ligue: '', cadre }));
 
       if (!toAdd.length) {
         onToast?.('Tous les clubs du PDF sont déjà enregistrés pour ce cadre', 'error');
@@ -1291,6 +1296,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
 
   const handleSaveEditedClub = async (club) => {
     const nom = String(editingClub?.nom || '').trim();
+    const ligue = String(editingClub?.ligue || '').trim();
     if (!nom) {
       onToast?.('Le nom du club est obligatoire', 'error');
       return;
@@ -1303,7 +1309,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
     const oldName = club.nom;
     setSaving(true);
     try {
-      await persistCompetitionClubs(current.map((c) => (c.id === club.id ? { ...c, nom } : c)));
+      await persistCompetitionClubs(current.map((c) => (c.id === club.id ? { ...c, nom, ligue } : c)));
       const affected = registrations.filter((r) => {
         const isTeam = isTeamRegistration(r);
         if (club.cadre === 'equipe' && !isTeam) return false;
@@ -2362,6 +2368,15 @@ export default function CompetitionSettings({ onBack, onToast }) {
                   autoFocus
                 />
               </div>
+              <div className="form-group">
+                <label htmlFor="competition-club-ligue">Ligue</label>
+                <input
+                  id="competition-club-ligue"
+                  value={ligueDraft}
+                  onChange={(e) => setLigueDraft(e.target.value)}
+                  placeholder="Ex. Kinshasa"
+                />
+              </div>
               <div className="confirm-actions" style={{ marginBottom: '1rem' }}>
                 <button type="submit" className="btn btn-primary" disabled={saving || !clubDraft.trim()}>
                   {saving ? 'Enregistrement...' : 'Ajouter'}
@@ -2377,13 +2392,24 @@ export default function CompetitionSettings({ onBack, onToast }) {
                   .map((club) => (
                     <li key={club.id}>
                       {editingClub?.id === club.id ? (
-                        <input
-                          value={editingClub.nom}
-                          onChange={(e) => setEditingClub((prev) => ({ ...prev, nom: e.target.value }))}
-                          aria-label="Nouveau nom du club"
-                        />
+                        <div className="competition-club-edit-fields">
+                          <input
+                            value={editingClub.nom}
+                            onChange={(e) => setEditingClub((prev) => ({ ...prev, nom: e.target.value }))}
+                            aria-label="Nouveau nom du club"
+                            placeholder="Nom du club"
+                          />
+                          <input
+                            value={editingClub.ligue || ''}
+                            onChange={(e) => setEditingClub((prev) => ({ ...prev, ligue: e.target.value }))}
+                            aria-label="Ligue du club"
+                            placeholder="Ligue"
+                          />
+                        </div>
                       ) : (
-                        <span>{club.nom}</span>
+                        <span className="competition-club-list-label">
+                          <ClubLigueLabel nom={club.nom} ligue={club.ligue} />
+                        </span>
                       )}
                       <div className="actions-cell">
                         {editingClub?.id === club.id ? (
@@ -2410,7 +2436,11 @@ export default function CompetitionSettings({ onBack, onToast }) {
                             className="btn btn-icon btn-icon-edit"
                             title="Modifier"
                             disabled={saving}
-                            onClick={() => setEditingClub({ id: club.id, nom: club.nom })}
+                            onClick={() => setEditingClub({
+                              id: club.id,
+                              nom: club.nom,
+                              ligue: club.ligue || '',
+                            })}
                           >
                             <IconEdit />
                           </button>

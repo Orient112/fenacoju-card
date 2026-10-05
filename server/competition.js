@@ -168,12 +168,14 @@ export function parseCompetitionClubs(raw) {
     if (!nom) continue;
     const cadreRaw = String(typeof item === 'object' ? (item.cadre || item.mode || '') : '').toLowerCase();
     const cadre = cadreRaw.startsWith('eq') ? 'equipe' : 'individuel';
+    const ligue = String(typeof item === 'object' ? (item.ligue || item.league || '') : '').trim();
     const key = `${cadre}|${nom.toLowerCase()}`;
     if (seen.has(key)) continue;
     seen.add(key);
     clubs.push({
       id: String(item?.id || uuidv4().replace(/-/g, '').slice(0, 10)),
       nom,
+      ligue,
       cadre,
     });
   }

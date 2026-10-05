@@ -7331,3 +7331,146 @@ a.competition-action-btn,
   display: none !important;
 }
 
+/* Club / Ligue */
+.club-select-name {
+  color: inherit;
+  font-weight: 600;
+}
+
+.club-select-sep {
+  color: #cbd5e1;
+  font-weight: 400;
+}
+
+.club-select-ligue {
+  color: #c5cdd8;
+  font-weight: 300;
+  font-size: 0.95em;
+}
+
+.club-select-placeholder {
+  color: #94a3b8;
+  font-weight: 400;
+}
+
+.competition-club-list-label {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0;
+  min-width: 0;
+  flex: 1;
+}
+
+.competition-club-edit-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.competition-club-select {
+  position: relative;
+  width: 100%;
+}
+
+.competition-club-select-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  text-align: left;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 0;
+  background: #fff;
+  color: #0f172a;
+  font: inherit;
+  cursor: pointer;
+  min-height: 2.65rem;
+}
+
+.competition-club-select-trigger.is-placeholder {
+  color: #94a3b8;
+}
+
+.competition-club-select.is-open .competition-club-select-trigger,
+.competition-club-select-trigger:focus {
+  outline: none;
+  border-color: var(--primary, #1d4393);
+  box-shadow: 0 0 0 2px rgba(29, 67, 147, 0.12);
+}
+
+.competition-club-select.is-disabled .competition-club-select-trigger {
+  opacity: 0.65;
+  cursor: not-allowed;
+  background: #f8fafc;
+}
+
+.competition-club-select-caret {
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 6px solid #94a3b8;
+  flex-shrink: 0;
+}
+
+.competition-club-select-native {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.competition-club-select-menu {
+  position: absolute;
+  z-index: 40;
+  left: 0;
+  right: 0;
+  top: calc(100% + 2px);
+  margin: 0;
+  padding: 0.25rem 0;
+  list-style: none;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  max-height: 240px;
+  overflow-y: auto;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+}
+
+.competition-club-select-option {
+  width: 100%;
+  display: block;
+  text-align: left;
+  border: none;
+  background: transparent;
+  padding: 0.6rem 0.85rem;
+  font: inherit;
+  color: #0f172a;
+  cursor: pointer;
+  border-radius: 0;
+}
+
+.competition-club-select-option:hover,
+.competition-club-select-option.is-active {
+  background: #f1f5f9;
+}
+
+.competition-club-select-option.is-empty {
+  color: #94a3b8;
+}
+
+.competition-team-club-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
+.competition-team-club-row .competition-club-select {
+  flex: 1;
+}
+
