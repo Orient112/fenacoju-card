@@ -1726,11 +1726,18 @@ tbody tr:last-child td {
     padding: 0.7rem 0.55rem !important;
     font-size: 0.78rem !important;
     border: none !important;
+    border-top: none !important;
     border-radius: 0 !important;
     line-height: 1.2 !important;
     white-space: nowrap;
-    background: transparent !important;
-    color: #dc2626 !important;
+    background: #dc2626 !important;
+    color: #ffffff !important;
+  }
+
+  .nav-btn-logout:hover {
+    background: #b91c1c !important;
+    border-color: transparent !important;
+    color: #ffffff !important;
   }
 
   .competition-access-toggle {
@@ -2736,6 +2743,13 @@ tbody tr:last-child td {
   .app-user-footer .nav-btn-logout {
     margin-top: 0;
     width: 100% !important;
+    background: #dc2626 !important;
+    color: #ffffff !important;
+  }
+
+  .app-user-footer .nav-btn-logout:hover {
+    background: #b91c1c !important;
+    color: #ffffff !important;
   }
 }
 
@@ -6844,13 +6858,26 @@ a.competition-action-btn,
   }
 
   .competition-link-row {
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     align-items: stretch;
   }
 
   .competition-link-input {
+    grid-column: 1 / -1;
     flex: 1 1 auto;
     width: 100%;
+  }
+
+  .competition-link-row > button.btn-outline {
+    grid-column: 1 / -1;
+  }
+
+  .competition-link-row > .btn-accent,
+  .competition-link-row > a.btn {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
   }
 
   .club-comite-row,
