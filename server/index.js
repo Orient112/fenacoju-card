@@ -949,6 +949,41 @@ app.post('/api/competition/registrations/charge-team', async (req, res) => {
   }
 });
 
+app.post('/api/competition/registrations', async (req, res) => {
+  try {
+    const current = await getCompetitionSettings();
+    const canToggle = canToggleCompetitionAccess(req.user);
+    const isDirector = isDirecteurCompetition(req.user);
+    if (!canToggle && !(isDirector && current.access_enabled)) {
+      return res.status(403).json({ error: 'Accès non autorisé' });
+    }
+    const body = req.body || {};
+    const registration = await createCompetitionRegistration({
+      nom: body.nom,
+      prenom: body.prenom,
+      date_naissance: body.date_naissance || '',
+      sexe: body.sexe === 'F' ? 'F' : 'M',
+      club: body.club,
+      grade: body.grade || '',
+      categorie: body.categorie || '',
+      poids: body.poids || '',
+      telephone: body.telephone || '',
+      email: body.email || '',
+      judoka_id: body.judoka_id || null,
+      numero_carte: body.numero_carte || '',
+      deja_enregistre: Boolean(body.deja_enregistre),
+      mode_inscription: 'individuel',
+      paiement_statut: body.paiement_statut || 'en_attente',
+      montant_paye: Math.max(0, Number(body.montant_paye) || 0),
+      mode_paiement: String(body.mode_paiement || '').trim(),
+    });
+    res.status(201).json(registration);
+  } catch (err) {
+    const status = /déjà inscrit|obligatoire/i.test(err.message || '') ? 400 : 500;
+    res.status(status).json({ error: err.message });
+  }
+});
+
 app.delete('/api/competition/registrations/:id', async (req, res) => {
   try {
     const current = await getCompetitionSettings();

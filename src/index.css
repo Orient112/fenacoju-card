@@ -5812,6 +5812,19 @@ tbody tr:last-child td {
   align-items: start;
 }
 
+.competition-inscriptions-pane-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0 0 0.65rem;
+}
+
+.competition-inscriptions-pane-head h4 {
+  margin: 0;
+  color: var(--primary);
+}
+
 .competition-inscriptions-pane h4 {
   margin: 0 0 0.65rem;
   color: var(--primary);

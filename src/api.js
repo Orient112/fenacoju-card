@@ -501,6 +501,18 @@ export async function fetchCompetitionRegistrations() {
   return res.json();
 }
 
+export async function createCompetitionRegistration(data) {
+  const res = await apiFetch('/api/competition/registrations', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Erreur lors de l\'ajout de l\'inscription');
+  }
+  return res.json();
+}
+
 export async function updateCompetitionRegistration(id, data) {
   const res = await apiFetch(`/api/competition/registrations/${encodeURIComponent(id)}`, {
     method: 'PUT',

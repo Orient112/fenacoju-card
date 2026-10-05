@@ -5,6 +5,7 @@ import {
   uploadCompetitionLogo,
   deleteCompetitionLogo,
   fetchCompetitionRegistrations,
+  createCompetitionRegistration,
   deleteCompetitionRegistration,
   updateCompetitionRegistration,
   deleteCompetitionPublicLink,
@@ -12,11 +13,12 @@ import {
   competitionPublicUrl,
   competitionWeighUrl,
   resolveMediaUrl,
+  CATEGORIES,
 } from '../api';
 import { exportCompetitionListToPdf } from '../utils/exportCompetitionListPdf';
 import { exportCompetitionDrawToPdf } from '../utils/exportCompetitionDrawPdf';
-import { exportCompetitionBadgesToPdf } from '../utils/exportCompetitionBadgesPdf';
 import { extractClubsFromPdfFile } from '../utils/importClubsFromPdf';
+import CompetitionClubSelect from '../components/CompetitionClubSelect';
 import { buildWeightDraw, buildTeamDraw } from '../utils/competitionDraw';
 import DrawAnimation from '../components/DrawAnimation';
 import ReceiptScanModal from '../components/ReceiptScanModal';
@@ -694,6 +696,15 @@ export default function CompetitionSettings({ onBack, onToast }) {
   const [deleteClubTarget, setDeleteClubTarget] = useState(null);
   const [editRegTarget, setEditRegTarget] = useState(null);
   const [editRegForm, setEditRegForm] = useState({ nom: '', prenom: '', poids: '' });
+  const [showAddIndividuel, setShowAddIndividuel] = useState(false);
+  const [addIndividuelForm, setAddIndividuelForm] = useState({
+    nom: '',
+    prenom: '',
+    club: '',
+    sexe: 'M',
+    date_naissance: '',
+    categorie: '',
+  });
   const [editTeamTarget, setEditTeamTarget] = useState(null);
   const [editTeamClub, setEditTeamClub] = useState('');
   const [editTeamMembers, setEditTeamMembers] = useState([]);
@@ -1098,23 +1109,6 @@ export default function CompetitionSettings({ onBack, onToast }) {
     }
   };
 
-  const handleExportBadges = async (mode) => {
-    const list = registrations.filter((r) => (mode === 'equipe') === isTeamRegistration(r));
-    if (!list.length) {
-      onToast?.(mode === 'equipe' ? 'Aucun inscrit par équipe pour les badges' : 'Aucun inscrit individuel pour les badges', 'error');
-      return;
-    }
-    setExporting(true);
-    try {
-      exportCompetitionBadgesToPdf(list, settings || {}, mode);
-      onToast?.('Badges A6 exportés en PDF');
-    } catch (err) {
-      onToast?.(err.message || 'Erreur lors de la génération des badges', 'error');
-    } finally {
-      setExporting(false);
-    }
-  };
-
   const openActionMode = (action) => {
     if (action === 'clubs') {
       setActionMode('clubs');
@@ -1139,19 +1133,6 @@ export default function CompetitionSettings({ onBack, onToast }) {
         return;
       }
       setActionMode('export');
-      return;
-    }
-    if (action === 'badges') {
-      const linkOff = Boolean(settings?.configured) && !settings?.public_enabled;
-      if (!linkOff) {
-        onToast?.('Les badges sont disponibles uniquement lorsque le lien d\'inscription est Off', 'error');
-        return;
-      }
-      if (!registrations.length) {
-        onToast?.('Aucun judoka inscrit pour générer les badges', 'error');
-        return;
-      }
-      setActionMode('badges');
       return;
     }
     const closed = Boolean(settings?.configured) && !settings?.public_enabled;
@@ -1190,12 +1171,61 @@ export default function CompetitionSettings({ onBack, onToast }) {
       handleExportList(mode);
       return;
     }
-    if (actionMode === 'badges') {
-      setActionMode(null);
-      handleExportBadges(mode);
+    handleTirageMode(mode);
+  };
+
+  const openAddIndividuelModal = () => {
+    setAddIndividuelForm({
+      nom: '',
+      prenom: '',
+      club: '',
+      sexe: 'M',
+      date_naissance: '',
+      categorie: '',
+    });
+    setShowAddIndividuel(true);
+  };
+
+  const handleAddIndividuelRegistration = async (e) => {
+    e.preventDefault();
+    const nom = String(addIndividuelForm.nom || '').trim();
+    const prenom = String(addIndividuelForm.prenom || '').trim();
+    const club = String(addIndividuelForm.club || '').trim();
+    const dateNaissance = String(addIndividuelForm.date_naissance || '').trim();
+    if (!nom || !prenom) {
+      onToast?.('Nom et prénom obligatoires', 'error');
       return;
     }
-    handleTirageMode(mode);
+    if (!club) {
+      onToast?.('Le club est obligatoire', 'error');
+      return;
+    }
+    if (!dateNaissance) {
+      onToast?.('La date de naissance est obligatoire', 'error');
+      return;
+    }
+    setSaving(true);
+    setError('');
+    try {
+      const created = await createCompetitionRegistration({
+        nom,
+        prenom,
+        club,
+        sexe: addIndividuelForm.sexe === 'F' ? 'F' : 'M',
+        date_naissance: dateNaissance,
+        categorie: String(addIndividuelForm.categorie || '').trim(),
+        mode_inscription: 'individuel',
+        poids: '',
+      });
+      setRegistrations((prev) => [created, ...prev]);
+      setShowAddIndividuel(false);
+      onToast?.(`${prenom} ${nom} ajouté(e) en Individuel`);
+    } catch (err) {
+      setError(err.message || 'Ajout impossible');
+      onToast?.(err.message || 'Ajout impossible', 'error');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const persistCompetitionClubs = async (nextClubs) => {
@@ -1933,50 +1963,42 @@ export default function CompetitionSettings({ onBack, onToast }) {
                   onClick={() => openActionMode('export')}
                   disabled={exporting || registrations.length === 0}
                 >
-                  {exporting && actionMode !== 'badges' ? 'Export...' : 'Exporter Liste'}
-                </button>
-                <button
-                  type="button"
-                  className={`btn btn-outline competition-action-btn ${!tirageReady ? 'is-disabled' : ''}`}
-                  onClick={() => openActionMode('badges')}
-                  disabled={exporting || !tirageReady}
-                  title={
-                    tirageReady
-                      ? 'Générer les badges A6'
-                      : 'Disponible uniquement après la clôture des inscriptions'
-                  }
-                >
-                  {exporting && actionMode === 'badges' ? 'Export...' : 'Badges'}
+                  {exporting ? 'Export...' : 'Exporter Liste'}
                 </button>
               </div>
             </div>
 
-            {registrations.length === 0 && mergeRegisteredTeamClubs(settings?.competition_clubs, registrations).length === 0 ? (
-              <div className="competition-empty-regs">
-                <p>Aucun judoka inscrit pour le moment.</p>
-                <p className="form-hint">Les nouvelles inscriptions apparaîtront ici automatiquement.</p>
-              </div>
-            ) : (
-              <div className="competition-inscriptions-split">
-                <div className="competition-inscriptions-pane">
+            <div className="competition-inscriptions-split">
+              <div className="competition-inscriptions-pane">
+                <div className="competition-inscriptions-pane-head">
                   <h4>Individuel</h4>
-                  <RegistrationsTable
-                    registrations={registrations.filter((r) => !isTeamRegistration(r))}
-                    onEdit={openEditRegistration}
-                    onDelete={setDeleteRegTarget}
-                  />
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    style={{ background: '#16a34a', color: '#fff', borderColor: '#16a34a' }}
+                    onClick={openAddIndividuelModal}
+                  >
+                    Ajouter
+                  </button>
                 </div>
-                <div className="competition-inscriptions-pane">
-                  <h4>Par Équipe</h4>
-                  <TeamClubsTable
-                    clubs={mergeRegisteredTeamClubs(settings?.competition_clubs, registrations)}
-                    onEdit={openEditTeam}
-                    onDelete={setDeleteClubTarget}
-                    onCharge={openChargeTeam}
-                  />
-                </div>
+                <RegistrationsTable
+                  registrations={registrations.filter((r) => !isTeamRegistration(r))}
+                  onEdit={openEditRegistration}
+                  onDelete={setDeleteRegTarget}
+                />
               </div>
-            )}
+              <div className="competition-inscriptions-pane">
+                <div className="competition-inscriptions-pane-head">
+                  <h4>Par Équipe</h4>
+                </div>
+                <TeamClubsTable
+                  clubs={mergeRegisteredTeamClubs(settings?.competition_clubs, registrations)}
+                  onEdit={openEditTeam}
+                  onDelete={setDeleteClubTarget}
+                  onCharge={openChargeTeam}
+                />
+              </div>
+            </div>
           </section>
         </>
       )}
@@ -2151,6 +2173,96 @@ export default function CompetitionSettings({ onBack, onToast }) {
                 {saving ? 'Chargement...' : 'Charger dans l\'équipe'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showAddIndividuel && (
+        <div className="confirm-overlay" onClick={() => !saving && setShowAddIndividuel(false)}>
+          <div className="confirm-dialog competition-edit-reg-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Ajouter un judoka · Individuel</h3>
+            <form onSubmit={handleAddIndividuelRegistration}>
+              <div className="competition-edit-reg-grid">
+                <div className="form-group">
+                  <label htmlFor="add-indiv-prenom">Prénom</label>
+                  <input
+                    id="add-indiv-prenom"
+                    value={addIndividuelForm.prenom}
+                    onChange={(e) => setAddIndividuelForm((prev) => ({ ...prev, prenom: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="add-indiv-nom">Nom</label>
+                  <input
+                    id="add-indiv-nom"
+                    value={addIndividuelForm.nom}
+                    onChange={(e) => setAddIndividuelForm((prev) => ({ ...prev, nom: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div className="form-group form-group-full">
+                  <label htmlFor="add-indiv-club">Club</label>
+                  <CompetitionClubSelect
+                    id="add-indiv-club"
+                    name="club"
+                    value={addIndividuelForm.club}
+                    clubs={(settings?.competition_clubs || [])
+                      .filter((c) => c.cadre === 'individuel')
+                      .map((c) => ({ id: c.id, nom: c.nom, ligue: c.ligue }))}
+                    onChange={(e) => setAddIndividuelForm((prev) => ({ ...prev, club: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="add-indiv-sexe">Sexe</label>
+                  <select
+                    id="add-indiv-sexe"
+                    value={addIndividuelForm.sexe}
+                    onChange={(e) => setAddIndividuelForm((prev) => ({ ...prev, sexe: e.target.value }))}
+                  >
+                    <option value="M">Masculin</option>
+                    <option value="F">Féminin</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label htmlFor="add-indiv-naissance">Date de naissance</label>
+                  <input
+                    id="add-indiv-naissance"
+                    type="date"
+                    value={addIndividuelForm.date_naissance}
+                    onChange={(e) => setAddIndividuelForm((prev) => ({ ...prev, date_naissance: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div className="form-group form-group-full">
+                  <label htmlFor="add-indiv-categorie">Catégorie</label>
+                  <select
+                    id="add-indiv-categorie"
+                    value={addIndividuelForm.categorie}
+                    onChange={(e) => setAddIndividuelForm((prev) => ({ ...prev, categorie: e.target.value }))}
+                  >
+                    <option value="">— Optionnel —</option>
+                    {(CATEGORIES || []).map((cat) => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="confirm-actions">
+                <button type="button" className="btn btn-outline" onClick={() => setShowAddIndividuel(false)} disabled={saving}>
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  className="btn"
+                  style={{ background: '#16a34a', color: '#fff', borderColor: '#16a34a' }}
+                  disabled={saving}
+                >
+                  {saving ? 'Ajout...' : 'Ajouter'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
@@ -2572,7 +2684,6 @@ export default function CompetitionSettings({ onBack, onToast }) {
                 <h3>
                   {actionMode === 'weigh' && 'Pesé'}
                   {actionMode === 'export' && 'Exporter Liste'}
-                  {actionMode === 'badges' && 'Badges'}
                   {actionMode === 'draw' && 'Tirage au sort'}
                   {actionMode === 'clubs' && 'Club'}
                 </h3>
