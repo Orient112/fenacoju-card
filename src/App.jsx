@@ -19,6 +19,7 @@ import {
   setCompetitionAccess,
   getToken,
   USER_TYPES,
+  resolveMediaUrl,
 } from './api';
 import Login from './pages/Login';
 import ResetPasswordModal from './components/ResetPasswordModal';
@@ -35,6 +36,7 @@ import {
 } from './components/ActionIcons';
 
 const Messages = lazy(() => import('./pages/Messages'));
+const Settings = lazy(() => import('./pages/Settings'));
 const JudokaForm = lazy(() => import('./components/JudokaForm'));
 const UserForm = lazy(() => import('./components/UserForm'));
 const ArbitreForm = lazy(() => import('./components/ArbitreForm'));
@@ -782,19 +784,28 @@ export default function App() {
                 {view === 'user-form' && (editingUser ? 'Modifier le compte' : 'Créer un compte')}
                 {view === 'arbitre-form' && (editingArbitre ? 'Modifier l\'arbitre' : 'Nouvel arbitre')}
                 {view === 'messages' && 'Messages'}
+                {view === 'settings' && 'Réglages'}
                 {view === 'competition' && 'Compétition'}
               </div>
               <div className="dashboard-topbar-user">
                 <span>{getUserDisplayName(user) || 'utilisateur'}</span>
-                <span className="dashboard-avatar" aria-hidden="true">
-                  {(getUserDisplayName(user) || 'U')
-                    .split(/\s+/)
-                    .filter(Boolean)
-                    .slice(0, 2)
-                    .map((p) => p[0])
-                    .join('')
-                    .toUpperCase()}
-                </span>
+                {user?.photo ? (
+                  <img
+                    className="dashboard-avatar dashboard-avatar-photo"
+                    src={resolveMediaUrl(user.photo)}
+                    alt=""
+                  />
+                ) : (
+                  <span className="dashboard-avatar" aria-hidden="true">
+                    {(getUserDisplayName(user) || 'U')
+                      .split(/\s+/)
+                      .filter(Boolean)
+                      .slice(0, 2)
+                      .map((p) => p[0])
+                      .join('')
+                      .toUpperCase()}
+                  </span>
+                )}
               </div>
             </div>
 
@@ -1197,6 +1208,15 @@ export default function App() {
           </Suspense>
         )}
 
+        {view === 'settings' && (
+          <Suspense fallback={<PageLoader label="Ouverture des réglages..." />}>
+            <Settings
+              user={user}
+              onUserUpdated={(next) => setUser((prev) => ({ ...prev, ...next }))}
+            />
+          </Suspense>
+        )}
+
         {view === 'competition' && (
           <Suspense fallback={<PageLoader label="Chargement de la compétition..." />}>
             <CompetitionSettings
@@ -1279,6 +1299,12 @@ export default function App() {
                 Messages{unreadMessages > 0 ? ` (${unreadMessages})` : ''}
               </button>
             )}
+            <button
+              className={`nav-btn ${view === 'settings' ? 'active' : ''}`}
+              onClick={() => { setView('settings'); setEditing(null); setEditingUser(null); setCreateType(null); }}
+            >
+              Réglages
+            </button>
             {canScanQr && (
               <button
                 className="nav-btn"

@@ -29,10 +29,55 @@ async function readMessages() {
   return readMessagesJson();
 }
 
+function normalizeHiddenFor(value) {
+  if (Array.isArray(value)) return value.map(String).filter(Boolean);
+  if (typeof value === 'string' && value.trim()) {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) return parsed.map(String).filter(Boolean);
+    } catch {
+      // ignore
+    }
+  }
+  return [];
+}
+
+function isHiddenForUser(message, userId) {
+  return normalizeHiddenFor(message?.hidden_for).includes(String(userId));
+}
+
+async function persistMessageUpdate(messageId, patch) {
+  if (isSupabaseEnabled()) {
+    const { error } = await getSupabase().from('messages').update(patch).eq('id', messageId);
+    if (error) {
+      if (/hidden_for|schema cache|column/i.test(error.message || '')) {
+        console.warn('Colonne messages.hidden_for absente — exécutez migration_messages_hidden.sql');
+        throw new Error('Suppression indisponible : migration base de données requise');
+      }
+      throw new Error(error.message);
+    }
+    return;
+  }
+  const messages = readMessagesJson();
+  const index = messages.findIndex((m) => m.id === messageId);
+  if (index === -1) throw new Error('Message introuvable');
+  messages[index] = { ...messages[index], ...patch };
+  writeMessagesJson(messages);
+}
+
+async function persistMessageDelete(messageId) {
+  if (isSupabaseEnabled()) {
+    const { error } = await getSupabase().from('messages').delete().eq('id', messageId);
+    if (error) throw new Error(error.message);
+    return;
+  }
+  writeMessagesJson(readMessagesJson().filter((m) => m.id !== messageId));
+}
+
 export async function getUserMessages(userId) {
   const messages = await readMessages();
   return messages
-    .filter((m) => m.from_id === userId || m.to_id === userId)
+    .filter((m) => (m.from_id === userId || m.to_id === userId) && !isHiddenForUser(m, userId))
     .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 }
 
@@ -44,7 +89,7 @@ export async function getConversation(userId, otherId) {
       .or(`and(from_id.eq.${userId},to_id.eq.${otherId}),and(from_id.eq.${otherId},to_id.eq.${userId})`)
       .order('created_at', { ascending: true });
     if (error) throw new Error(error.message);
-    return data || [];
+    return (data || []).filter((m) => !isHiddenForUser(m, userId));
   }
 
   const messages = await getUserMessages(userId);
@@ -57,7 +102,9 @@ export async function getConversation(userId, otherId) {
 
 export async function getUnreadCount(userId) {
   const messages = await readMessages();
-  return messages.filter((m) => m.to_id === userId && !m.read).length;
+  return messages.filter(
+    (m) => m.to_id === userId && !m.read && !isHiddenForUser(m, userId)
+  ).length;
 }
 
 export async function markConversationRead(userId, otherId) {
@@ -74,7 +121,7 @@ export async function markConversationRead(userId, otherId) {
   const messages = readMessagesJson();
   let changed = false;
   messages.forEach((m) => {
-    if (m.to_id === userId && m.from_id === otherId && !m.read) {
+    if (m.to_id === userId && m.from_id === otherId && !m.read && !isHiddenForUser(m, userId)) {
       m.read = true;
       changed = true;
     }
@@ -103,6 +150,7 @@ export async function sendMessage(sender, recipientId, subject, body, attachment
     attachment_url: attachment?.url || '',
     attachment_name: attachment?.name || '',
     attachment_type: attachment?.type || '',
+    hidden_for: [],
     read: false,
     created_at: new Date().toISOString(),
   };
@@ -111,7 +159,7 @@ export async function sendMessage(sender, recipientId, subject, body, attachment
     const payload = { ...message };
     const { error } = await getSupabase().from('messages').insert(payload);
     if (error) {
-      // Schéma sans colonnes pièce jointe → marqueur invisible pour l'UI
+      // Schéma sans colonnes pièce jointe / hidden_for → fallback réduit
       const marker = attachment?.url
         ? `\n\n__FENACOJU_ATT__${Buffer.from(JSON.stringify({
           n: attachment.name || 'fichier',
@@ -128,6 +176,9 @@ export async function sendMessage(sender, recipientId, subject, body, attachment
         read: false,
         created_at: message.created_at,
       };
+      if (!/hidden_for|schema cache|column|attachment/i.test(error.message || '')) {
+        // retry without attachment columns only
+      }
       const retry = await getSupabase().from('messages').insert(fallback);
       if (retry.error) throw new Error(retry.error.message);
       return {
@@ -145,6 +196,43 @@ export async function sendMessage(sender, recipientId, subject, body, attachment
   }
 
   return message;
+}
+
+export async function deleteMessageForUser(messageId, user) {
+  const messages = await readMessages();
+  const message = messages.find((m) => m.id === messageId);
+  if (!message) throw new Error('Message introuvable');
+
+  const uid = String(user.id);
+  if (String(message.from_id) !== uid && String(message.to_id) !== uid) {
+    throw new Error('Vous ne pouvez pas supprimer ce message');
+  }
+
+  const hiddenFor = new Set(normalizeHiddenFor(message.hidden_for));
+  hiddenFor.add(uid);
+  const nextHidden = [...hiddenFor];
+
+  const bothHidden =
+    nextHidden.includes(String(message.from_id))
+    && nextHidden.includes(String(message.to_id));
+
+  if (bothHidden) {
+    await persistMessageDelete(messageId);
+    return { id: messageId, deleted: true };
+  }
+
+  try {
+    await persistMessageUpdate(messageId, { hidden_for: nextHidden });
+  } catch (err) {
+    // Sans colonne hidden_for : suppression définitive du message
+    if (/migration|hidden_for|indisponible/i.test(err.message || '')) {
+      await persistMessageDelete(messageId);
+      return { id: messageId, deleted: true };
+    }
+    throw err;
+  }
+
+  return { id: messageId, hidden: true };
 }
 
 export async function getMessageContacts(sender, allUsers) {

@@ -427,6 +427,64 @@ export async function fetchUnreadMessages() {
   return res.json();
 }
 
+export async function deleteMessage(messageId) {
+  const res = await apiFetch(`/api/messages/${encodeURIComponent(messageId)}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Impossible de supprimer le message');
+  }
+  return res.json();
+}
+
+export async function updateAccountProfile(data) {
+  const res = await apiFetch('/api/account', {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Impossible de mettre à jour le profil');
+  }
+  return res.json();
+}
+
+export async function changeAccountPassword(currentPassword, newPassword) {
+  const res = await apiFetch('/api/account/password', {
+    method: 'PUT',
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Impossible de modifier le mot de passe');
+  }
+  return res.json();
+}
+
+export async function uploadAccountPhoto(file) {
+  const formData = new FormData();
+  formData.append('photo', file);
+  const res = await apiFetch('/api/account/photo', {
+    method: 'POST',
+    body: formData,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Impossible de charger la photo');
+  }
+  return res.json();
+}
+
+export async function deleteAccountPhoto() {
+  const res = await apiFetch('/api/account/photo', { method: 'DELETE' });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Impossible de supprimer la photo');
+  }
+  return res.json();
+}
+
 export async function fetchCompetition() {
   const res = await apiFetch('/api/competition');
   if (!res.ok) {

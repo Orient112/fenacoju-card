@@ -19,6 +19,7 @@ create table if not exists users (
   club text,
   grade text,
   telephone text default '',
+  photo text default '',
   documents jsonb default '{}'::jsonb,
   comites jsonb default '[]'::jsonb,
   statut text not null default 'actif' check (statut in ('pending', 'actif', 'rejete')),
@@ -90,6 +91,7 @@ create table if not exists messages (
   to_id uuid not null references users(id) on delete cascade,
   subject text default '',
   body text not null,
+  hidden_for jsonb default '[]'::jsonb,
   read boolean default false,
   created_at timestamptz default now()
 );

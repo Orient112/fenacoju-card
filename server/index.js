@@ -30,6 +30,9 @@ import {
   getRegisteredClubs,
   isClubRegistered,
   ensureAdminExists,
+  updateOwnProfile,
+  changeOwnPassword,
+  updateOwnPhoto,
 } from './users.js';
 import {
   getUserMessages,
@@ -38,6 +41,7 @@ import {
   sendMessage,
   getMessageContacts,
   markConversationRead,
+  deleteMessageForUser,
 } from './messages.js';
 import { authMiddleware } from './middleware.js';
 import {
@@ -1276,6 +1280,63 @@ app.post('/api/messages/with-attachment', (req, res) => {
       res.status(403).json({ error: e.message });
     }
   });
+});
+
+app.delete('/api/messages/:id', async (req, res) => {
+  try {
+    const result = await deleteMessageForUser(req.params.id, req.user);
+    res.json(result);
+  } catch (err) {
+    const status = /introuvable/i.test(err.message || '') ? 404 : 403;
+    res.status(status).json({ error: err.message });
+  }
+});
+
+app.put('/api/account', async (req, res) => {
+  try {
+    const updated = await updateOwnProfile(req.user.id, req.body || {});
+    res.json({ ...updated, permissions: getPermissions(updated) });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.put('/api/account/password', async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body || {};
+    const updated = await changeOwnPassword(req.user.id, currentPassword, newPassword);
+    res.json({ ...updated, permissions: getPermissions(updated) });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/account/photo', handlePhotoUpload, async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'Photo requise' });
+    const current = await getUserById(req.user.id);
+    const photoUrl = await saveUploadedFile(req.file, 'avatars');
+    if (current?.photo) {
+      try { await deleteStoredFile(current.photo); } catch { /* ignore */ }
+    }
+    const updated = await updateOwnPhoto(req.user.id, photoUrl);
+    res.json({ ...updated, permissions: getPermissions(updated) });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.delete('/api/account/photo', async (req, res) => {
+  try {
+    const current = await getUserById(req.user.id);
+    if (current?.photo) {
+      try { await deleteStoredFile(current.photo); } catch { /* ignore */ }
+    }
+    const updated = await updateOwnPhoto(req.user.id, '');
+    res.json({ ...updated, permissions: getPermissions(updated) });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
 });
 
 app.get('/api/stats', async (req, res) => {

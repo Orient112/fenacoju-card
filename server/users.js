@@ -499,3 +499,99 @@ export async function resetUserPassword(id, newPassword, editor) {
 
   return sanitizeUser(users[index]);
 }
+
+async function writeUserRecord(updated) {
+  if (isSupabaseEnabled()) {
+    const payload = { ...updated };
+    const { error } = await getSupabase().from('users').update(payload).eq('id', updated.id);
+    if (error) {
+      if (/photo|schema cache|column/i.test(error.message || '') && 'photo' in payload) {
+        const { photo: _ignored, ...withoutPhoto } = payload;
+        const retry = await getSupabase().from('users').update(withoutPhoto).eq('id', updated.id);
+        if (retry.error) throw new Error(retry.error.message);
+        if (updated.photo) {
+          console.warn('Colonne users.photo absente — exécutez migration_account_settings.sql');
+          throw new Error('Photo de profil indisponible : migration base de données requise');
+        }
+        return;
+      }
+      throw new Error(error.message);
+    }
+    return;
+  }
+  const users = readUsersJson();
+  const index = users.findIndex((u) => u.id === updated.id);
+  if (index === -1) throw new Error('Utilisateur introuvable');
+  users[index] = updated;
+  writeUsersJson(users);
+}
+
+export async function updateOwnProfile(userId, data) {
+  const users = await readUsers();
+  const index = users.findIndex((u) => u.id === userId);
+  if (index === -1) throw new Error('Utilisateur introuvable');
+
+  const existing = users[index];
+  const updated = { ...existing };
+
+  if (data.telephone !== undefined) {
+    updated.telephone = String(data.telephone || '').trim();
+  }
+
+  if (existing.type === 'admin' || existing.type === 'federation' || existing.type === 'membre' || existing.type === 'entraineur') {
+    if (data.nom !== undefined) updated.nom = String(data.nom || '').trim();
+    if (data.prenom !== undefined) updated.prenom = String(data.prenom || '').trim();
+  }
+
+  if (existing.type === 'federation' && data.fonction !== undefined) {
+    // fonction gérée par admin — lecture seule côté réglages
+  }
+
+  if (existing.type === 'ligue' || existing.type === 'entente') {
+    if (data.ville !== undefined) updated.ville = String(data.ville || '').trim();
+    if (data.responsable !== undefined) updated.responsable = String(data.responsable || '').trim();
+  }
+
+  if (existing.type === 'club') {
+    if (data.ville !== undefined) updated.ville = String(data.ville || '').trim();
+    if (data.responsable !== undefined) updated.responsable = String(data.responsable || '').trim();
+  }
+
+  if (existing.type === 'entraineur' && data.grade !== undefined) {
+    updated.grade = String(data.grade || '').trim();
+  }
+
+  await writeUserRecord(updated);
+  return sanitizeUser(updated);
+}
+
+export async function changeOwnPassword(userId, currentPassword, newPassword) {
+  if (!currentPassword) throw new Error('Mot de passe actuel requis');
+  if (!newPassword || newPassword.length < 6) {
+    throw new Error('Le nouveau mot de passe doit contenir au moins 6 caractères');
+  }
+
+  const users = await readUsers();
+  const index = users.findIndex((u) => u.id === userId);
+  if (index === -1) throw new Error('Utilisateur introuvable');
+
+  const existing = users[index];
+  if (existing.password !== hashPassword(currentPassword)) {
+    throw new Error('Mot de passe actuel incorrect');
+  }
+
+  const hashed = hashPassword(newPassword);
+  const updated = { ...existing, password: hashed };
+  await writeUserRecord(updated);
+  return sanitizeUser(updated);
+}
+
+export async function updateOwnPhoto(userId, photoUrl) {
+  const users = await readUsers();
+  const index = users.findIndex((u) => u.id === userId);
+  if (index === -1) throw new Error('Utilisateur introuvable');
+
+  const updated = { ...users[index], photo: photoUrl || '' };
+  await writeUserRecord(updated);
+  return sanitizeUser(updated);
+}

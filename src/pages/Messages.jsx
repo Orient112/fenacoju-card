@@ -3,9 +3,11 @@ import {
   fetchMessageContacts,
   fetchConversation,
   sendMessage,
+  deleteMessage,
   resolveMediaUrl,
   USER_TYPES,
 } from '../api';
+import { IconTrash } from '../components/ActionIcons';
 
 const ATTACHMENT_ACCEPT = '.doc,.docx,.pdf,.jpg,.jpeg,.png,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf,image/jpeg,image/png';
 const ATTACHMENT_EXT = /\.(doc|docx|pdf|jpe?g|png)$/i;
@@ -159,6 +161,8 @@ export default function Messages({ currentUser, onUnreadChange }) {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const [contactsOpen, setContactsOpen] = useState(true);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [deleting, setDeleting] = useState(false);
   const threadRef = useRef(null);
   const fileInputRef = useRef(null);
   const editorRef = useRef(null);
@@ -312,6 +316,22 @@ export default function Messages({ currentUser, onUnreadChange }) {
     }
   };
 
+  const handleDeleteMessage = async () => {
+    if (!confirmDeleteId || deleting) return;
+    setDeleting(true);
+    setError('');
+    try {
+      await deleteMessage(confirmDeleteId);
+      setMessages((prev) => prev.filter((m) => m.id !== confirmDeleteId));
+      setConfirmDeleteId(null);
+      loadContacts();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="loading-state">
@@ -434,6 +454,16 @@ export default function Messages({ currentUser, onUnreadChange }) {
                   const pending = m.attachment_url === 'pending';
                   return (
                     <div key={m.id} className={`message-bubble ${mine ? 'mine' : 'theirs'}`}>
+                      <button
+                        type="button"
+                        className="message-delete-btn"
+                        title="Supprimer le message"
+                        aria-label="Supprimer le message"
+                        onClick={() => setConfirmDeleteId(m.id)}
+                        disabled={String(m.id).startsWith('tmp-')}
+                      >
+                        <IconTrash />
+                      </button>
                       {m.subject && <div className="message-subject">{m.subject}</div>}
                       {text && (
                         isRichMessageBody(text) ? (
@@ -572,6 +602,33 @@ export default function Messages({ currentUser, onUnreadChange }) {
           </>
         )}
       </section>
+
+      {confirmDeleteId && (
+        <div className="confirm-overlay" onClick={() => !deleting && setConfirmDeleteId(null)}>
+          <div className="confirm-dialog" onClick={(e) => e.stopPropagation()}>
+            <h3>Supprimer ce message ?</h3>
+            <p>Le message sera retiré de votre conversation. L&apos;autre destinataire pourra encore le voir.</p>
+            <div className="confirm-actions">
+              <button
+                type="button"
+                className="btn btn-outline"
+                onClick={() => setConfirmDeleteId(null)}
+                disabled={deleting}
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger"
+                onClick={handleDeleteMessage}
+                disabled={deleting}
+              >
+                {deleting ? 'Suppression...' : 'Supprimer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
