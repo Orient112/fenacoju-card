@@ -86,7 +86,7 @@ export default function CompetitionLinkQrModal({ url, competitionName, onClose }
       pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(16);
       pdf.setTextColor(15, 23, 42);
-      pdf.text('QR Code — Lien d\'inscription', pageW / 2, y, { align: 'center' });
+      pdf.text('QR Code - Lien d\'inscription', pageW / 2, y, { align: 'center' });
       y += 10;
 
       if (competitionName) {
@@ -100,13 +100,6 @@ export default function CompetitionLinkQrModal({ url, competitionName, onClose }
       const qrMm = 90;
       const qrX = (pageW - qrMm) / 2;
       pdf.addImage(png, 'PNG', qrX, y, qrMm, qrMm);
-      y += qrMm + 12;
-
-      pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(9);
-      pdf.setTextColor(100, 116, 139);
-      const lines = pdf.splitTextToSize(String(url || ''), pageW - margin * 2);
-      pdf.text(lines, pageW / 2, y, { align: 'center' });
 
       pdf.save(`${fileBase}.pdf`);
     } catch (err) {
@@ -122,7 +115,6 @@ export default function CompetitionLinkQrModal({ url, competitionName, onClose }
         <div className="competition-link-qr-head">
           <div>
             <h3>QR Code d&apos;inscription</h3>
-            {competitionName ? <p className="form-hint">{competitionName}</p> : null}
           </div>
           <button type="button" className="btn btn-outline btn-sm" onClick={onClose}>
             Fermer
@@ -139,7 +131,6 @@ export default function CompetitionLinkQrModal({ url, competitionName, onClose }
               fgColor="#0f172a"
             />
           </div>
-          <p className="competition-link-qr-url">{url}</p>
           {error ? <p className="form-error">{error}</p> : null}
         </div>
 
