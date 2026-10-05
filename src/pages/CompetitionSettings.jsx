@@ -1915,14 +1915,22 @@ export default function CompetitionSettings({ onBack, onToast }) {
                     />
                     <button
                       type="button"
-                      className="btn btn-accent"
+                      className="btn btn-accent competition-link-action"
                       onClick={() => handleCopyLink(publicUrl)}
                       disabled={isClosed}
                     >
                       Copier
                     </button>
+                    <button
+                      type="button"
+                      className="btn btn-outline competition-link-action"
+                      onClick={() => setShowLinkQrModal(true)}
+                      disabled={isClosed}
+                    >
+                      QR Code
+                    </button>
                     <a
-                      className={`btn btn-outline ${isClosed ? 'is-disabled' : ''}`}
+                      className={`btn btn-outline competition-link-action ${isClosed ? 'is-disabled' : ''}`}
                       href={isClosed ? undefined : publicUrl}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -1941,14 +1949,6 @@ export default function CompetitionSettings({ onBack, onToast }) {
                       }}
                     >
                       Paramètres de Compétition
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-outline"
-                      onClick={() => setShowLinkQrModal(true)}
-                      disabled={isClosed}
-                    >
-                      QR Code
                     </button>
                   </div>
                 </div>

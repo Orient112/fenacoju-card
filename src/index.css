@@ -6923,7 +6923,7 @@ a.competition-action-btn,
 
   .competition-link-row {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr 1fr 1fr;
     align-items: stretch;
   }
 
@@ -6933,12 +6933,11 @@ a.competition-action-btn,
     width: 100%;
   }
 
-  .competition-link-row > button.btn-outline {
+  .competition-link-row > .btn:not(.competition-link-action) {
     grid-column: 1 / -1;
   }
 
-  .competition-link-row > .btn-accent,
-  .competition-link-row > a.btn {
+  .competition-link-row > .competition-link-action {
     width: 100%;
     justify-content: center;
     text-align: center;
