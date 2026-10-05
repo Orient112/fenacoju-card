@@ -1135,7 +1135,7 @@ export default function CompetitionPublicForm({ token }) {
                               <li className="competition-team-judoka-row">
                                 <div className="competition-team-judoka-main">
                                   <span className="competition-team-role-tag">Remplaçant</span>
-                                  <span className="competition-team-judoka-name">{bucket.remplacant.nom_complet}</span>
+                                  <span className="competition-team-judoka-name">{teamMemberDisplayName(bucket.remplacant)}</span>
                                   <span className="competition-team-judoka-weight">{bucket.remplacant.poids} kg</span>
                                 </div>
                                 {bucket.remplacant.locked ? (
