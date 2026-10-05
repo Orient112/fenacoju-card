@@ -16,6 +16,7 @@ import {
 import { exportCompetitionListToPdf } from '../utils/exportCompetitionListPdf';
 import { exportCompetitionDrawToPdf } from '../utils/exportCompetitionDrawPdf';
 import { exportCompetitionBadgesToPdf } from '../utils/exportCompetitionBadgesPdf';
+import { extractClubNamesFromPdfFile } from '../utils/importClubsFromPdf';
 import { buildWeightDraw, buildTeamDraw } from '../utils/competitionDraw';
 import DrawAnimation from '../components/DrawAnimation';
 import ReceiptScanModal from '../components/ReceiptScanModal';
@@ -706,6 +707,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
   const [clubsEditorCadre, setClubsEditorCadre] = useState(null);
   const [clubDraft, setClubDraft] = useState('');
   const [editingClub, setEditingClub] = useState(null);
+  const clubsPdfInputRef = useRef(null);
   const [chargeTeamTarget, setChargeTeamTarget] = useState(null);
   const [chargeSelections, setChargeSelections] = useState({});
   const [showReceiptScan, setShowReceiptScan] = useState(false);
@@ -1248,6 +1250,40 @@ export default function CompetitionSettings({ onBack, onToast }) {
     } catch (err) {
       setError(err.message || 'Suppression impossible');
       onToast?.(err.message || 'Suppression impossible', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleLoadClubsFromPdf = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file || !clubsEditorCadre) return;
+
+    setSaving(true);
+    try {
+      const names = await extractClubNamesFromPdfFile(file);
+      const cadre = clubsEditorCadre;
+      const current = settings?.competition_clubs || [];
+      const existing = new Set(
+        current
+          .filter((c) => c.cadre === cadre)
+          .map((c) => String(c.nom || '').trim().toLowerCase())
+      );
+      const toAdd = names
+        .map((nom) => String(nom || '').trim())
+        .filter((nom) => nom && !existing.has(nom.toLowerCase()))
+        .map((nom) => ({ nom, cadre }));
+
+      if (!toAdd.length) {
+        onToast?.('Tous les clubs du PDF sont déjà enregistrés pour ce cadre', 'error');
+        return;
+      }
+
+      await persistCompetitionClubs([...current, ...toAdd]);
+      onToast?.(`${toAdd.length} club(s) importé(s) depuis le PDF`);
+    } catch (err) {
+      onToast?.(err.message || 'Impossible d\'importer les clubs depuis le PDF', 'error');
     } finally {
       setSaving(false);
     }
@@ -2394,6 +2430,22 @@ export default function CompetitionSettings({ onBack, onToast }) {
               </ul>
             )}
             <div className="confirm-actions">
+              <input
+                ref={clubsPdfInputRef}
+                type="file"
+                accept="application/pdf,.pdf"
+                hidden
+                onChange={handleLoadClubsFromPdf}
+              />
+              <button
+                type="button"
+                className="btn"
+                style={{ background: '#16a34a', color: '#fff', borderColor: '#16a34a' }}
+                disabled={saving}
+                onClick={() => clubsPdfInputRef.current?.click()}
+              >
+                {saving ? 'Chargement…' : 'Charger'}
+              </button>
               <button
                 type="button"
                 className="btn"
