@@ -47,9 +47,10 @@ export default function Settings({ user, onUserUpdated }) {
   const showPersonNames = ['admin', 'federation', 'membre', 'entraineur'].includes(user?.type);
   const showOrgFields = ['ligue', 'entente', 'club'].includes(user?.type);
   const showGrade = user?.type === 'entraineur';
+  const displayName = accountDisplayName(user) || 'Mon compte';
 
   const initials = useMemo(() => {
-    const name = accountDisplayName(user) || 'U';
+    const name = displayName || 'U';
     return name
       .split(/\s+/)
       .filter(Boolean)
@@ -57,7 +58,7 @@ export default function Settings({ user, onUserUpdated }) {
       .map((p) => p[0])
       .join('')
       .toUpperCase();
-  }, [user]);
+  }, [displayName]);
 
   const applyUser = (next) => {
     onUserUpdated?.(next);
@@ -157,189 +158,203 @@ export default function Settings({ user, onUserUpdated }) {
 
   return (
     <div className="settings-page">
-      <section className="form-card settings-hero">
-        <div className="settings-hero-main">
-          <div className="settings-avatar-wrap">
-            {user?.photo ? (
-              <img
-                src={resolveMediaUrl(user.photo)}
-                alt=""
-                className="settings-avatar-img"
+      <section className="settings-stage">
+        <div className="settings-stage-glow" aria-hidden="true" />
+        <div className="settings-stage-grid" aria-hidden="true" />
+        <div className="settings-stage-inner">
+          <p className="settings-brand">FENACOJU</p>
+          <h2 className="settings-title">Réglages</h2>
+          <p className="settings-lead">Gérez votre profil, vos coordonnées et la sécurité de votre compte.</p>
+
+          <div className="settings-profile-block">
+            <div className={`settings-avatar-ring ${user?.photo ? 'has-photo' : ''}`}>
+              {user?.photo ? (
+                <img
+                  src={resolveMediaUrl(user.photo)}
+                  alt=""
+                  className="settings-avatar-img"
+                />
+              ) : (
+                <span className="settings-avatar-fallback" aria-hidden="true">{initials}</span>
+              )}
+            </div>
+            <div className="settings-profile-copy">
+              <h3 className="settings-profile-name">{displayName}</h3>
+              <p className="settings-profile-role">{roleLabel(user)}</p>
+              <div className="settings-photo-actions">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  hidden
+                  onChange={handlePhotoSelected}
+                />
+                <button
+                  type="button"
+                  className="btn settings-btn-gold"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={photoBusy}
+                >
+                  {photoBusy ? 'Chargement...' : 'Charger une photo'}
+                </button>
+                {user?.photo && (
+                  <button
+                    type="button"
+                    className="btn settings-btn-ghost"
+                    onClick={handlePhotoRemove}
+                    disabled={photoBusy}
+                  >
+                    Supprimer
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {(error || success) && (
+        <div className="settings-alerts">
+          {error && <div className="form-error">{error}</div>}
+          {success && <div className="form-success">{success}</div>}
+        </div>
+      )}
+
+      <div className="settings-panels">
+        <section className="settings-panel settings-panel-identity">
+          <header className="settings-panel-head">
+            <h3>Identité</h3>
+            <p>Mettez à jour les informations visibles sur votre compte.</p>
+          </header>
+          <form className="settings-form" onSubmit={handleProfileSave}>
+            <div className="form-group">
+              <label>Identifiant / e-mail</label>
+              <input type="text" value={user?.email || user?.username || ''} readOnly disabled />
+            </div>
+            <div className="form-group">
+              <label htmlFor="settings-telephone">Téléphone</label>
+              <input
+                id="settings-telephone"
+                type="tel"
+                value={telephone}
+                onChange={(e) => setTelephone(e.target.value)}
+                placeholder="Ex. 0990000000"
               />
-            ) : (
-              <span className="settings-avatar-fallback" aria-hidden="true">{initials}</span>
+            </div>
+            {showPersonNames && (
+              <div className="settings-form-grid">
+                <div className="form-group">
+                  <label htmlFor="settings-prenom">Prénom</label>
+                  <input
+                    id="settings-prenom"
+                    type="text"
+                    value={prenom}
+                    onChange={(e) => setPrenom(e.target.value)}
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="settings-nom">Nom</label>
+                  <input
+                    id="settings-nom"
+                    type="text"
+                    value={nom}
+                    onChange={(e) => setNom(e.target.value)}
+                  />
+                </div>
+              </div>
             )}
-          </div>
-          <div>
-            <p className="settings-kicker">Compte</p>
-            <h2>{accountDisplayName(user) || 'Mon compte'}</h2>
-            <p className="form-hint">{roleLabel(user)}</p>
-          </div>
-        </div>
-      </section>
+            {showOrgFields && (
+              <div className="settings-form-grid">
+                <div className="form-group">
+                  <label htmlFor="settings-ville">Ville</label>
+                  <input
+                    id="settings-ville"
+                    type="text"
+                    value={ville}
+                    onChange={(e) => setVille(e.target.value)}
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="settings-responsable">Responsable</label>
+                  <input
+                    id="settings-responsable"
+                    type="text"
+                    value={responsable}
+                    onChange={(e) => setResponsable(e.target.value)}
+                  />
+                </div>
+              </div>
+            )}
+            {showGrade && (
+              <div className="form-group">
+                <label htmlFor="settings-grade">Grade</label>
+                <input
+                  id="settings-grade"
+                  type="text"
+                  value={grade}
+                  onChange={(e) => setGrade(e.target.value)}
+                />
+              </div>
+            )}
+            <div className="form-actions">
+              <button type="submit" className="btn btn-primary" disabled={profileBusy}>
+                {profileBusy ? 'Enregistrement...' : 'Enregistrer'}
+              </button>
+            </div>
+          </form>
+        </section>
 
-      {error && <div className="form-error">{error}</div>}
-      {success && <div className="form-success">{success}</div>}
-
-      <section className="form-card settings-section">
-        <h3>Photo de profil</h3>
-        <p className="form-hint">JPG, PNG ou WEBP · max 5 Mo</p>
-        <div className="settings-photo-actions">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            hidden
-            onChange={handlePhotoSelected}
-          />
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={photoBusy}
-          >
-            {photoBusy ? 'Chargement...' : 'Charger une photo'}
-          </button>
-          {user?.photo && (
-            <button
-              type="button"
-              className="btn btn-outline"
-              onClick={handlePhotoRemove}
-              disabled={photoBusy}
-            >
-              Supprimer
-            </button>
-          )}
-        </div>
-      </section>
-
-      <section className="form-card settings-section">
-        <h3>Informations du compte</h3>
-        <form className="settings-form" onSubmit={handleProfileSave}>
-          <div className="form-group">
-            <label>Identifiant / e-mail</label>
-            <input type="text" value={user?.email || user?.username || ''} readOnly disabled />
-          </div>
-          <div className="form-group">
-            <label htmlFor="settings-telephone">Téléphone</label>
-            <input
-              id="settings-telephone"
-              type="tel"
-              value={telephone}
-              onChange={(e) => setTelephone(e.target.value)}
-              placeholder="Ex. 0990000000"
-            />
-          </div>
-          {showPersonNames && (
+        <section className="settings-panel settings-panel-security">
+          <header className="settings-panel-head">
+            <h3>Sécurité</h3>
+            <p>Changez votre mot de passe pour protéger l’accès à votre compte.</p>
+          </header>
+          <form className="settings-form" onSubmit={handlePasswordSave}>
+            <div className="form-group">
+              <label htmlFor="settings-current-password">Mot de passe actuel</label>
+              <input
+                id="settings-current-password"
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+              />
+            </div>
             <div className="settings-form-grid">
               <div className="form-group">
-                <label htmlFor="settings-prenom">Prénom</label>
+                <label htmlFor="settings-new-password">Nouveau mot de passe</label>
                 <input
-                  id="settings-prenom"
-                  type="text"
-                  value={prenom}
-                  onChange={(e) => setPrenom(e.target.value)}
+                  id="settings-new-password"
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                  minLength={6}
+                  autoComplete="new-password"
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="settings-nom">Nom</label>
+                <label htmlFor="settings-confirm-password">Confirmer</label>
                 <input
-                  id="settings-nom"
-                  type="text"
-                  value={nom}
-                  onChange={(e) => setNom(e.target.value)}
+                  id="settings-confirm-password"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  minLength={6}
+                  autoComplete="new-password"
                 />
               </div>
             </div>
-          )}
-          {showOrgFields && (
-            <div className="settings-form-grid">
-              <div className="form-group">
-                <label htmlFor="settings-ville">Ville</label>
-                <input
-                  id="settings-ville"
-                  type="text"
-                  value={ville}
-                  onChange={(e) => setVille(e.target.value)}
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="settings-responsable">Responsable</label>
-                <input
-                  id="settings-responsable"
-                  type="text"
-                  value={responsable}
-                  onChange={(e) => setResponsable(e.target.value)}
-                />
-              </div>
+            <div className="form-actions">
+              <button type="submit" className="btn btn-primary" disabled={passwordBusy}>
+                {passwordBusy ? 'Modification...' : 'Modifier le mot de passe'}
+              </button>
             </div>
-          )}
-          {showGrade && (
-            <div className="form-group">
-              <label htmlFor="settings-grade">Grade</label>
-              <input
-                id="settings-grade"
-                type="text"
-                value={grade}
-                onChange={(e) => setGrade(e.target.value)}
-              />
-            </div>
-          )}
-          <div className="form-actions">
-            <button type="submit" className="btn btn-primary" disabled={profileBusy}>
-              {profileBusy ? 'Enregistrement...' : 'Enregistrer'}
-            </button>
-          </div>
-        </form>
-      </section>
-
-      <section className="form-card settings-section">
-        <h3>Mot de passe</h3>
-        <form className="settings-form" onSubmit={handlePasswordSave}>
-          <div className="form-group">
-            <label htmlFor="settings-current-password">Mot de passe actuel</label>
-            <input
-              id="settings-current-password"
-              type="password"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              required
-              autoComplete="current-password"
-            />
-          </div>
-          <div className="settings-form-grid">
-            <div className="form-group">
-              <label htmlFor="settings-new-password">Nouveau mot de passe</label>
-              <input
-                id="settings-new-password"
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                required
-                minLength={6}
-                autoComplete="new-password"
-              />
-            </div>
-            <div className="form-group">
-              <label htmlFor="settings-confirm-password">Confirmer</label>
-              <input
-                id="settings-confirm-password"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                minLength={6}
-                autoComplete="new-password"
-              />
-            </div>
-          </div>
-          <div className="form-actions">
-            <button type="submit" className="btn btn-primary" disabled={passwordBusy}>
-              {passwordBusy ? 'Modification...' : 'Modifier le mot de passe'}
-            </button>
-          </div>
-        </form>
-      </section>
+          </form>
+        </section>
+      </div>
     </div>
   );
 }

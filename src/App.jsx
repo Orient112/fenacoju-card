@@ -1299,12 +1299,6 @@ export default function App() {
                 Messages{unreadMessages > 0 ? ` (${unreadMessages})` : ''}
               </button>
             )}
-            <button
-              className={`nav-btn ${view === 'settings' ? 'active' : ''}`}
-              onClick={() => { setView('settings'); setEditing(null); setEditingUser(null); setCreateType(null); }}
-            >
-              Réglages
-            </button>
             {canScanQr && (
               <button
                 className="nav-btn"
@@ -1358,6 +1352,12 @@ export default function App() {
                 {exportingPdf && isAdminOrCoordon(user) ? 'Export...' : 'Exporter'}
               </button>
             )}
+            <button
+              className={`nav-btn ${view === 'settings' ? 'active' : ''}`}
+              onClick={() => { setView('settings'); setEditing(null); setEditingUser(null); setCreateType(null); }}
+            >
+              Réglages
+            </button>
           </nav>
         </header>
         <footer className="app-user-footer">
