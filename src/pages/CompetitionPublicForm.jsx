@@ -1064,7 +1064,6 @@ export default function CompetitionPublicForm({ token }) {
                       <section key={cat.key} className="competition-team-cat-card">
                         <div className="competition-team-cat-meta">
                           <span className="competition-team-cat-label">{cat.label}</span>
-                          <span className="competition-team-cat-range">{cat.min}–{cat.max} kg</span>
                         </div>
                         {!bucket?.principal && !bucket?.remplacant ? (
                           <p className="competition-team-cat-empty">Aucun judoka classé</p>
