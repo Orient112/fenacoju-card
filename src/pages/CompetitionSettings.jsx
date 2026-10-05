@@ -22,6 +22,7 @@ import CompetitionClubSelect from '../components/CompetitionClubSelect';
 import { buildWeightDraw, buildTeamDraw } from '../utils/competitionDraw';
 import DrawAnimation from '../components/DrawAnimation';
 import ReceiptScanModal from '../components/ReceiptScanModal';
+import CompetitionLinkQrModal from '../components/CompetitionLinkQrModal';
 import { ClubLigueLabel } from '../components/CompetitionClubSelect';
 import { IconCharge, IconEdit, IconTrash } from '../components/ActionIcons';
 
@@ -687,6 +688,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
   const [registrations, setRegistrations] = useState([]);
   const [liveTick, setLiveTick] = useState(false);
   const [showParamsModal, setShowParamsModal] = useState(false);
+  const [showLinkQrModal, setShowLinkQrModal] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [drawResult, setDrawResult] = useState(null);
@@ -1940,6 +1942,14 @@ export default function CompetitionSettings({ onBack, onToast }) {
                     >
                       Paramètres de Compétition
                     </button>
+                    <button
+                      type="button"
+                      className="btn btn-outline"
+                      onClick={() => setShowLinkQrModal(true)}
+                      disabled={isClosed}
+                    >
+                      QR Code
+                    </button>
                   </div>
                 </div>
               )}
@@ -2061,6 +2071,14 @@ export default function CompetitionSettings({ onBack, onToast }) {
             </form>
           </div>
         </div>
+      )}
+
+      {showLinkQrModal && publicUrl && (
+        <CompetitionLinkQrModal
+          url={publicUrl}
+          competitionName={settings?.nom || ''}
+          onClose={() => setShowLinkQrModal(false)}
+        />
       )}
 
       {confirmDelete && (

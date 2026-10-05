@@ -6115,6 +6115,71 @@ tbody tr:last-child td {
   margin-bottom: 1rem;
 }
 
+.competition-link-qr-modal {
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  width: min(440px, 94vw);
+  max-height: 90vh;
+  overflow: auto;
+  padding: 1.25rem 1.35rem;
+}
+
+.competition-link-qr-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.competition-link-qr-head h3 {
+  margin: 0 0 0.2rem;
+}
+
+.competition-link-qr-head .form-hint {
+  margin: 0;
+}
+
+.competition-link-qr-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.85rem;
+  text-align: center;
+}
+
+.competition-link-qr-code {
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+}
+
+.competition-link-qr-url {
+  margin: 0;
+  max-width: 100%;
+  word-break: break-all;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: #64748b;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.competition-link-qr-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  justify-content: stretch;
+  margin-top: 1.15rem;
+}
+
+.competition-link-qr-actions .btn {
+  flex: 1 1 140px;
+  justify-content: center;
+}
+
 .competition-weigh-toolbar {
   display: flex;
   gap: 0.75rem;
