@@ -7340,6 +7340,7 @@ a.competition-action-btn,
 .club-select-sep {
   color: #cbd5e1;
   font-weight: 400;
+  white-space: pre;
 }
 
 .club-select-ligue {
@@ -7361,12 +7362,66 @@ a.competition-action-btn,
   flex: 1;
 }
 
+.competition-club-fields-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  align-items: end;
+}
+
 .competition-club-edit-fields {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
   flex: 1;
   min-width: 0;
+}
+
+.competition-club-fields-row .form-group {
+  margin: 0;
+  min-width: 0;
+}
+
+.clubs-import-progress {
+  margin: 0 0 1rem;
+  padding: 0.85rem 1rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.clubs-import-progress p {
+  margin: 0 0 0.55rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.clubs-import-progress-track {
+  width: 100%;
+  height: 10px;
+  background: #e2e8f0;
+  overflow: hidden;
+}
+
+.clubs-import-progress-fill {
+  height: 100%;
+  background: #16a34a;
+  transition: width 0.2s ease;
+}
+
+.clubs-import-progress-value {
+  display: inline-block;
+  margin-top: 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #16a34a;
+}
+
+@media (max-width: 560px) {
+  .competition-club-fields-row,
+  .competition-club-edit-fields {
+    grid-template-columns: 1fr;
+  }
 }
 
 .competition-club-select {

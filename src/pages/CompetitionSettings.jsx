@@ -16,7 +16,7 @@ import {
 import { exportCompetitionListToPdf } from '../utils/exportCompetitionListPdf';
 import { exportCompetitionDrawToPdf } from '../utils/exportCompetitionDrawPdf';
 import { exportCompetitionBadgesToPdf } from '../utils/exportCompetitionBadgesPdf';
-import { extractClubNamesFromPdfFile } from '../utils/importClubsFromPdf';
+import { extractClubsFromPdfFile } from '../utils/importClubsFromPdf';
 import { buildWeightDraw, buildTeamDraw } from '../utils/competitionDraw';
 import DrawAnimation from '../components/DrawAnimation';
 import ReceiptScanModal from '../components/ReceiptScanModal';
@@ -710,6 +710,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
   const [ligueDraft, setLigueDraft] = useState('');
   const [editingClub, setEditingClub] = useState(null);
   const clubsPdfInputRef = useRef(null);
+  const [clubsImportProgress, setClubsImportProgress] = useState(null);
   const [chargeTeamTarget, setChargeTeamTarget] = useState(null);
   const [chargeSelections, setChargeSelections] = useState({});
   const [showReceiptScan, setShowReceiptScan] = useState(false);
@@ -1183,7 +1184,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
   const handleAddCompetitionClub = async (e) => {
     e.preventDefault();
     const nom = clubDraft.trim();
-    const ligue = ligueDraft.trim();
+    const ligue = ligueDraft.trim() || '-';
     if (!nom || !clubsEditorCadre) return;
     const current = settings?.competition_clubs || [];
     if (current.some((c) => c.cadre === clubsEditorCadre && String(c.nom).toLowerCase() === nom.toLowerCase())) {
@@ -1266,8 +1267,10 @@ export default function CompetitionSettings({ onBack, onToast }) {
     if (!file || !clubsEditorCadre) return;
 
     setSaving(true);
+    setClubsImportProgress(0);
     try {
-      const names = await extractClubNamesFromPdfFile(file);
+      const imported = await extractClubsFromPdfFile(file, setClubsImportProgress);
+      setClubsImportProgress(96);
       const cadre = clubsEditorCadre;
       const current = settings?.competition_clubs || [];
       const existing = new Set(
@@ -1275,10 +1278,13 @@ export default function CompetitionSettings({ onBack, onToast }) {
           .filter((c) => c.cadre === cadre)
           .map((c) => String(c.nom || '').trim().toLowerCase())
       );
-      const toAdd = names
-        .map((nom) => String(nom || '').trim())
-        .filter((nom) => nom && !existing.has(nom.toLowerCase()))
-        .map((nom) => ({ nom, ligue: '', cadre }));
+      const toAdd = imported
+        .map((row) => ({
+          nom: String(row.nom || '').trim(),
+          ligue: String(row.ligue || '').trim() || '-',
+          cadre,
+        }))
+        .filter((row) => row.nom && !existing.has(row.nom.toLowerCase()));
 
       if (!toAdd.length) {
         onToast?.('Tous les clubs du PDF sont déjà enregistrés pour ce cadre', 'error');
@@ -1286,17 +1292,19 @@ export default function CompetitionSettings({ onBack, onToast }) {
       }
 
       await persistCompetitionClubs([...current, ...toAdd]);
+      setClubsImportProgress(100);
       onToast?.(`${toAdd.length} club(s) importé(s) depuis le PDF`);
     } catch (err) {
       onToast?.(err.message || 'Impossible d\'importer les clubs depuis le PDF', 'error');
     } finally {
       setSaving(false);
+      setTimeout(() => setClubsImportProgress(null), 350);
     }
   };
 
   const handleSaveEditedClub = async (club) => {
     const nom = String(editingClub?.nom || '').trim();
-    const ligue = String(editingClub?.ligue || '').trim();
+    const ligue = String(editingClub?.ligue || '').trim() || '-';
     if (!nom) {
       onToast?.('Le nom du club est obligatoire', 'error');
       return;
@@ -2354,28 +2362,47 @@ export default function CompetitionSettings({ onBack, onToast }) {
       )}
 
       {clubsEditorCadre && (
-        <div className="confirm-overlay" onClick={() => setClubsEditorCadre(null)}>
+        <div
+          className="confirm-overlay"
+          onClick={() => {
+            if (clubsImportProgress == null) setClubsEditorCadre(null);
+          }}
+        >
           <div className="confirm-dialog competition-team-edit-modal" onClick={(e) => e.stopPropagation()}>
             <h3>Clubs · {clubsEditorCadre === 'equipe' ? 'Par équipe' : 'Individuel'}</h3>
-            <form onSubmit={handleAddCompetitionClub}>
-              <div className="form-group">
-                <label htmlFor="competition-club-name">Nom du club</label>
-                <input
-                  id="competition-club-name"
-                  value={clubDraft}
-                  onChange={(e) => setClubDraft(e.target.value)}
-                  placeholder="Ex. Club Judo Kinshasa"
-                  autoFocus
-                />
+            {clubsImportProgress != null && (
+              <div className="clubs-import-progress" role="status" aria-live="polite">
+                <p>Chargement des clubs…</p>
+                <div className="clubs-import-progress-track">
+                  <div
+                    className="clubs-import-progress-fill"
+                    style={{ width: `${clubsImportProgress}%` }}
+                  />
+                </div>
+                <span className="clubs-import-progress-value">{clubsImportProgress}%</span>
               </div>
-              <div className="form-group">
-                <label htmlFor="competition-club-ligue">Ligue</label>
-                <input
-                  id="competition-club-ligue"
-                  value={ligueDraft}
-                  onChange={(e) => setLigueDraft(e.target.value)}
-                  placeholder="Ex. Kinshasa"
-                />
+            )}
+            <form onSubmit={handleAddCompetitionClub}>
+              <div className="competition-club-fields-row">
+                <div className="form-group">
+                  <label htmlFor="competition-club-name">Nom du club</label>
+                  <input
+                    id="competition-club-name"
+                    value={clubDraft}
+                    onChange={(e) => setClubDraft(e.target.value)}
+                    placeholder="Ex. Club Judo Kinshasa"
+                    autoFocus
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="competition-club-ligue">Ligue</label>
+                  <input
+                    id="competition-club-ligue"
+                    value={ligueDraft}
+                    onChange={(e) => setLigueDraft(e.target.value)}
+                    placeholder="Ex. Kinshasa"
+                  />
+                </div>
               </div>
               <div className="confirm-actions" style={{ marginBottom: '1rem' }}>
                 <button type="submit" className="btn btn-primary" disabled={saving || !clubDraft.trim()}>
@@ -2392,7 +2419,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
                   .map((club) => (
                     <li key={club.id}>
                       {editingClub?.id === club.id ? (
-                        <div className="competition-club-edit-fields">
+                        <div className="competition-club-edit-fields competition-club-fields-row">
                           <input
                             value={editingClub.nom}
                             onChange={(e) => setEditingClub((prev) => ({ ...prev, nom: e.target.value }))}
@@ -2485,7 +2512,12 @@ export default function CompetitionSettings({ onBack, onToast }) {
               >
                 {saving ? 'Suppression…' : 'Supprimer'}
               </button>
-              <button type="button" className="btn btn-outline" onClick={() => setClubsEditorCadre(null)}>
+              <button
+                type="button"
+                className="btn btn-outline"
+                disabled={clubsImportProgress != null}
+                onClick={() => setClubsEditorCadre(null)}
+              >
                 Fermer
               </button>
             </div>

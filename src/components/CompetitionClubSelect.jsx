@@ -2,14 +2,11 @@ import { useEffect, useId, useRef, useState } from 'react';
 
 export function ClubLigueLabel({ nom, ligue }) {
   const name = String(nom || '').trim() || '—';
-  const league = String(ligue || '').trim();
-  if (!league) {
-    return <span className="club-select-name">{name}</span>;
-  }
+  const league = String(ligue || '').trim() || '-';
   return (
     <>
       <span className="club-select-name">{name}</span>
-      <span className="club-select-sep"> / </span>
+      <span className="club-select-sep">{' / '}</span>
       <span className="club-select-ligue">{league}</span>
     </>
   );
