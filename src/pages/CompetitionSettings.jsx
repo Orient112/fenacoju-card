@@ -1211,6 +1211,48 @@ export default function CompetitionSettings({ onBack, onToast }) {
     }
   };
 
+  const handleClearCadreClubsAndRegistrations = async () => {
+    if (!clubsEditorCadre) return;
+    const cadre = clubsEditorCadre;
+    const label = cadre === 'equipe' ? 'Par équipe' : 'Individuel';
+    const regsToDelete = registrations.filter((r) => {
+      const isTeam = isTeamRegistration(r);
+      return cadre === 'equipe' ? isTeam : !isTeam;
+    });
+    const clubsToDelete = (settings?.competition_clubs || []).filter((c) => c.cadre === cadre);
+    if (!regsToDelete.length && !clubsToDelete.length) {
+      onToast?.(`Aucun club ni judoka à supprimer pour ${label}`, 'error');
+      return;
+    }
+    const confirmed = window.confirm(
+      `Supprimer tous les clubs et judokas enregistrés en ${label} ? Cette action est irréversible.`
+    );
+    if (!confirmed) return;
+
+    setSaving(true);
+    setError('');
+    try {
+      if (regsToDelete.length) {
+        await Promise.all(regsToDelete.map((r) => deleteCompetitionRegistration(r.id)));
+        const ids = new Set(regsToDelete.map((r) => r.id));
+        setRegistrations((prev) => prev.filter((r) => !ids.has(r.id)));
+      }
+      const current = settings?.competition_clubs || [];
+      const nextClubs = current.filter((c) => c.cadre !== cadre);
+      if (nextClubs.length !== current.length) {
+        await persistCompetitionClubs(nextClubs);
+      }
+      setEditingClub(null);
+      setClubDraft('');
+      onToast?.(`Tous les clubs et judokas ${label} ont été supprimés`);
+    } catch (err) {
+      setError(err.message || 'Suppression impossible');
+      onToast?.(err.message || 'Suppression impossible', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleSaveEditedClub = async (club) => {
     const nom = String(editingClub?.nom || '').trim();
     if (!nom) {
@@ -2352,6 +2394,15 @@ export default function CompetitionSettings({ onBack, onToast }) {
               </ul>
             )}
             <div className="confirm-actions">
+              <button
+                type="button"
+                className="btn"
+                style={{ background: '#dc2626', color: '#fff', borderColor: '#dc2626' }}
+                disabled={saving}
+                onClick={handleClearCadreClubsAndRegistrations}
+              >
+                {saving ? 'Suppression…' : 'Supprimer'}
+              </button>
               <button type="button" className="btn btn-outline" onClick={() => setClubsEditorCadre(null)}>
                 Fermer
               </button>
