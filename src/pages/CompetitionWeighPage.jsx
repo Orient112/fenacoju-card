@@ -250,7 +250,10 @@ export default function CompetitionWeighPage({ token }) {
   }
 
   const weighed = filtered.filter((r) => r.poids).length;
-  const weighComplete = filtered.length > 0 && weighed === filtered.length;
+  // Clôture réelle : tous les inscrits du cadre (pas seulement le filtre actif)
+  const totalInMode = modeRegistrations.length;
+  const weighedInMode = modeRegistrations.filter((r) => r.poids).length;
+  const weighComplete = totalInMode > 0 && weighedInMode === totalInMode;
 
   return (
     <div className="competition-public-page">
