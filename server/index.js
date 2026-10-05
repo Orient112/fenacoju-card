@@ -1231,7 +1231,7 @@ app.post('/api/messages', async (req, res) => {
 
 const messageAttachmentUpload = multer({
   storage: memoryStorage,
-  limits: { fileSize: 10 * 1024 * 1024 },
+  limits: { fileSize: 20 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     const allowedMime = [
       'image/jpeg',
@@ -1253,7 +1253,7 @@ app.post('/api/messages/with-attachment', (req, res) => {
   messageAttachmentUpload.single('attachment')(req, res, async (err) => {
     if (err) {
       const msg = err.code === 'LIMIT_FILE_SIZE'
-        ? 'Fichier trop volumineux (maximum 10 Mo)'
+        ? 'Fichier trop volumineux (maximum 20 Mo)'
         : (err.message || 'Fichier non accepté');
       return res.status(400).json({ error: msg });
     }

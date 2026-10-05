@@ -4369,6 +4369,40 @@ tbody tr:last-child td {
   opacity: 0.9;
 }
 
+.message-body {
+  word-break: break-word;
+}
+
+.message-body-plain {
+  white-space: pre-wrap;
+}
+
+.message-body-rich p {
+  margin: 0 0 0.55em;
+}
+
+.message-body-rich p:last-child {
+  margin-bottom: 0;
+}
+
+.message-body-rich div + div {
+  margin-top: 0.45em;
+}
+
+.message-body b,
+.message-body strong {
+  font-weight: 700;
+}
+
+.message-body i,
+.message-body em {
+  font-style: italic;
+}
+
+.message-body u {
+  text-decoration: underline;
+}
+
 .message-time {
   font-size: 0.68rem;
   opacity: 0.72;
@@ -4410,14 +4444,75 @@ tbody tr:last-child td {
   background: #fff;
 }
 
+.messages-compose-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.messages-format-btn {
+  width: 34px;
+  height: 34px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid #d7e0ef;
+  background: #f8fbff;
+  color: #1e3a5f;
+  font-size: 0.88rem;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+
+.messages-format-btn:hover {
+  border-color: var(--primary);
+  background: #eef4ff;
+}
+
+.messages-format-underline {
+  text-decoration: underline;
+  font-weight: 600;
+}
+
 .messages-compose input,
-.messages-compose textarea {
+.messages-compose textarea,
+.messages-compose-editor {
   width: 100%;
   font-family: inherit;
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 0.65rem 0.8rem;
   background: #f8fbff;
+}
+
+.messages-compose-editor {
+  min-height: 72px;
+  max-height: 220px;
+  overflow-y: auto;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.messages-compose-editor:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(29, 67, 147, 0.12);
+  background: #fff;
+}
+
+.messages-compose-editor.is-empty::before {
+  content: attr(data-placeholder);
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.messages-compose-editor p {
+  margin: 0 0 0.45em;
+}
+
+.messages-compose-editor p:last-child {
+  margin-bottom: 0;
 }
 
 .messages-compose input:focus,
@@ -4434,9 +4529,12 @@ tbody tr:last-child td {
   align-items: flex-end;
 }
 
-.messages-compose-row textarea {
-  min-height: 54px;
+.messages-compose-row textarea,
+.messages-compose-row .messages-compose-editor {
+  min-height: 72px;
   resize: vertical;
+  flex: 1;
+  min-width: 0;
 }
 
 .messages-compose-row .btn {

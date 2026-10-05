@@ -9,8 +9,11 @@ import {
 
 const ATTACHMENT_ACCEPT = '.doc,.docx,.pdf,.jpg,.jpeg,.png,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf,image/jpeg,image/png';
 const ATTACHMENT_EXT = /\.(doc|docx|pdf|jpe?g|png)$/i;
+const ATTACHMENT_MAX_BYTES = 20 * 1024 * 1024;
 const ATT_MARKER_RE = /__FENACOJU_ATT__([A-Za-z0-9+/=]+)/;
-const URL_RE = /https?:\/\/[^\s]+/gi;
+const URL_RE = /https?:\/\/[^\s<]+/gi;
+const HTML_TAG_RE = /<\/?[a-z][\s\S]*>/i;
+const ALLOWED_MESSAGE_TAGS = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'BR', 'P', 'DIV', 'SPAN']);
 
 function parseMessageContent(message) {
   let text = String(message?.body || '');
@@ -40,18 +43,49 @@ function parseMessageContent(message) {
     const fileUrl = urls.find((u) => /message-attachments|\/uploads\/|\.(pdf|docx?|jpe?g|png)(\?|$)/i.test(u));
     if (fileUrl) {
       attachmentUrl = fileUrl;
-      const nameLine = text.match(/📎\s*([^\n]+)/);
+      const nameLine = text.match(/📎\s*([^\n<]+)/);
       attachmentName = attachmentName || nameLine?.[1]?.trim() || 'Fichier joint';
     }
   }
 
   text = text
-    .replace(/📎[^\n]*/g, '')
+    .replace(/📎[^\n<]*/g, '')
     .replace(URL_RE, '')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 
   return { text, attachmentUrl, attachmentName };
+}
+
+function sanitizeMessageHtml(html) {
+  const doc = new DOMParser().parseFromString(String(html || ''), 'text/html');
+  const walk = (node) => {
+    const children = [...node.childNodes];
+    for (const child of children) {
+      if (child.nodeType === Node.ELEMENT_NODE) {
+        if (!ALLOWED_MESSAGE_TAGS.has(child.tagName)) {
+          while (child.firstChild) node.insertBefore(child.firstChild, child);
+          node.removeChild(child);
+          continue;
+        }
+        [...child.attributes].forEach((attr) => child.removeAttribute(attr.name));
+        walk(child);
+      }
+    }
+  };
+  walk(doc.body);
+  return doc.body.innerHTML;
+}
+
+function isRichMessageBody(text) {
+  return HTML_TAG_RE.test(String(text || ''));
+}
+
+function editorHasContent(el) {
+  if (!el) return false;
+  const text = String(el.innerText || '').replace(/\u00a0/g, ' ').trim();
+  if (text) return true;
+  return Boolean(el.querySelector('img'));
 }
 
 function getContactName(contact) {
@@ -118,8 +152,7 @@ export default function Messages({ currentUser, onUnreadChange }) {
   const [contacts, setContacts] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [messages, setMessages] = useState([]);
-  const [draft, setDraft] = useState('');
-  const [subject, setSubject] = useState('');
+  const [draftEmpty, setDraftEmpty] = useState(true);
   const [attachment, setAttachment] = useState(null);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -128,6 +161,7 @@ export default function Messages({ currentUser, onUnreadChange }) {
   const [contactsOpen, setContactsOpen] = useState(true);
   const threadRef = useRef(null);
   const fileInputRef = useRef(null);
+  const editorRef = useRef(null);
   const selectedIdRef = useRef(null);
 
   const selected = contacts.find((c) => c.id === selectedId);
@@ -145,7 +179,29 @@ export default function Messages({ currentUser, onUnreadChange }) {
     onUnreadChange?.(data.reduce((sum, c) => sum + (c.unread || 0), 0));
   };
 
+  const clearEditor = () => {
+    if (editorRef.current) editorRef.current.innerHTML = '';
+    setDraftEmpty(true);
+  };
+
+  const syncDraftEmpty = () => {
+    setDraftEmpty(!editorHasContent(editorRef.current));
+  };
+
+  const applyFormat = (command) => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    editor.focus();
+    document.execCommand(command, false, null);
+    syncDraftEmpty();
+  };
+
   useEffect(() => {
+    try {
+      document.execCommand('defaultParagraphSeparator', false, 'p');
+    } catch {
+      // ignore
+    }
     loadContacts()
       .catch(() => setError('Impossible de charger les messages'))
       .finally(() => setLoading(false));
@@ -156,6 +212,9 @@ export default function Messages({ currentUser, onUnreadChange }) {
       setMessages([]);
       return undefined;
     }
+    clearEditor();
+    setAttachment(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
     let cancelled = false;
     setError('');
     fetchConversation(selectedId)
@@ -201,8 +260,8 @@ export default function Messages({ currentUser, onUnreadChange }) {
       setAttachment(null);
       return;
     }
-    if (file.size > 10 * 1024 * 1024) {
-      setError('Fichier trop volumineux (maximum 10 Mo)');
+    if (file.size > ATTACHMENT_MAX_BYTES) {
+      setError('Fichier trop volumineux (maximum 20 Mo)');
       e.target.value = '';
       setAttachment(null);
       return;
@@ -214,35 +273,38 @@ export default function Messages({ currentUser, onUnreadChange }) {
   const handleSend = async (e) => {
     e.preventDefault();
     if (!selectedId || sending) return;
-    const text = draft.trim();
+    const editor = editorRef.current;
+    const plain = String(editor?.innerText || '').replace(/\u00a0/g, ' ').trim();
+    const html = sanitizeMessageHtml(editor?.innerHTML || '');
     const file = attachment;
-    if (!text && !file) return;
-    const topic = subject;
+    if (!plain && !file) return;
+    const body = plain ? html : '';
     const tempId = `tmp-${Date.now()}`;
     const optimistic = {
       id: tempId,
       from_id: currentUser.id,
       to_id: selectedId,
-      subject: topic,
-      body: text || (file ? `Pièce jointe : ${file.name}` : ''),
+      subject: '',
+      body: body || (file ? `Pièce jointe : ${file.name}` : ''),
       attachment_name: file?.name || '',
       attachment_url: file ? 'pending' : '',
       read: false,
       created_at: new Date().toISOString(),
     };
-    setDraft('');
+    clearEditor();
     setAttachment(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
     setSending(true);
     setError('');
     setMessages((prev) => [...prev, optimistic]);
     try {
-      const saved = await sendMessage(selectedId, topic, text, file || undefined);
+      const saved = await sendMessage(selectedId, '', body, file || undefined);
       setMessages((prev) => prev.map((m) => (m.id === tempId ? saved : m)));
       loadContacts();
     } catch (err) {
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
-      setDraft(text);
+      if (editorRef.current) editorRef.current.innerHTML = body;
+      setDraftEmpty(!plain);
       setAttachment(file);
       setError(err.message);
     } finally {
@@ -373,7 +435,16 @@ export default function Messages({ currentUser, onUnreadChange }) {
                   return (
                     <div key={m.id} className={`message-bubble ${mine ? 'mine' : 'theirs'}`}>
                       {m.subject && <div className="message-subject">{m.subject}</div>}
-                      {text && <div className="message-body">{text}</div>}
+                      {text && (
+                        isRichMessageBody(text) ? (
+                          <div
+                            className="message-body message-body-rich"
+                            dangerouslySetInnerHTML={{ __html: sanitizeMessageHtml(text) }}
+                          />
+                        ) : (
+                          <div className="message-body message-body-plain">{text}</div>
+                        )
+                      )}
                       {attachmentUrl && (
                         <a
                           className="message-attachment"
@@ -403,21 +474,62 @@ export default function Messages({ currentUser, onUnreadChange }) {
             </div>
 
             <form className="messages-compose" onSubmit={handleSend}>
-              <input
-                type="text"
-                placeholder="Objet (optionnel)"
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-              />
+              <div className="messages-compose-toolbar" role="toolbar" aria-label="Mise en forme">
+                <button
+                  type="button"
+                  className="messages-format-btn"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => applyFormat('bold')}
+                  title="Gras"
+                  aria-label="Gras"
+                >
+                  <strong>G</strong>
+                </button>
+                <button
+                  type="button"
+                  className="messages-format-btn"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => applyFormat('italic')}
+                  title="Italique"
+                  aria-label="Italique"
+                >
+                  <em>I</em>
+                </button>
+                <button
+                  type="button"
+                  className="messages-format-btn"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => applyFormat('underline')}
+                  title="Souligné"
+                  aria-label="Souligné"
+                >
+                  <span className="messages-format-underline">S</span>
+                </button>
+              </div>
               <div className="messages-compose-row">
-                <textarea
-                  placeholder="Rédiger un message..."
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  rows={2}
-                  required={!attachment}
+                <div
+                  ref={editorRef}
+                  className={`messages-compose-editor ${draftEmpty ? 'is-empty' : ''}`}
+                  contentEditable
+                  role="textbox"
+                  aria-multiline="true"
+                  aria-label="Rédiger un message"
+                  data-placeholder="Rédiger un message..."
+                  onInput={syncDraftEmpty}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                      e.preventDefault();
+                      if (!sending && (!draftEmpty || attachment)) {
+                        e.currentTarget.closest('form')?.requestSubmit();
+                      }
+                    }
+                  }}
                 />
-                <button type="submit" className="btn messages-send-btn" disabled={sending || (!draft.trim() && !attachment)}>
+                <button
+                  type="submit"
+                  className="btn messages-send-btn"
+                  disabled={sending || (draftEmpty && !attachment)}
+                >
                   {sending ? 'Envoi...' : 'Envoyer'}
                 </button>
               </div>
@@ -438,7 +550,6 @@ export default function Messages({ currentUser, onUnreadChange }) {
                 >
                   Joindre un fichier
                 </button>
-                <span className="form-hint">DOC, PDF, JPG, PNG · max 10 Mo</span>
                 {attachment && (
                   <span className="messages-attach-name">
                     {attachment.name}
