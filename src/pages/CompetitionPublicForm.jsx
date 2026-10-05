@@ -27,7 +27,14 @@ const emptyForm = () => ({
 });
 
 const TEAM_MIN_CATEGORIES = 3;
-const emptyTeamEntry = () => ({ nom_complet: '', role: 'principal', poids: '' });
+const emptyTeamEntry = () => ({ nom: '', prenom: '', role: 'principal', poids: '' });
+
+function teamMemberDisplayName(member) {
+  if (!member) return '';
+  const fromParts = `${member.prenom || ''} ${member.nom || ''}`.trim();
+  if (fromParts) return fromParts;
+  return String(member.nom_complet || '').trim();
+}
 
 function buildTeamRosterFromMembers(members, categories, club, sexe) {
   const cats = categoriesForSexe(categories, sexe);
@@ -54,6 +61,8 @@ function buildTeamRosterFromMembers(members, categories, club, sexe) {
     if (!next[cat.key]) next[cat.key] = { cat, principal: null, remplacant: null };
     const role = m.role_equipe === 'remplacant' ? 'remplacant' : 'principal';
     next[cat.key][role] = {
+      nom: m.nom || '',
+      prenom: m.prenom || '',
       nom_complet: `${m.prenom || ''} ${m.nom || ''}`.trim(),
       poids: m.poids || '',
       role,
@@ -421,11 +430,16 @@ export default function CompetitionPublicForm({ token }) {
 
   const classifyTeamEntry = () => {
     setError('');
-    const nomComplet = String(teamEntry.nom_complet || '').trim();
+    const nom = String(teamEntry.nom || '').trim();
+    const prenom = String(teamEntry.prenom || '').trim();
     const poids = String(teamEntry.poids || '').trim();
     const role = teamEntry.role === 'remplacant' ? 'remplacant' : 'principal';
-    if (!nomComplet) {
-      setError('Saisissez le nom complet du judoka');
+    if (!nom) {
+      setError('Saisissez le nom du judoka');
+      return;
+    }
+    if (!prenom) {
+      setError('Saisissez le prénom du judoka');
       return;
     }
     if (!poids) {
@@ -452,7 +466,13 @@ export default function CompetitionPublicForm({ token }) {
         cat,
         principal: current.principal,
         remplacant: current.remplacant,
-        [role]: { nom_complet: nomComplet, poids, role },
+        [role]: {
+          nom,
+          prenom,
+          nom_complet: `${prenom} ${nom}`.trim(),
+          poids,
+          role,
+        },
       },
     }));
     setTeamEntry(emptyTeamEntry());
@@ -526,10 +546,14 @@ export default function CompetitionPublicForm({ token }) {
           if (bucket.principal.locked) {
             hasLocked = true;
           } else {
-            const names = splitFullName(bucket.principal.nom_complet);
+            const nom = String(bucket.principal.nom || '').trim()
+              || splitFullName(bucket.principal.nom_complet).nom;
+            const prenom = String(bucket.principal.prenom || '').trim()
+              || splitFullName(bucket.principal.nom_complet).prenom;
             members.push({
-              ...names,
-              nom_complet: bucket.principal.nom_complet,
+              nom,
+              prenom,
+              nom_complet: `${prenom} ${nom}`.trim(),
               poids: bucket.principal.poids,
               role_equipe: 'principal',
               categorie: bucket.cat?.label || '',
@@ -545,10 +569,14 @@ export default function CompetitionPublicForm({ token }) {
           if (bucket.remplacant.locked) {
             hasLocked = true;
           } else {
-            const names = splitFullName(bucket.remplacant.nom_complet);
+            const nom = String(bucket.remplacant.nom || '').trim()
+              || splitFullName(bucket.remplacant.nom_complet).nom;
+            const prenom = String(bucket.remplacant.prenom || '').trim()
+              || splitFullName(bucket.remplacant.nom_complet).prenom;
             members.push({
-              ...names,
-              nom_complet: bucket.remplacant.nom_complet,
+              nom,
+              prenom,
+              nom_complet: `${prenom} ${nom}`.trim(),
               poids: bucket.remplacant.poids,
               role_equipe: 'remplacant',
               categorie: bucket.cat?.label || '',
@@ -1017,14 +1045,24 @@ export default function CompetitionPublicForm({ token }) {
                 <div className="competition-team-entry">
                   <h3>Ajouter un judoka</h3>
                   <div className="form-grid">
-                    <div className="form-group form-group-full">
-                      <label htmlFor="team-nom-complet">Nom complet</label>
+                    <div className="form-group">
+                      <label htmlFor="team-nom">Nom</label>
                       <input
-                        id="team-nom-complet"
-                        value={teamEntry.nom_complet}
-                        onChange={(e) => setTeamEntry((prev) => ({ ...prev, nom_complet: e.target.value }))}
+                        id="team-nom"
+                        value={teamEntry.nom}
+                        onChange={(e) => setTeamEntry((prev) => ({ ...prev, nom: e.target.value }))}
                         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); classifyTeamEntry(); } }}
-                        placeholder="Ex. Jean Mukendi"
+                        placeholder="Ex. Mukendi"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label htmlFor="team-prenom">Prénom</label>
+                      <input
+                        id="team-prenom"
+                        value={teamEntry.prenom}
+                        onChange={(e) => setTeamEntry((prev) => ({ ...prev, prenom: e.target.value }))}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); classifyTeamEntry(); } }}
+                        placeholder="Ex. Jean"
                       />
                     </div>
                     <div className="form-group">
@@ -1073,7 +1111,7 @@ export default function CompetitionPublicForm({ token }) {
                               <li className="competition-team-judoka-row">
                                 <div className="competition-team-judoka-main">
                                   <span className="competition-team-role-tag">Principal</span>
-                                  <span className="competition-team-judoka-name">{bucket.principal.nom_complet}</span>
+                                  <span className="competition-team-judoka-name">{teamMemberDisplayName(bucket.principal)}</span>
                                   <span className="competition-team-judoka-weight">{bucket.principal.poids} kg</span>
                                 </div>
                                 {bucket.principal.locked ? (
