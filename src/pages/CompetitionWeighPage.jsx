@@ -254,7 +254,7 @@ export default function CompetitionWeighPage({ token }) {
 
   return (
     <div className="competition-public-page">
-      <div className="competition-public-shell competition-weigh-shell">
+      <div className={`competition-public-shell competition-weigh-shell ${!isTeamMode ? 'is-individuel' : ''}`}>
         <header className="competition-public-brand">
           <div className="competition-public-logo-wrap">
             <img
@@ -409,15 +409,24 @@ export default function CompetitionWeighPage({ token }) {
             })}
           </div>
         ) : (
-          <div className="competition-weigh-list">
+          <div className="competition-weigh-list competition-weigh-list-individuel">
             {filtered.map((r) => {
               const done = Boolean(r.poids);
-              const originalIndex = registrations.findIndex((item) => item.id === r.id);
+              const originalIndex = modeRegistrations.findIndex((item) => item.id === r.id);
+              const club = String(r.club || '').trim() || '—';
+              const categorie = String(r.categorie || '').trim() || '—';
               return (
                 <div key={r.id} className={`competition-weigh-row ${done ? 'is-done' : ''}`}>
                   <div className="competition-weigh-identity">
                     <span className="competition-weigh-num">{originalIndex + 1}</span>
-                    <strong className="competition-weigh-name">{`${r.prenom || ''} ${r.nom || ''}`.trim()}</strong>
+                    <div>
+                      <strong className="competition-weigh-name">{`${r.prenom || ''} ${r.nom || ''}`.trim()}</strong>
+                      <span className="competition-weigh-meta">
+                        Club : {club}
+                        {' · '}
+                        Catégorie : {categorie}
+                      </span>
+                    </div>
                   </div>
                   <div className="competition-weigh-input">
                     <input

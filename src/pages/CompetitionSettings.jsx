@@ -1542,6 +1542,34 @@ export default function CompetitionSettings({ onBack, onToast }) {
     }
   };
 
+  const handleRemoveEditTeamMember = async (member) => {
+    if (!member?.id || !editTeamTarget) return;
+    const label = `${member.prenom || ''} ${member.nom || ''}`.trim() || 'ce judoka';
+    const confirmed = window.confirm(
+      `Supprimer ${label} de l'équipe ${editTeamClub.trim() || editTeamTarget.club} ?`
+    );
+    if (!confirmed) return;
+
+    setSaving(true);
+    setError('');
+    try {
+      await deleteCompetitionRegistration(member.id);
+      setRegistrations((prev) => prev.filter((r) => r.id !== member.id));
+      setEditTeamMembers((prev) => prev.filter((m) => m.id !== member.id));
+      setEditTeamTarget((prev) => (prev ? {
+        ...prev,
+        ids: (prev.ids || []).filter((id) => id !== member.id),
+        members: (prev.members || []).filter((m) => m.id !== member.id),
+      } : prev));
+      onToast?.(`${label} retiré(e) de l'équipe`);
+    } catch (err) {
+      setError(err.message || 'Suppression impossible');
+      onToast?.(err.message || 'Suppression impossible', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleSaveTeam = async (e) => {
     e.preventDefault();
     if (!editTeamTarget) return;
@@ -2415,10 +2443,20 @@ export default function CompetitionSettings({ onBack, onToast }) {
                                 className="btn btn-outline btn-sm competition-team-swap-btn"
                                 onClick={() => swapTeamMemberRole(member.id)}
                                 title="Permuter Principal / Remplaçant"
+                                disabled={saving || addingTeamJudoka}
                               >
                                 ⇄
                               </button>
                             )}
+                            <button
+                              type="button"
+                              className="btn btn-icon btn-icon-delete"
+                              title="Supprimer le judoka"
+                              disabled={saving || addingTeamJudoka}
+                              onClick={() => handleRemoveEditTeamMember(member)}
+                            >
+                              <IconTrash />
+                            </button>
                           </div>
                         </div>
                       );
@@ -2427,7 +2465,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
                 ))}
               </div>
               <div className="confirm-actions">
-                <button type="button" className="btn btn-outline" onClick={() => setEditTeamTarget(null)} disabled={addingTeamJudoka}>
+                <button type="button" className="btn btn-outline" onClick={() => setEditTeamTarget(null)} disabled={addingTeamJudoka || saving}>
                   Annuler
                 </button>
                 <button type="submit" className="btn btn-primary" disabled={saving || addingTeamJudoka}>

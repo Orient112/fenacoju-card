@@ -5889,6 +5889,11 @@ tbody tr:last-child td {
   max-width: 920px;
 }
 
+.competition-weigh-shell.is-individuel {
+  max-width: none;
+  width: 100%;
+}
+
 .competition-weigh-msg {
   background: var(--surface);
   border: 1px solid var(--border);
