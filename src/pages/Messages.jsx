@@ -511,6 +511,7 @@ export default function Messages({ currentUser, onUnreadChange }) {
                   ref={editorRef}
                   className={`messages-compose-editor ${draftEmpty ? 'is-empty' : ''}`}
                   contentEditable
+                  suppressContentEditableWarning
                   role="textbox"
                   aria-multiline="true"
                   aria-label="Rédiger un message"
