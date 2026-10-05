@@ -6009,9 +6009,20 @@ tbody tr:last-child td {
   flex-shrink: 0;
 }
 
-.competition-weigh-identity p,
-.competition-weigh-identity .competition-weigh-meta {
+.competition-weigh-identity p {
   display: none !important;
+}
+
+.competition-weigh-identity .competition-weigh-meta {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.competition-weigh-list-individuel .competition-weigh-row {
+  width: 100%;
 }
 
 .competition-weigh-input {
