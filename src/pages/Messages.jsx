@@ -120,6 +120,27 @@ function contactInitials(contact) {
   return parts.map((p) => p[0]).join('').toUpperCase();
 }
 
+function ContactAvatar({ contact, className = '' }) {
+  const photoUrl = contact?.photo ? resolveMediaUrl(contact.photo) : '';
+  const classes = ['messages-avatar', className, photoUrl ? 'has-photo' : '']
+    .filter(Boolean)
+    .join(' ');
+
+  if (photoUrl) {
+    return (
+      <span className={classes} aria-hidden="true">
+        <img src={photoUrl} alt="" className="messages-avatar-img" />
+      </span>
+    );
+  }
+
+  return (
+    <span className={classes} aria-hidden="true">
+      {contactInitials(contact)}
+    </span>
+  );
+}
+
 function formatMessageTime(dateStr) {
   const d = new Date(dateStr);
   const now = new Date();
@@ -401,7 +422,7 @@ export default function Messages({ currentUser, onUnreadChange }) {
                     setContactsOpen(false);
                   }}
                 >
-                  <span className="messages-avatar" aria-hidden="true">{contactInitials(c)}</span>
+                  <ContactAvatar contact={c} />
                   <span className="messages-contact-copy">
                     <span className="messages-contact-name">{getContactName(c)}</span>
                     <span className="messages-contact-role">{getContactRole(c)}</span>
@@ -432,9 +453,7 @@ export default function Messages({ currentUser, onUnreadChange }) {
               >
                 ← Contacts
               </button>
-              <span className="messages-avatar messages-avatar-lg" aria-hidden="true">
-                {contactInitials(selected)}
-              </span>
+              <ContactAvatar contact={selected} className="messages-avatar-lg" />
               <div className="messages-panel-header-copy">
                 <h3>{getContactName(selected)}</h3>
                 <span className="messages-contact-role">{getContactRole(selected)}</span>

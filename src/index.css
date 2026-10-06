@@ -4217,6 +4217,19 @@ tbody tr:last-child td {
   color: #475569;
   font-weight: 700;
   font-size: 0.78rem;
+  overflow: hidden;
+}
+
+.messages-avatar.has-photo {
+  background: #e2e8f0;
+  padding: 0;
+}
+
+.messages-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .messages-avatar-lg {
@@ -4224,6 +4237,10 @@ tbody tr:last-child td {
   height: 44px;
   background: var(--primary);
   color: #fff;
+}
+
+.messages-avatar-lg.has-photo {
+  background: #e2e8f0;
 }
 
 .messages-contact-copy {
