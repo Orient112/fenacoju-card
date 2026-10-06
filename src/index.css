@@ -4209,7 +4209,7 @@ tbody tr:last-child td {
 .messages-avatar {
   width: 40px;
   height: 40px;
-  border-radius: 12px;
+  border-radius: 50%;
   display: grid;
   place-items: center;
   flex-shrink: 0;
