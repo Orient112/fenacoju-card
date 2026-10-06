@@ -159,13 +159,7 @@ export default function Settings({ user, onUserUpdated }) {
   return (
     <div className="settings-page">
       <section className="settings-stage">
-        <div className="settings-stage-glow" aria-hidden="true" />
-        <div className="settings-stage-grid" aria-hidden="true" />
         <div className="settings-stage-inner">
-          <p className="settings-brand">FENACOJU</p>
-          <h2 className="settings-title">Réglages</h2>
-          <p className="settings-lead">Gérez votre profil, vos coordonnées et la sécurité de votre compte.</p>
-
           <div className="settings-profile-block">
             <div className={`settings-avatar-ring ${user?.photo ? 'has-photo' : ''}`}>
               {user?.photo ? (
