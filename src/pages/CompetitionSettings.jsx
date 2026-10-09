@@ -719,6 +719,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
   });
   const [addingTeamJudoka, setAddingTeamJudoka] = useState(false);
   const [clubsEditorCadre, setClubsEditorCadre] = useState(null);
+  const [clubsEditorSearch, setClubsEditorSearch] = useState('');
   const [clubDraft, setClubDraft] = useState('');
   const [ligueDraft, setLigueDraft] = useState('');
   const [editingClub, setEditingClub] = useState(null);
@@ -1158,7 +1159,9 @@ export default function CompetitionSettings({ onBack, onToast }) {
     if (actionMode === 'clubs') {
       setActionMode(null);
       setClubsEditorCadre(mode);
+      setClubsEditorSearch('');
       setClubDraft('');
+      setLigueDraft('');
       setEditingClub(null);
       return;
     }
@@ -1769,6 +1772,13 @@ export default function CompetitionSettings({ onBack, onToast }) {
   const teamCount = registrations.length - individualCount;
   const individualWeighed = registrations.filter((r) => !isTeamRegistration(r) && r.poids).length;
   const teamWeighed = registrations.filter((r) => isTeamRegistration(r) && r.poids).length;
+  const clubsEditorSearchTerm = clubsEditorSearch.trim().toLowerCase();
+  const clubsEditorList = (settings?.competition_clubs || []).filter((c) => {
+    if (c.cadre !== clubsEditorCadre) return false;
+    if (!clubsEditorSearchTerm) return true;
+    const haystack = `${c.nom || ''} ${c.ligue || ''}`.toLowerCase();
+    return haystack.includes(clubsEditorSearchTerm);
+  });
   // Tirage actif si pesée clôturée, ou si le lien d'inscription est Off
   const tirageReady = isClosed && registrations.length > 0;
 
@@ -2572,7 +2582,10 @@ export default function CompetitionSettings({ onBack, onToast }) {
         <div
           className="confirm-overlay"
           onClick={() => {
-            if (clubsImportProgress == null) setClubsEditorCadre(null);
+            if (clubsImportProgress == null) {
+              setClubsEditorCadre(null);
+              setClubsEditorSearch('');
+            }
           }}
         >
           <div className="confirm-dialog competition-team-edit-modal" onClick={(e) => e.stopPropagation()}>
@@ -2617,13 +2630,25 @@ export default function CompetitionSettings({ onBack, onToast }) {
                 </button>
               </div>
             </form>
+            {(settings?.competition_clubs || []).some((c) => c.cadre === clubsEditorCadre) && (
+              <div className="competition-clubs-editor-search">
+                <input
+                  type="search"
+                  className="search-input"
+                  value={clubsEditorSearch}
+                  onChange={(e) => setClubsEditorSearch(e.target.value)}
+                  placeholder="Rechercher un club..."
+                  aria-label="Rechercher un club"
+                />
+              </div>
+            )}
             {(settings?.competition_clubs || []).filter((c) => c.cadre === clubsEditorCadre).length === 0 ? (
               <p className="form-hint">Aucun club enregistré pour ce cadre.</p>
+            ) : clubsEditorList.length === 0 ? (
+              <p className="form-hint">Aucun club ne correspond à « {clubsEditorSearch.trim()} ».</p>
             ) : (
               <ul className="competition-club-editor-list">
-                {(settings?.competition_clubs || [])
-                  .filter((c) => c.cadre === clubsEditorCadre)
-                  .map((club) => (
+                {clubsEditorList.map((club) => (
                     <li key={club.id}>
                       {editingClub?.id === club.id ? (
                         <div className="competition-club-edit-fields competition-club-fields-row">
@@ -2723,7 +2748,10 @@ export default function CompetitionSettings({ onBack, onToast }) {
                 type="button"
                 className="btn btn-outline"
                 disabled={clubsImportProgress != null}
-                onClick={() => setClubsEditorCadre(null)}
+                onClick={() => {
+                  setClubsEditorCadre(null);
+                  setClubsEditorSearch('');
+                }}
               >
                 Fermer
               </button>

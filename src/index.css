@@ -2363,6 +2363,15 @@ tbody tr:last-child td {
   grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.1fr) minmax(0, 0.7fr) minmax(0, 0.8fr) minmax(0, 0.9fr);
 }
 
+.competition-clubs-editor-search {
+  margin: 0 0 0.75rem;
+}
+
+.competition-clubs-editor-search .search-input {
+  width: 100%;
+  max-width: 100%;
+}
+
 .competition-club-editor-list {
   list-style: none;
   margin: 0 0 1rem;
