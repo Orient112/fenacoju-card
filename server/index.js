@@ -16,7 +16,7 @@ import {
   deleteJudoka,
   generateCardNumber,
 } from './database.js';
-import { validateCategoryAge } from './categoryAge.js';
+import { validateCategoryAge, categoryFromBirthDate } from './categoryAge.js';
 import {
   login,
   logout,
@@ -1529,7 +1529,7 @@ app.post('/api/judokas', handlePhotoUpload, async (req, res) => {
       return res.status(400).json({ error: 'Champs obligatoires manquants' });
     }
 
-    const categorie = body.categorie?.trim() || '';
+    const categorie = categoryFromBirthDate(body.date_naissance) || body.categorie?.trim() || '';
     const ageError = validateCategoryAge(categorie, body.date_naissance);
     if (ageError) {
       return res.status(400).json({ error: ageError });
@@ -1615,7 +1615,7 @@ async function handleUpdateJudoka(req, res) {
       return res.status(400).json({ error: 'Champs obligatoires manquants' });
     }
 
-    const categorie = body.categorie?.trim() || '';
+    const categorie = categoryFromBirthDate(body.date_naissance) || body.categorie?.trim() || '';
     const ageError = validateCategoryAge(categorie, body.date_naissance);
     if (ageError) {
       return res.status(400).json({ error: ageError });

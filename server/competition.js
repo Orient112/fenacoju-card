@@ -3,7 +3,7 @@ import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { getSupabase, isSupabaseEnabled } from './supabase.js';
 import { dataDir } from './paths.js';
-import { validateCategoryAge } from './categoryAge.js';
+import { validateCategoryAge, categoryFromBirthDate } from './categoryAge.js';
 
 const settingsPath = path.join(dataDir, 'competition.json');
 const registrationsPath = path.join(dataDir, 'competition_registrations.json');
@@ -498,6 +498,8 @@ export async function createCompetitionRegistration(payload) {
     throw new Error('La date de naissance est obligatoire');
   }
   if (modeInscription !== 'equipe') {
+    const autoCat = categoryFromBirthDate(row.date_naissance);
+    if (autoCat) row.categorie = autoCat;
     const ageError = validateCategoryAge(row.categorie, row.date_naissance);
     if (ageError) throw new Error(ageError);
   }
@@ -806,6 +808,8 @@ export async function updateCompetitionRegistration(id, patch = {}) {
     throw new Error('La date de naissance est obligatoire');
   }
   if (getRegistrationMode(existing) !== 'equipe') {
+    const autoCat = categoryFromBirthDate(next.date_naissance);
+    if (autoCat) next.categorie = autoCat;
     const ageError = validateCategoryAge(next.categorie, next.date_naissance);
     if (ageError) throw new Error(ageError);
   }

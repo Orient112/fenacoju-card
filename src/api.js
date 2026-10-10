@@ -348,6 +348,7 @@ export {
   calcAgeFromDate as calcAge,
   validateCategoryAge,
   getCategoryAgeRule,
+  categoryFromBirthDate,
   CATEGORY_AGE_RANGES,
 } from './utils/categoryAge.js';
 

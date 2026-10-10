@@ -30,7 +30,7 @@ import {
   buildReceiptPayloadFromRegistrations,
   extractOrderNumber,
 } from '../utils/competitionReceipt';
-import { validateCategoryAge } from '../utils/categoryAge';
+import { validateCategoryAge, categoryFromBirthDate } from '../utils/categoryAge';
 
 function isTeamRegistration(r) {
   return r?.mode_inscription === 'equipe' || String(r?.taille || '').startsWith('__mode_equipe__');
@@ -1784,7 +1784,9 @@ export default function CompetitionSettings({ onBack, onToast }) {
   const handleSaveRegistration = async (e) => {
     e.preventDefault();
     if (!editRegTarget) return;
-    const ageError = validateCategoryAge(editRegTarget.categorie, editRegForm.date_naissance);
+    const resolvedCategorie = categoryFromBirthDate(editRegForm.date_naissance)
+      || editRegTarget.categorie;
+    const ageError = validateCategoryAge(resolvedCategorie, editRegForm.date_naissance);
     if (ageError) {
       onToast?.(ageError, 'error');
       return;
@@ -1797,6 +1799,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
         prenom: editRegForm.prenom,
         poids: editRegForm.poids,
         date_naissance: editRegForm.date_naissance,
+        categorie: resolvedCategorie,
       });
       setRegistrations((prev) => prev.map((r) => (r.id === updated.id ? { ...r, ...updated } : r)));
       setEditRegTarget(null);
@@ -2422,7 +2425,15 @@ export default function CompetitionSettings({ onBack, onToast }) {
                     id="add-indiv-naissance"
                     type="date"
                     value={addIndividuelForm.date_naissance}
-                    onChange={(e) => setAddIndividuelForm((prev) => ({ ...prev, date_naissance: e.target.value }))}
+                    onChange={(e) => {
+                      const date_naissance = e.target.value;
+                      const autoCat = categoryFromBirthDate(date_naissance);
+                      setAddIndividuelForm((prev) => ({
+                        ...prev,
+                        date_naissance,
+                        ...(autoCat ? { categorie: autoCat } : {}),
+                      }));
+                    }}
                     required
                   />
                 </div>
@@ -2432,12 +2443,16 @@ export default function CompetitionSettings({ onBack, onToast }) {
                     id="add-indiv-categorie"
                     value={addIndividuelForm.categorie}
                     onChange={(e) => setAddIndividuelForm((prev) => ({ ...prev, categorie: e.target.value }))}
+                    disabled={Boolean(categoryFromBirthDate(addIndividuelForm.date_naissance))}
                   >
                     <option value="">— Optionnel —</option>
                     {(CATEGORIES || []).map((cat) => (
                       <option key={cat} value={cat}>{cat}</option>
                     ))}
                   </select>
+                  {categoryFromBirthDate(addIndividuelForm.date_naissance) && (
+                    <p className="form-hint">Déterminée automatiquement selon l&apos;âge (Juniors 17–21 ans, Seniors 22–99 ans).</p>
+                  )}
                 </div>
               </div>
               <div className="confirm-actions">

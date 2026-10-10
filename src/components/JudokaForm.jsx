@@ -6,7 +6,7 @@ import CameraCapture from './CameraCapture';
 
 import SearchableSelect from './SearchableSelect';
 
-import { validateCategoryAge } from '../utils/categoryAge';
+import { validateCategoryAge, categoryFromBirthDate } from '../utils/categoryAge';
 
 
 
@@ -71,6 +71,8 @@ function formFromJudoka(judoka) {
   for (const key of JUDOKA_FORM_FIELDS) {
     if (judoka[key] != null && judoka[key] !== '') base[key] = judoka[key];
   }
+  const autoCat = categoryFromBirthDate(base.date_naissance);
+  if (autoCat) base.categorie = autoCat;
   return base;
 }
 
@@ -183,6 +185,11 @@ export default function JudokaForm({ judoka, lockedClub, registeredClubs = [], e
 
         next.entraineur_nom = '';
 
+      }
+
+      if (name === 'date_naissance') {
+        const autoCat = categoryFromBirthDate(value);
+        if (autoCat) next.categorie = autoCat;
       }
 
       return next;
@@ -568,7 +575,12 @@ export default function JudokaForm({ judoka, lockedClub, registeredClubs = [], e
 
             <label>Catégorie</label>
 
-            <select name="categorie" value={form.categorie} onChange={handleChange}>
+            <select
+              name="categorie"
+              value={form.categorie}
+              onChange={handleChange}
+              disabled={Boolean(categoryFromBirthDate(form.date_naissance))}
+            >
 
               <option value="">— Sélectionner —</option>
 
@@ -579,6 +591,10 @@ export default function JudokaForm({ judoka, lockedClub, registeredClubs = [], e
               ))}
 
             </select>
+
+            {categoryFromBirthDate(form.date_naissance) && (
+              <p className="form-hint">Déterminée automatiquement selon l&apos;âge (Juniors 17–21 ans, Seniors 22–99 ans).</p>
+            )}
 
           </div>
 

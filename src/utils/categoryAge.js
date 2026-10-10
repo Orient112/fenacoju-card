@@ -1,4 +1,4 @@
-/** Règles d’âge pour les catégories d’âge (enregistrement / inscription). */
+/** Règles d’âge pour les catégories d’âge (enregistrement / inscription Individuel). */
 
 export function calcAgeFromDate(dateNaissance, refDate = new Date()) {
   if (!dateNaissance) return NaN;
@@ -12,8 +12,8 @@ export function calcAgeFromDate(dateNaissance, refDate = new Date()) {
 }
 
 export const CATEGORY_AGE_RANGES = {
-  juniors: { min: 16, max: 19, label: 'Juniors' },
-  seniors: { min: 20, max: 99, label: 'Seniors' },
+  juniors: { min: 17, max: 21, label: 'Juniors' },
+  seniors: { min: 22, max: 99, label: 'Seniors' },
 };
 
 export function getCategoryAgeRule(categorie) {
@@ -25,6 +25,22 @@ export function getCategoryAgeRule(categorie) {
   if (key.startsWith('junior')) return CATEGORY_AGE_RANGES.juniors;
   if (key.startsWith('senior')) return CATEGORY_AGE_RANGES.seniors;
   return null;
+}
+
+/**
+ * Détermine la catégorie d’âge à partir de la date de naissance.
+ * @returns {'Juniors'|'Seniors'|''}
+ */
+export function categoryFromBirthDate(dateNaissance, refDate = new Date()) {
+  const age = calcAgeFromDate(dateNaissance, refDate);
+  if (!Number.isFinite(age) || age < 0) return '';
+  if (age >= CATEGORY_AGE_RANGES.juniors.min && age <= CATEGORY_AGE_RANGES.juniors.max) {
+    return CATEGORY_AGE_RANGES.juniors.label;
+  }
+  if (age >= CATEGORY_AGE_RANGES.seniors.min && age <= CATEGORY_AGE_RANGES.seniors.max) {
+    return CATEGORY_AGE_RANGES.seniors.label;
+  }
+  return '';
 }
 
 /**

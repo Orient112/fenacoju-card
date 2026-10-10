@@ -6,6 +6,7 @@ import {
   resolveMediaUrl,
   CATEGORIES,
   validateCategoryAge,
+  categoryFromBirthDate,
 } from '../api';
 import CompetitionPaymentModal, { formatMoney } from '../components/CompetitionPaymentModal';
 import CompetitionClubSelect from '../components/CompetitionClubSelect';
@@ -200,7 +201,14 @@ export default function CompetitionPublicForm({ token }) {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    setForm((prev) => {
+      const next = { ...prev, [name]: value };
+      if (name === 'date_naissance') {
+        const autoCat = categoryFromBirthDate(value);
+        if (autoCat) next.categorie = autoCat;
+      }
+      return next;
+    });
   };
 
   const fraisMonnaie = String(competition?.frais_monnaie || '').toUpperCase() === 'USD' ? 'USD' : 'CDF';
@@ -279,13 +287,14 @@ export default function CompetitionPublicForm({ token }) {
         id: judoka.id,
         numero_carte: judoka.numero_carte,
       });
+      const dateNaissance = judoka.date_naissance || '';
       setForm({
         club: judoka.club || '',
         nom: judoka.nom || '',
         prenom: judoka.prenom || '',
-        date_naissance: judoka.date_naissance || '',
+        date_naissance: dateNaissance,
         sexe: judoka.sexe || 'M',
-        categorie: judoka.categorie || '',
+        categorie: categoryFromBirthDate(dateNaissance) || judoka.categorie || '',
       });
       setStep('form');
     } catch (err) {
@@ -978,12 +987,21 @@ export default function CompetitionPublicForm({ token }) {
                   </div>
                   <div className="form-group">
                     <label htmlFor="categorie">Catégorie</label>
-                    <select id="categorie" name="categorie" value={form.categorie} onChange={handleChange}>
+                    <select
+                      id="categorie"
+                      name="categorie"
+                      value={form.categorie}
+                      onChange={handleChange}
+                      disabled={Boolean(categoryFromBirthDate(form.date_naissance))}
+                    >
                       <option value="">— Sélectionner —</option>
                       {CATEGORIES.map((c) => (
                         <option key={c} value={c}>{c}</option>
                       ))}
                     </select>
+                    {categoryFromBirthDate(form.date_naissance) && (
+                      <p className="form-hint">Déterminée automatiquement selon l&apos;âge (Juniors 17–21 ans, Seniors 22–99 ans).</p>
+                    )}
                   </div>
                 </div>
 
