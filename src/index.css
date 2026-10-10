@@ -2294,7 +2294,22 @@ tbody tr:last-child td {
 }
 
 .competition-add-indiv-modal {
-  max-width: min(720px, 94vw);
+  max-width: min(820px, 96vw);
+}
+
+.competition-add-indiv-modal .competition-edit-reg-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem 1.15rem;
+}
+
+.competition-add-indiv-modal .competition-edit-reg-grid .form-group-full {
+  grid-column: 1 / -1;
+}
+
+.competition-add-indiv-modal .competition-edit-reg-grid input,
+.competition-add-indiv-modal .competition-edit-reg-grid select {
+  width: 100%;
+  min-height: 2.65rem;
 }
 
 .competition-add-indiv-actions {
