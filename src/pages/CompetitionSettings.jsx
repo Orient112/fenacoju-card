@@ -1547,17 +1547,29 @@ export default function CompetitionSettings({ onBack, onToast }) {
   const openReceiptProofTeam = (team) => {
     const clubName = String(team?.club || '').trim();
     const clubKey = clubName.toLowerCase();
-    const fromState = registrations.filter(
+    const idSet = new Set((team?.ids || []).map((id) => String(id)));
+    const fromIds = idSet.size
+      ? registrations.filter((r) => idSet.has(String(r.id)))
+      : [];
+    const fromTeamMode = registrations.filter(
       (r) => isTeamRegistration(r)
         && String(r.club || '').trim().toLowerCase() === clubKey,
     );
+    const fromClubAny = registrations.filter(
+      (r) => String(r.club || '').trim().toLowerCase() === clubKey,
+    );
     const fromTeam = Array.isArray(team?.members) ? team.members.filter(Boolean) : [];
     const byId = new Map();
-    [...fromState, ...fromTeam].forEach((r) => {
-      const key = r.id || `${r.prenom}|${r.nom}|${r.categorie}`;
-      if (!byId.has(key)) byId.set(key, r);
+    [...fromIds, ...fromTeamMode, ...fromTeam, ...fromClubAny].forEach((r) => {
+      if (!r) return;
+      const key = r.id || `${r.prenom || ''}|${r.nom || ''}|${r.categorie || ''}|${r.role_equipe || ''}`;
+      if (!byId.has(String(key))) byId.set(String(key), r);
     });
     const members = [...byId.values()];
+    if (!members.length) {
+      onToast?.('Ajoutez au moins 1 judoka à ce club pour afficher la preuve de paiement', 'error');
+      return;
+    }
     openReceiptProof('equipe', members, clubName || members[0]?.club || '');
   };
 

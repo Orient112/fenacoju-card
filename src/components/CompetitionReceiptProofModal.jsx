@@ -3,7 +3,11 @@ import QRCode from 'react-qr-code';
 import { encodeReceiptQr } from '../utils/competitionReceipt';
 import { exportCompetitionReceiptPdf } from '../utils/exportCompetitionReceiptPdf';
 
-const QR_SIZE = 220;
+const QR_SIZE = 200;
+
+function participantName(p) {
+  return `${p?.prenom || ''} ${p?.nom || ''}`.trim();
+}
 
 export default function CompetitionReceiptProofModal({ payload, exportArgs, onClose }) {
   const [busy, setBusy] = useState(false);
@@ -16,11 +20,17 @@ export default function CompetitionReceiptProofModal({ payload, exportArgs, onCl
 
   if (!payload) return null;
 
-  const participantsLabel = (payload.participants || []).length
-    ? (payload.participants || [])
-      .map((p) => `${p.prenom || ''} ${p.nom || ''}`.trim())
-      .filter(Boolean)
-      .join(', ')
+  const isTeam = payload.mode === 'equipe';
+  const participants = (payload.participants || [])
+    .map((p) => ({
+      name: participantName(p),
+      role: String(p.role || '').trim(),
+      categorie: String(p.categorie || '').trim(),
+    }))
+    .filter((p) => p.name);
+
+  const dateLabel = payload.date
+    ? new Date(payload.date).toLocaleString('fr-FR')
     : '—';
 
   const handleDownload = async () => {
@@ -41,7 +51,10 @@ export default function CompetitionReceiptProofModal({ payload, exportArgs, onCl
 
   return (
     <div className="confirm-overlay" onClick={onClose}>
-      <div className="competition-receipt-proof-modal" onClick={(e) => e.stopPropagation()}>
+      <div
+        className={`competition-receipt-proof-modal ${isTeam ? 'is-team' : 'is-individuel'}`}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="competition-receipt-proof-head">
           <div>
             <h3>Preuve de paiement</h3>
@@ -67,28 +80,58 @@ export default function CompetitionReceiptProofModal({ payload, exportArgs, onCl
             )}
           </div>
 
-          <div className="qr-scan-details-grid">
-            <div className="qr-scan-detail-item">
-              <span className="qr-scan-detail-label">Mode</span>
-              <span className="qr-scan-detail-value">
-                {payload.mode === 'equipe' ? 'Par équipe' : 'Individuel'}
-              </span>
+          {!isTeam ? (
+            <div className="competition-receipt-proof-info">
+              <p className="competition-receipt-proof-participant-name">
+                {participants[0]?.name || '—'}
+              </p>
+              <div className="competition-receipt-proof-meta">
+                <div className="competition-receipt-proof-meta-row">
+                  <span>Club</span>
+                  <strong>{payload.club || '—'}</strong>
+                </div>
+                <div className="competition-receipt-proof-meta-row">
+                  <span>Date</span>
+                  <strong>{dateLabel}</strong>
+                </div>
+              </div>
             </div>
-            <div className="qr-scan-detail-item">
-              <span className="qr-scan-detail-label">Club</span>
-              <span className="qr-scan-detail-value">{payload.club || '—'}</span>
+          ) : (
+            <div className="competition-receipt-proof-info">
+              <div className="competition-receipt-proof-meta">
+                <div className="competition-receipt-proof-meta-row">
+                  <span>Club</span>
+                  <strong className="competition-receipt-proof-club">{payload.club || '—'}</strong>
+                </div>
+                <div className="competition-receipt-proof-meta-row">
+                  <span>Date</span>
+                  <strong>{dateLabel}</strong>
+                </div>
+              </div>
+              <div className="competition-receipt-proof-participants">
+                <span className="competition-receipt-proof-participants-label">
+                  Participants
+                  {participants.length ? ` (${participants.length})` : ''}
+                </span>
+                {participants.length ? (
+                  <ul className="competition-receipt-proof-participants-list">
+                    {participants.map((p, index) => (
+                      <li key={`${p.name}-${index}`}>
+                        <span className="competition-receipt-proof-participant-main">{p.name}</span>
+                        {(p.role || p.categorie) && (
+                          <span className="competition-receipt-proof-participant-sub">
+                            {[p.role, p.categorie].filter(Boolean).join(' · ')}
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="form-hint">Aucun participant</p>
+                )}
+              </div>
             </div>
-            <div className="qr-scan-detail-item">
-              <span className="qr-scan-detail-label">Participants</span>
-              <span className="qr-scan-detail-value">{participantsLabel}</span>
-            </div>
-            <div className="qr-scan-detail-item">
-              <span className="qr-scan-detail-label">Date</span>
-              <span className="qr-scan-detail-value">
-                {payload.date ? new Date(payload.date).toLocaleString('fr-FR') : '—'}
-              </span>
-            </div>
-          </div>
+          )}
         </div>
 
         {error ? <p className="form-error" style={{ marginBottom: 0 }}>{error}</p> : null}

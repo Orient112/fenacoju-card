@@ -6388,45 +6388,129 @@ tbody tr:last-child td {
   margin: 0;
 }
 
-.competition-receipt-proof-banner {
-  padding: 0.75rem 0.9rem;
-  margin-bottom: 1rem;
-  border: 1px solid #e2e8f0;
-}
-
-.competition-receipt-proof-banner.is-warn {
-  background: #fffbeb;
-  border-color: #fcd34d;
-  color: #92400e;
-}
-
-.competition-receipt-proof-banner strong {
-  display: block;
-  margin-bottom: 0.2rem;
-}
-
-.competition-receipt-proof-banner p {
-  margin: 0;
-  font-size: 0.88rem;
-}
-
 .competition-receipt-proof-body {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 1rem;
+  align-items: stretch;
+  gap: 1.15rem;
 }
 
 .competition-receipt-proof-qr {
   display: grid;
   place-items: center;
+  margin: 0 auto;
   padding: 0.9rem;
   background: #fff;
   border: 1px solid #e2e8f0;
 }
 
-.competition-receipt-proof-body .qr-scan-details-grid {
+.competition-receipt-proof-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
   width: 100%;
+}
+
+.competition-receipt-proof-participant-name {
+  margin: 0;
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: clamp(1.35rem, 3.2vw, 1.75rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--primary-dark);
+  line-height: 1.25;
+}
+
+.competition-receipt-proof-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.85rem 1rem;
+  background: #f5f8fd;
+  border: 1px solid #e2e8f0;
+}
+
+.competition-receipt-proof-meta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
+.competition-receipt-proof-meta-row span {
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.competition-receipt-proof-meta-row strong {
+  color: var(--text);
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-align: right;
+}
+
+.competition-receipt-proof-club {
+  font-size: 1.05rem !important;
+  color: var(--primary-dark) !important;
+}
+
+.competition-receipt-proof-participants {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.competition-receipt-proof-participants-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #64748b;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.competition-receipt-proof-participants-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.competition-receipt-proof-participants-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.65rem 0.8rem;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-left: 3px solid var(--primary);
+}
+
+.competition-receipt-proof-participant-main {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--primary-dark);
+  line-height: 1.3;
+}
+
+.competition-receipt-proof-participant-sub {
+  font-size: 0.8rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.competition-receipt-proof-modal.is-individuel .competition-receipt-proof-body {
+  align-items: center;
+}
+
+.competition-receipt-proof-modal.is-individuel .competition-receipt-proof-info {
+  align-items: stretch;
 }
 
 .competition-weigh-toolbar {
