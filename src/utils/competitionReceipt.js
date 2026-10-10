@@ -294,3 +294,47 @@ export function getReceiptDisplayReference(payload) {
   if (!payload) return '—';
   return displayReceiptReference(payload.orderNumber, payload.telephone);
 }
+
+/** Reconstruit un payload de reçu à partir des inscriptions stockées. */
+export function buildReceiptPayloadFromRegistrations({
+  competition,
+  mode,
+  registrations = [],
+  club = '',
+} = {}) {
+  const regs = Array.isArray(registrations) ? registrations.filter(Boolean) : [];
+  const primary = regs[0] || {};
+  const parts = String(primary.mode_paiement || '').split('|');
+  const telephone = (parts[0] === 'mobile_money' && parts[1])
+    ? parts[1].trim()
+    : String(primary.telephone || '').trim();
+  const orderNumber = extractOrderNumber(primary.mode_paiement);
+  const isTeam = mode === 'equipe';
+  const montant = isTeam
+    ? Math.max(0, Number(primary.montant_paye) || 0)
+    : regs.reduce((sum, r) => sum + (Math.max(0, Number(r.montant_paye) || 0)), 0);
+  const monnaie = String(competition?.frais_monnaie || 'CDF').toUpperCase() === 'USD'
+    ? 'USD'
+    : 'CDF';
+
+  const payload = buildReceiptPayload({
+    competition,
+    mode: isTeam ? 'equipe' : 'individuel',
+    paiement: {
+      orderNumber,
+      telephone,
+      montant,
+      monnaie,
+    },
+    participants: regs,
+    registrations: regs,
+    club: club || primary.club || '',
+    sexe: primary.sexe,
+  });
+
+  if (primary.created_at) {
+    payload.date = primary.created_at;
+  }
+
+  return payload;
+}

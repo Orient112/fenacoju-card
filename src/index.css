@@ -316,6 +316,12 @@ canvas {
   --icon-border: #b7e4c7;
 }
 
+.btn-icon-qr {
+  --icon-accent: #0f766e;
+  --icon-soft: #e6f7f5;
+  --icon-border: #9ed4ce;
+}
+
 .btn-icon-delete,
 .btn-danger.btn-icon {
   --icon-accent: #dc2626;
@@ -6354,6 +6360,73 @@ tbody tr:last-child td {
 .competition-link-qr-actions .btn {
   flex: 1 1 140px;
   justify-content: center;
+}
+
+.competition-receipt-proof-modal {
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  width: min(520px, 94vw);
+  max-height: 90vh;
+  overflow: auto;
+  padding: 1.25rem 1.35rem;
+}
+
+.competition-receipt-proof-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.competition-receipt-proof-head h3 {
+  margin: 0 0 0.2rem;
+}
+
+.competition-receipt-proof-head .form-hint {
+  margin: 0;
+}
+
+.competition-receipt-proof-banner {
+  padding: 0.75rem 0.9rem;
+  margin-bottom: 1rem;
+  border: 1px solid #e2e8f0;
+}
+
+.competition-receipt-proof-banner.is-warn {
+  background: #fffbeb;
+  border-color: #fcd34d;
+  color: #92400e;
+}
+
+.competition-receipt-proof-banner strong {
+  display: block;
+  margin-bottom: 0.2rem;
+}
+
+.competition-receipt-proof-banner p {
+  margin: 0;
+  font-size: 0.88rem;
+}
+
+.competition-receipt-proof-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.competition-receipt-proof-qr {
+  display: grid;
+  place-items: center;
+  padding: 0.9rem;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+}
+
+.competition-receipt-proof-body .qr-scan-details-grid {
+  width: 100%;
 }
 
 .competition-weigh-toolbar {

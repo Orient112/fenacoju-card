@@ -23,8 +23,10 @@ import { buildWeightDraw, buildTeamDraw } from '../utils/competitionDraw';
 import DrawAnimation from '../components/DrawAnimation';
 import ReceiptScanModal from '../components/ReceiptScanModal';
 import CompetitionLinkQrModal from '../components/CompetitionLinkQrModal';
+import CompetitionReceiptProofModal from '../components/CompetitionReceiptProofModal';
 import { ClubLigueLabel } from '../components/CompetitionClubSelect';
-import { IconCharge, IconEdit, IconTrash } from '../components/ActionIcons';
+import { IconCharge, IconEdit, IconQrCode, IconTrash } from '../components/ActionIcons';
+import { buildReceiptPayloadFromRegistrations } from '../utils/competitionReceipt';
 
 function isTeamRegistration(r) {
   return r?.mode_inscription === 'equipe' || String(r?.taille || '').startsWith('__mode_equipe__');
@@ -127,7 +129,7 @@ function formatDateFr(value) {
   }
 }
 
-function RegistrationsTable({ registrations, onEdit, onDelete, pageSize = 4 }) {
+function RegistrationsTable({ registrations, onEdit, onDelete, onShowReceipt, pageSize = 4 }) {
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState('');
 
@@ -214,6 +216,16 @@ function RegistrationsTable({ registrations, onEdit, onDelete, pageSize = 4 }) {
                     >
                       <IconEdit />
                     </button>
+                    {onShowReceipt && (
+                      <button
+                        type="button"
+                        className="btn btn-icon btn-icon-qr"
+                        title="Preuve de paiement (QR Code)"
+                        onClick={() => onShowReceipt(r)}
+                      >
+                        <IconQrCode />
+                      </button>
+                    )}
                     <button
                       type="button"
                       className="btn btn-icon btn-icon-delete"
@@ -258,7 +270,7 @@ function RegistrationsTable({ registrations, onEdit, onDelete, pageSize = 4 }) {
   );
 }
 
-function TeamClubsTable({ clubs, onEdit, onDelete, onCharge, pageSize = 4 }) {
+function TeamClubsTable({ clubs, onEdit, onDelete, onCharge, onShowReceipt, pageSize = 4 }) {
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState('');
 
@@ -333,6 +345,17 @@ function TeamClubsTable({ clubs, onEdit, onDelete, onCharge, pageSize = 4 }) {
                         onClick={() => onCharge(team)}
                       >
                         <IconCharge />
+                      </button>
+                    )}
+                    {onShowReceipt && (
+                      <button
+                        type="button"
+                        className="btn btn-icon btn-icon-qr"
+                        title="Preuve de paiement (QR Code)"
+                        onClick={() => onShowReceipt(team)}
+                        disabled={!team.members?.length && !team.ids?.length}
+                      >
+                        <IconQrCode />
                       </button>
                     )}
                     <button
@@ -728,6 +751,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
   const [chargeTeamTarget, setChargeTeamTarget] = useState(null);
   const [chargeSelections, setChargeSelections] = useState({});
   const [showReceiptScan, setShowReceiptScan] = useState(false);
+  const [receiptProofPayload, setReceiptProofPayload] = useState(null);
   const [form, setForm] = useState({
     nom: '',
     date_debut: '',
@@ -1475,6 +1499,35 @@ export default function CompetitionSettings({ onBack, onToast }) {
     });
   };
 
+  const openReceiptProofIndividual = (reg) => {
+    if (!reg) return;
+    setReceiptProofPayload(buildReceiptPayloadFromRegistrations({
+      competition: settings,
+      mode: 'individuel',
+      registrations: [reg],
+      club: reg.club || '',
+    }));
+  };
+
+  const openReceiptProofTeam = (team) => {
+    const members = Array.isArray(team?.members) && team.members.length
+      ? team.members
+      : registrations.filter(
+        (r) => isTeamRegistration(r)
+          && String(r.club || '').trim().toLowerCase() === String(team?.club || '').trim().toLowerCase(),
+      );
+    if (!members.length) {
+      onToast?.('Aucun inscrit trouvé pour ce club', 'error');
+      return;
+    }
+    setReceiptProofPayload(buildReceiptPayloadFromRegistrations({
+      competition: settings,
+      mode: 'equipe',
+      registrations: members,
+      club: team.club || members[0]?.club || '',
+    }));
+  };
+
   const handleAddEditTeamJudoka = async (e) => {
     e.preventDefault();
     if (!editTeamTarget) return;
@@ -2033,6 +2086,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
                   registrations={registrations.filter((r) => !isTeamRegistration(r))}
                   onEdit={openEditRegistration}
                   onDelete={setDeleteRegTarget}
+                  onShowReceipt={openReceiptProofIndividual}
                 />
               </div>
               <div className="competition-inscriptions-pane">
@@ -2044,6 +2098,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
                   onEdit={openEditTeam}
                   onDelete={setDeleteClubTarget}
                   onCharge={openChargeTeam}
+                  onShowReceipt={openReceiptProofTeam}
                 />
               </div>
             </div>
@@ -2904,6 +2959,13 @@ export default function CompetitionSettings({ onBack, onToast }) {
           competition={settings}
           registrations={registrations}
           onClose={() => setShowReceiptScan(false)}
+        />
+      )}
+
+      {receiptProofPayload && (
+        <CompetitionReceiptProofModal
+          payload={receiptProofPayload}
+          onClose={() => setReceiptProofPayload(null)}
         />
       )}
     </div>
