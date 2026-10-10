@@ -1,14 +1,14 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import QRCode from 'react-qr-code';
-import {
-  encodeReceiptQr,
-  formatReceiptAmount,
-  getReceiptDisplayReference,
-} from '../utils/competitionReceipt';
+import { encodeReceiptQr } from '../utils/competitionReceipt';
+import { exportCompetitionReceiptPdf } from '../utils/exportCompetitionReceiptPdf';
 
 const QR_SIZE = 220;
 
-export default function CompetitionReceiptProofModal({ payload, onClose }) {
+export default function CompetitionReceiptProofModal({ payload, exportArgs, onClose }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
   const qrValue = useMemo(
     () => (payload ? encodeReceiptQr(payload) : ''),
     [payload],
@@ -16,7 +16,28 @@ export default function CompetitionReceiptProofModal({ payload, onClose }) {
 
   if (!payload) return null;
 
-  const hasPayment = Boolean(payload.orderNumber) || Number(payload.montant) > 0;
+  const participantsLabel = (payload.participants || []).length
+    ? (payload.participants || [])
+      .map((p) => `${p.prenom || ''} ${p.nom || ''}`.trim())
+      .filter(Boolean)
+      .join(', ')
+    : '—';
+
+  const handleDownload = async () => {
+    if (!exportArgs || busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      await exportCompetitionReceiptPdf({
+        ...exportArgs,
+        open: true,
+      });
+    } catch (err) {
+      setError(err.message || 'Téléchargement PDF impossible');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <div className="confirm-overlay" onClick={onClose}>
@@ -31,22 +52,19 @@ export default function CompetitionReceiptProofModal({ payload, onClose }) {
           </button>
         </div>
 
-        {!hasPayment && (
-          <div className="competition-receipt-proof-banner is-warn">
-            <strong>Aucun paiement enregistré</strong>
-            <p>Le QR Code reprend les informations d’inscription disponibles.</p>
-          </div>
-        )}
-
         <div className="competition-receipt-proof-body">
           <div className="competition-receipt-proof-qr">
-            <QRCode
-              value={qrValue || ' '}
-              size={QR_SIZE}
-              level="M"
-              bgColor="#ffffff"
-              fgColor="#0f172a"
-            />
+            {qrValue ? (
+              <QRCode
+                value={qrValue}
+                size={QR_SIZE}
+                level="M"
+                bgColor="#ffffff"
+                fgColor="#0f172a"
+              />
+            ) : (
+              <p className="form-hint">QR Code indisponible</p>
+            )}
           </div>
 
           <div className="qr-scan-details-grid">
@@ -57,22 +75,12 @@ export default function CompetitionReceiptProofModal({ payload, onClose }) {
               </span>
             </div>
             <div className="qr-scan-detail-item">
-              <span className="qr-scan-detail-label">Référence</span>
-              <span className="qr-scan-detail-value">{getReceiptDisplayReference(payload)}</span>
-            </div>
-            <div className="qr-scan-detail-item">
-              <span className="qr-scan-detail-label">Montant</span>
-              <span className="qr-scan-detail-value">
-                {formatReceiptAmount(payload.montant, payload.monnaie)}
-              </span>
-            </div>
-            <div className="qr-scan-detail-item">
-              <span className="qr-scan-detail-label">Téléphone</span>
-              <span className="qr-scan-detail-value">{payload.telephone || '—'}</span>
-            </div>
-            <div className="qr-scan-detail-item">
               <span className="qr-scan-detail-label">Club</span>
               <span className="qr-scan-detail-value">{payload.club || '—'}</span>
+            </div>
+            <div className="qr-scan-detail-item">
+              <span className="qr-scan-detail-label">Participants</span>
+              <span className="qr-scan-detail-value">{participantsLabel}</span>
             </div>
             <div className="qr-scan-detail-item">
               <span className="qr-scan-detail-label">Date</span>
@@ -80,23 +88,19 @@ export default function CompetitionReceiptProofModal({ payload, onClose }) {
                 {payload.date ? new Date(payload.date).toLocaleString('fr-FR') : '—'}
               </span>
             </div>
-            <div className="qr-scan-detail-item">
-              <span className="qr-scan-detail-label">Participants</span>
-              <span className="qr-scan-detail-value">
-                {(payload.participants || []).length
-                  ? (payload.participants || [])
-                    .map((p) => `${p.prenom || ''} ${p.nom || ''}`.trim())
-                    .filter(Boolean)
-                    .join(', ')
-                  : '—'}
-              </span>
-            </div>
           </div>
         </div>
 
+        {error ? <p className="form-error" style={{ marginBottom: 0 }}>{error}</p> : null}
+
         <div className="confirm-actions">
-          <button type="button" className="btn btn-outline" onClick={onClose}>
-            Fermer
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={handleDownload}
+            disabled={busy || !exportArgs}
+          >
+            {busy ? 'Téléchargement…' : 'Télécharger'}
           </button>
         </div>
       </div>
