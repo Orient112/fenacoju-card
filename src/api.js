@@ -570,6 +570,25 @@ export async function createCompetitionRegistration(data) {
   return res.json();
 }
 
+/** Ajoute plusieurs inscriptions Individuel en une seule requête. */
+export async function createCompetitionRegistrationsBatch(items) {
+  const batch = (Array.isArray(items) ? items : []).map(({ _key, ...rest }) => rest);
+  if (!batch.length) throw new Error('Aucun judoka à enregistrer');
+  if (batch.length === 1) {
+    const one = await createCompetitionRegistration(batch[0]);
+    return { count: 1, registrations: [one] };
+  }
+  const res = await apiFetch('/api/competition/registrations', {
+    method: 'POST',
+    body: JSON.stringify({ batch }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Erreur lors de l\'ajout des inscriptions');
+  }
+  return res.json();
+}
+
 export async function updateCompetitionRegistration(id, data) {
   const res = await apiFetch(`/api/competition/registrations/${encodeURIComponent(id)}`, {
     method: 'PUT',

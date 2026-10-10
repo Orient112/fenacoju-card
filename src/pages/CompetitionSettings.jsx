@@ -6,6 +6,7 @@ import {
   deleteCompetitionLogo,
   fetchCompetitionRegistrations,
   createCompetitionRegistration,
+  createCompetitionRegistrationsBatch,
   deleteCompetitionRegistration,
   updateCompetitionRegistration,
   deleteCompetitionPublicLink,
@@ -30,7 +31,7 @@ import {
   buildReceiptPayloadFromRegistrations,
   extractOrderNumber,
 } from '../utils/competitionReceipt';
-import { validateCategoryAge, categoryFromBirthDate } from '../utils/categoryAge';
+import { validateCategoryAge, categoryFromBirthDate, calcAgeFromDate } from '../utils/categoryAge';
 
 function isTeamRegistration(r) {
   return r?.mode_inscription === 'equipe' || String(r?.taille || '').startsWith('__mode_equipe__');
@@ -1305,14 +1306,8 @@ export default function CompetitionSettings({ onBack, onToast }) {
 
     setSaving(true);
     setError('');
-    const createdRows = [];
     try {
-      for (const item of list) {
-        const { _key, ...payload } = item;
-        const created = await createCompetitionRegistration(payload);
-        createdRows.push(created);
-        setAddIndividuelBasket((prev) => prev.filter((b) => b._key !== _key));
-      }
+      const { registrations: createdRows = [] } = await createCompetitionRegistrationsBatch(list);
       setRegistrations((prev) => [...createdRows, ...prev]);
       setShowAddIndividuel(false);
       setAddIndividuelBasket([]);
@@ -1322,16 +1317,8 @@ export default function CompetitionSettings({ onBack, onToast }) {
         ? `${createdRows[0].prenom} ${createdRows[0].nom} ajouté(e) en Individuel`
         : `${n} judokas ajoutés en Individuel`);
     } catch (err) {
-      if (createdRows.length) {
-        setRegistrations((prev) => [...createdRows, ...prev]);
-      }
       setError(err.message || 'Ajout impossible');
-      onToast?.(
-        createdRows.length
-          ? `${createdRows.length} ajouté(s), puis erreur : ${err.message || 'Ajout impossible'}`
-          : (err.message || 'Ajout impossible'),
-        'error',
-      );
+      onToast?.(err.message || 'Ajout impossible', 'error');
     } finally {
       setSaving(false);
     }
@@ -2552,9 +2539,15 @@ export default function CompetitionSettings({ onBack, onToast }) {
                       <option key={cat} value={cat}>{cat}</option>
                     ))}
                   </select>
-                  {categoryFromBirthDate(addIndividuelForm.date_naissance) && (
-                    <p className="form-hint">Déterminée automatiquement selon l&apos;âge (Juniors 17–21 ans, Seniors 22–99 ans).</p>
-                  )}
+                  {(() => {
+                    const age = calcAgeFromDate(addIndividuelForm.date_naissance);
+                    if (!Number.isFinite(age) || age < 0) return null;
+                    return (
+                      <p className="form-hint">
+                        Âge : <strong>{age}</strong> an{age > 1 ? 's' : ''}
+                      </p>
+                    );
+                  })()}
                 </div>
               </div>
               <div className="confirm-actions competition-add-indiv-actions">

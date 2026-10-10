@@ -963,28 +963,41 @@ app.post('/api/competition/registrations', async (req, res) => {
       return res.status(403).json({ error: 'Accès non autorisé' });
     }
     const body = req.body || {};
-    const registration = await createCompetitionRegistration({
-      nom: body.nom,
-      prenom: body.prenom,
-      date_naissance: body.date_naissance || '',
-      sexe: body.sexe === 'F' ? 'F' : 'M',
-      club: body.club,
-      grade: body.grade || '',
-      categorie: body.categorie || '',
-      poids: body.poids || '',
-      telephone: body.telephone || '',
-      email: body.email || '',
-      judoka_id: body.judoka_id || null,
-      numero_carte: body.numero_carte || '',
-      deja_enregistre: Boolean(body.deja_enregistre),
+
+    const toPayload = (item = {}) => ({
+      nom: item.nom,
+      prenom: item.prenom,
+      date_naissance: item.date_naissance || '',
+      sexe: item.sexe === 'F' ? 'F' : 'M',
+      club: item.club,
+      grade: item.grade || '',
+      categorie: item.categorie || '',
+      poids: item.poids || '',
+      telephone: item.telephone || '',
+      email: item.email || '',
+      judoka_id: item.judoka_id || null,
+      numero_carte: item.numero_carte || '',
+      deja_enregistre: Boolean(item.deja_enregistre),
       mode_inscription: 'individuel',
-      paiement_statut: body.paiement_statut || 'en_attente',
-      montant_paye: Math.max(0, Number(body.montant_paye) || 0),
-      mode_paiement: String(body.mode_paiement || '').trim(),
+      paiement_statut: item.paiement_statut || 'en_attente',
+      montant_paye: Math.max(0, Number(item.montant_paye) || 0),
+      mode_paiement: String(item.mode_paiement || '').trim(),
     });
+
+    if (Array.isArray(body.batch) && body.batch.length) {
+      const created = [];
+      for (const item of body.batch) {
+        created.push(await createCompetitionRegistration(toPayload(item)));
+      }
+      return res.status(201).json({ count: created.length, registrations: created });
+    }
+
+    const registration = await createCompetitionRegistration(toPayload(body));
     res.status(201).json(registration);
   } catch (err) {
-    const status = /déjà inscrit|obligatoire/i.test(err.message || '') ? 400 : 500;
+    const status = /déjà inscrit|obligatoire|accepte uniquement|âge|naissance/i.test(err.message || '')
+      ? 400
+      : 500;
     res.status(status).json({ error: err.message });
   }
 });
