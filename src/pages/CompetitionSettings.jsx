@@ -15,7 +15,10 @@ import {
   resolveMediaUrl,
   CATEGORIES,
 } from '../api';
-import { exportCompetitionListToPdf } from '../utils/exportCompetitionListPdf';
+import {
+  exportCompetitionListToPdf,
+  exportCompetitionClubsIndividuelPdf,
+} from '../utils/exportCompetitionListPdf';
 import { exportCompetitionDrawToPdf } from '../utils/exportCompetitionDrawPdf';
 import { extractClubsFromPdfFile } from '../utils/importClubsFromPdf';
 import CompetitionClubSelect from '../components/CompetitionClubSelect';
@@ -25,7 +28,7 @@ import ReceiptScanModal from '../components/ReceiptScanModal';
 import CompetitionLinkQrModal from '../components/CompetitionLinkQrModal';
 import CompetitionReceiptProofModal from '../components/CompetitionReceiptProofModal';
 import { ClubLigueLabel } from '../components/CompetitionClubSelect';
-import { IconCharge, IconEdit, IconQrCode, IconTrash } from '../components/ActionIcons';
+import { IconCharge, IconEdit, IconExport, IconQrCode, IconTrash } from '../components/ActionIcons';
 import {
   buildReceiptPayloadFromRegistrations,
   extractOrderNumber,
@@ -1105,6 +1108,29 @@ export default function CompetitionSettings({ onBack, onToast }) {
       setError(err.message);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const countIndividuelJudokasForClub = (clubNom) => {
+    const key = String(clubNom || '').trim().toLowerCase();
+    if (!key) return 0;
+    return registrations.filter(
+      (r) => !isTeamRegistration(r) && String(r.club || '').trim().toLowerCase() === key,
+    ).length;
+  };
+
+  const handleExportClubsIndividuelPdf = (clubNom = null) => {
+    try {
+      exportCompetitionClubsIndividuelPdf(
+        registrations,
+        { ...(settings || {}), cadre: 'Individuel' },
+        clubNom ? { clubName: clubNom } : {},
+      );
+      onToast?.(clubNom
+        ? `Export PDF du club « ${clubNom} »`
+        : 'Liste des clubs Individuel exportée en PDF');
+    } catch (err) {
+      onToast?.(err.message || 'Erreur lors de l\'export PDF', 'error');
     }
   };
 
@@ -3050,6 +3076,21 @@ export default function CompetitionSettings({ onBack, onToast }) {
                             <IconEdit />
                           </button>
                         )}
+                        {clubsEditorCadre === 'individuel' && (
+                          <button
+                            type="button"
+                            className="btn btn-icon btn-icon-export"
+                            title={
+                              countIndividuelJudokasForClub(club.nom) > 0
+                                ? 'Exporter ce club en PDF'
+                                : 'Aucun judoka inscrit pour ce club'
+                            }
+                            disabled={saving || countIndividuelJudokasForClub(club.nom) < 1}
+                            onClick={() => handleExportClubsIndividuelPdf(club.nom)}
+                          >
+                            <IconExport />
+                          </button>
+                        )}
                         <button
                           type="button"
                           className="btn btn-icon btn-icon-delete"
@@ -3072,6 +3113,17 @@ export default function CompetitionSettings({ onBack, onToast }) {
                 hidden
                 onChange={handleLoadClubsFromPdf}
               />
+              {clubsEditorCadre === 'individuel' && (
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  disabled={saving || !registrations.some((r) => !isTeamRegistration(r))}
+                  onClick={() => handleExportClubsIndividuelPdf()}
+                  title="Exporter les clubs ayant au moins un judoka inscrit"
+                >
+                  Export
+                </button>
+              )}
               <button
                 type="button"
                 className="btn"

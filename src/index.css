@@ -322,6 +322,12 @@ canvas {
   --icon-border: #9ed4ce;
 }
 
+.btn-icon-export {
+  --icon-accent: #1d4ed8;
+  --icon-soft: #e8effe;
+  --icon-border: #b6c8f5;
+}
+
 .btn-icon-delete,
 .btn-danger.btn-icon {
   --icon-accent: #dc2626;
