@@ -1019,6 +1019,7 @@ app.put('/api/competition/registrations/:id', async (req, res) => {
       club: req.body?.club,
       categorie: req.body?.categorie,
       role_equipe: req.body?.role_equipe,
+      date_naissance: req.body?.date_naissance,
     });
     res.json(updated);
   } catch (err) {

@@ -722,7 +722,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
   const [deleteRegTarget, setDeleteRegTarget] = useState(null);
   const [deleteClubTarget, setDeleteClubTarget] = useState(null);
   const [editRegTarget, setEditRegTarget] = useState(null);
-  const [editRegForm, setEditRegForm] = useState({ nom: '', prenom: '', poids: '' });
+  const [editRegForm, setEditRegForm] = useState({ nom: '', prenom: '', poids: '', date_naissance: '' });
   const [showAddIndividuel, setShowAddIndividuel] = useState(false);
   const [addIndividuelForm, setAddIndividuelForm] = useState({
     nom: '',
@@ -1471,6 +1471,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
       nom: reg.nom || '',
       prenom: reg.prenom || '',
       poids: reg.poids || '',
+      date_naissance: String(reg.date_naissance || '').slice(0, 10),
     });
   };
 
@@ -1781,6 +1782,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
         nom: editRegForm.nom,
         prenom: editRegForm.prenom,
         poids: editRegForm.poids,
+        date_naissance: editRegForm.date_naissance,
       });
       setRegistrations((prev) => prev.map((r) => (r.id === updated.id ? { ...r, ...updated } : r)));
       setEditRegTarget(null);
@@ -2444,6 +2446,16 @@ export default function CompetitionSettings({ onBack, onToast }) {
                     id="edit-nom"
                     value={editRegForm.nom}
                     onChange={(e) => setEditRegForm((prev) => ({ ...prev, nom: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="edit-date-naissance">Date de naissance</label>
+                  <input
+                    id="edit-date-naissance"
+                    type="date"
+                    value={editRegForm.date_naissance}
+                    onChange={(e) => setEditRegForm((prev) => ({ ...prev, date_naissance: e.target.value }))}
                     required
                   />
                 </div>

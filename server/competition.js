@@ -788,12 +788,18 @@ export async function updateCompetitionRegistration(id, patch = {}) {
   if (patch.poids !== undefined) next.poids = String(patch.poids ?? '').trim();
   if (patch.club !== undefined) next.club = String(patch.club || '').trim();
   if (patch.categorie !== undefined) next.categorie = String(patch.categorie || '').trim();
+  if (patch.date_naissance !== undefined) {
+    next.date_naissance = String(patch.date_naissance || '').trim().slice(0, 10);
+  }
   if (patch.role_equipe !== undefined && getRegistrationMode(existing) === 'equipe') {
     next.role_equipe = patch.role_equipe === 'remplacant' ? 'remplacant' : 'principal';
     next.taille = `${TEAM_MODE_MARK}:${next.role_equipe}`;
   }
   if (!next.nom || !next.prenom) throw new Error('Nom et prénom obligatoires');
   if (patch.club !== undefined && !next.club) throw new Error('Le nom du club est obligatoire');
+  if (getRegistrationMode(existing) !== 'equipe' && patch.date_naissance !== undefined && !next.date_naissance) {
+    throw new Error('La date de naissance est obligatoire');
+  }
 
   if (isSupabaseEnabled()) {
     try {
@@ -806,6 +812,7 @@ export async function updateCompetitionRegistration(id, patch = {}) {
           club: next.club,
           categorie: next.categorie,
           taille: next.taille,
+          date_naissance: next.date_naissance || null,
         })
         .eq('id', id)
         .select('*')
