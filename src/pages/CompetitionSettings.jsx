@@ -739,6 +739,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
     date_naissance: '',
     categorie: '',
   });
+  const [addIndividuelBasket, setAddIndividuelBasket] = useState([]);
   const [editTeamTarget, setEditTeamTarget] = useState(null);
   const [editTeamClub, setEditTeamClub] = useState('');
   const [editTeamMembers, setEditTeamMembers] = useState([]);
@@ -1214,61 +1215,123 @@ export default function CompetitionSettings({ onBack, onToast }) {
     handleTirageMode(mode);
   };
 
+  const emptyAddIndividuelForm = (club = '') => ({
+    nom: '',
+    prenom: '',
+    club,
+    sexe: 'M',
+    date_naissance: '',
+    categorie: '',
+  });
+
+  const buildAddIndividuelEntry = (form) => {
+    const nom = String(form.nom || '').trim();
+    const prenom = String(form.prenom || '').trim();
+    const club = String(form.club || '').trim();
+    const dateNaissance = String(form.date_naissance || '').trim();
+    if (!nom || !prenom) return { error: 'Nom et prénom obligatoires' };
+    if (!club) return { error: 'Le club est obligatoire' };
+    if (!dateNaissance) return { error: 'La date de naissance est obligatoire' };
+    const categorie = categoryFromBirthDate(dateNaissance) || String(form.categorie || '').trim();
+    const ageError = validateCategoryAge(categorie, dateNaissance);
+    if (ageError) return { error: ageError };
+    const entry = {
+      nom,
+      prenom,
+      club,
+      sexe: form.sexe === 'F' ? 'F' : 'M',
+      date_naissance: dateNaissance,
+      categorie,
+      mode_inscription: 'individuel',
+      poids: '',
+    };
+    entry._key = [nom, prenom, dateNaissance, club].join('|').toLowerCase();
+    return { entry };
+  };
+
   const openAddIndividuelModal = () => {
-    setAddIndividuelForm({
-      nom: '',
-      prenom: '',
-      club: '',
-      sexe: 'M',
-      date_naissance: '',
-      categorie: '',
-    });
+    setAddIndividuelForm(emptyAddIndividuelForm());
+    setAddIndividuelBasket([]);
     setShowAddIndividuel(true);
+  };
+
+  const handleAddIndividuelToBasket = (e) => {
+    e.preventDefault();
+    const { entry, error } = buildAddIndividuelEntry(addIndividuelForm);
+    if (error) {
+      onToast?.(error, 'error');
+      return;
+    }
+    if (addIndividuelBasket.some((item) => item._key === entry._key)) {
+      onToast?.('Ce judoka est déjà dans la liste', 'error');
+      return;
+    }
+    setAddIndividuelBasket((prev) => [...prev, entry]);
+    setAddIndividuelForm((prev) => emptyAddIndividuelForm(prev.club));
+    onToast?.(`${entry.prenom} ${entry.nom} ajouté(e) à la liste`);
+  };
+
+  const removeAddIndividuelFromBasket = (key) => {
+    setAddIndividuelBasket((prev) => prev.filter((item) => item._key !== key));
   };
 
   const handleAddIndividuelRegistration = async (e) => {
     e.preventDefault();
-    const nom = String(addIndividuelForm.nom || '').trim();
-    const prenom = String(addIndividuelForm.prenom || '').trim();
-    const club = String(addIndividuelForm.club || '').trim();
-    const dateNaissance = String(addIndividuelForm.date_naissance || '').trim();
-    if (!nom || !prenom) {
-      onToast?.('Nom et prénom obligatoires', 'error');
+    let list = [...addIndividuelBasket];
+    const draftFilled = addIndividuelForm.nom?.trim()
+      || addIndividuelForm.prenom?.trim()
+      || addIndividuelForm.date_naissance?.trim();
+    if (draftFilled) {
+      const { entry, error } = buildAddIndividuelEntry(addIndividuelForm);
+      if (error) {
+        onToast?.(error, 'error');
+        return;
+      }
+      if (!list.some((item) => item._key === entry._key)) {
+        list = [...list, entry];
+      }
+    }
+    if (!list.length) {
+      onToast?.('Ajoutez au moins un judoka à la liste', 'error');
       return;
     }
-    if (!club) {
-      onToast?.('Le club est obligatoire', 'error');
-      return;
+    for (const item of list) {
+      const ageError = validateCategoryAge(item.categorie, item.date_naissance);
+      if (ageError) {
+        onToast?.(`${item.prenom} ${item.nom} : ${ageError}`, 'error');
+        return;
+      }
     }
-    if (!dateNaissance) {
-      onToast?.('La date de naissance est obligatoire', 'error');
-      return;
-    }
-    const categorie = String(addIndividuelForm.categorie || '').trim();
-    const ageError = validateCategoryAge(categorie, dateNaissance);
-    if (ageError) {
-      onToast?.(ageError, 'error');
-      return;
-    }
+
     setSaving(true);
     setError('');
+    const createdRows = [];
     try {
-      const created = await createCompetitionRegistration({
-        nom,
-        prenom,
-        club,
-        sexe: addIndividuelForm.sexe === 'F' ? 'F' : 'M',
-        date_naissance: dateNaissance,
-        categorie,
-        mode_inscription: 'individuel',
-        poids: '',
-      });
-      setRegistrations((prev) => [created, ...prev]);
+      for (const item of list) {
+        const { _key, ...payload } = item;
+        const created = await createCompetitionRegistration(payload);
+        createdRows.push(created);
+        setAddIndividuelBasket((prev) => prev.filter((b) => b._key !== _key));
+      }
+      setRegistrations((prev) => [...createdRows, ...prev]);
       setShowAddIndividuel(false);
-      onToast?.(`${prenom} ${nom} ajouté(e) en Individuel`);
+      setAddIndividuelBasket([]);
+      setAddIndividuelForm(emptyAddIndividuelForm());
+      const n = createdRows.length;
+      onToast?.(n === 1
+        ? `${createdRows[0].prenom} ${createdRows[0].nom} ajouté(e) en Individuel`
+        : `${n} judokas ajoutés en Individuel`);
     } catch (err) {
+      if (createdRows.length) {
+        setRegistrations((prev) => [...createdRows, ...prev]);
+      }
       setError(err.message || 'Ajout impossible');
-      onToast?.(err.message || 'Ajout impossible', 'error');
+      onToast?.(
+        createdRows.length
+          ? `${createdRows.length} ajouté(s), puis erreur : ${err.message || 'Ajout impossible'}`
+          : (err.message || 'Ajout impossible'),
+        'error',
+      );
     } finally {
       setSaving(false);
     }
@@ -2381,8 +2444,39 @@ export default function CompetitionSettings({ onBack, onToast }) {
 
       {showAddIndividuel && (
         <div className="confirm-overlay" onClick={() => !saving && setShowAddIndividuel(false)}>
-          <div className="confirm-dialog competition-edit-reg-modal" onClick={(e) => e.stopPropagation()}>
-            <h3>Ajouter un judoka · Individuel</h3>
+          <div
+            className="confirm-dialog competition-edit-reg-modal competition-add-indiv-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3>Ajouter des judokas · Individuel</h3>
+            <p className="form-hint">
+              Ajoutez plusieurs judokas à la liste ; chaque ligne peut avoir un club différent.
+            </p>
+            {addIndividuelBasket.length > 0 && (
+              <div className="competition-basket">
+                <h3>Judokas à ajouter ({addIndividuelBasket.length})</h3>
+                <ul>
+                  {addIndividuelBasket.map((item) => (
+                    <li key={item._key}>
+                      <span>
+                        {item.prenom} {item.nom}
+                        {item.categorie ? ` · ${item.categorie}` : ''}
+                        {' · '}
+                        {item.club}
+                      </span>
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-sm"
+                        onClick={() => removeAddIndividuelFromBasket(item._key)}
+                        disabled={saving}
+                      >
+                        Retirer
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             <form onSubmit={handleAddIndividuelRegistration}>
               <div className="competition-edit-reg-grid">
                 <div className="form-group">
@@ -2391,7 +2485,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
                     id="add-indiv-prenom"
                     value={addIndividuelForm.prenom}
                     onChange={(e) => setAddIndividuelForm((prev) => ({ ...prev, prenom: e.target.value }))}
-                    required
+                    required={addIndividuelBasket.length === 0}
                   />
                 </div>
                 <div className="form-group">
@@ -2400,7 +2494,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
                     id="add-indiv-nom"
                     value={addIndividuelForm.nom}
                     onChange={(e) => setAddIndividuelForm((prev) => ({ ...prev, nom: e.target.value }))}
-                    required
+                    required={addIndividuelBasket.length === 0}
                   />
                 </div>
                 <div className="form-group form-group-full">
@@ -2413,7 +2507,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
                       .filter((c) => c.cadre === 'individuel')
                       .map((c) => ({ id: c.id, nom: c.nom, ligue: c.ligue }))}
                     onChange={(e) => setAddIndividuelForm((prev) => ({ ...prev, club: e.target.value }))}
-                    required
+                    required={addIndividuelBasket.length === 0}
                   />
                 </div>
                 <div className="form-group">
@@ -2442,7 +2536,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
                         ...(autoCat ? { categorie: autoCat } : {}),
                       }));
                     }}
-                    required
+                    required={addIndividuelBasket.length === 0}
                   />
                 </div>
                 <div className="form-group form-group-full">
@@ -2463,9 +2557,17 @@ export default function CompetitionSettings({ onBack, onToast }) {
                   )}
                 </div>
               </div>
-              <div className="confirm-actions">
+              <div className="confirm-actions competition-add-indiv-actions">
                 <button type="button" className="btn btn-outline" onClick={() => setShowAddIndividuel(false)} disabled={saving}>
                   Annuler
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  onClick={handleAddIndividuelToBasket}
+                  disabled={saving}
+                >
+                  Ajouter à la liste
                 </button>
                 <button
                   type="submit"
@@ -2473,7 +2575,13 @@ export default function CompetitionSettings({ onBack, onToast }) {
                   style={{ background: '#16a34a', color: '#fff', borderColor: '#16a34a' }}
                   disabled={saving}
                 >
-                  {saving ? 'Ajout...' : 'Ajouter'}
+                  {saving
+                    ? 'Ajout...'
+                    : addIndividuelBasket.length > 0
+                      ? `Enregistrer (${addIndividuelBasket.length}${
+                        (addIndividuelForm.nom?.trim() || addIndividuelForm.prenom?.trim()) ? '+' : ''
+                      })`
+                      : 'Enregistrer'}
                 </button>
               </div>
             </form>

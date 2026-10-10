@@ -2293,6 +2293,14 @@ tbody tr:last-child td {
   text-align: left;
 }
 
+.competition-add-indiv-modal {
+  max-width: min(720px, 94vw);
+}
+
+.competition-add-indiv-actions {
+  flex-wrap: wrap;
+}
+
 .competition-edit-reg-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
