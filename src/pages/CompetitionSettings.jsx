@@ -1873,12 +1873,24 @@ export default function CompetitionSettings({ onBack, onToast }) {
   const individualWeighed = registrations.filter((r) => !isTeamRegistration(r) && r.poids).length;
   const teamWeighed = registrations.filter((r) => isTeamRegistration(r) && r.poids).length;
   const clubsEditorSearchTerm = clubsEditorSearch.trim().toLowerCase();
-  const clubsEditorList = (settings?.competition_clubs || []).filter((c) => {
-    if (c.cadre !== clubsEditorCadre) return false;
+  const clubsEditorCadreClubs = (settings?.competition_clubs || []).filter(
+    (c) => c.cadre === clubsEditorCadre,
+  );
+  const clubsEditorList = clubsEditorCadreClubs.filter((c) => {
     if (!clubsEditorSearchTerm) return true;
     const haystack = `${c.nom || ''} ${c.ligue || ''}`.toLowerCase();
     return haystack.includes(clubsEditorSearchTerm);
   });
+  const clubsEditorLigueStats = (() => {
+    const counts = new Map();
+    for (const club of clubsEditorCadreClubs) {
+      const ligue = String(club.ligue || '').trim() || 'Sans ligue';
+      counts.set(ligue, (counts.get(ligue) || 0) + 1);
+    }
+    return [...counts.entries()]
+      .map(([ligue, count]) => ({ ligue, count }))
+      .sort((a, b) => b.count - a.count || a.ligue.localeCompare(b.ligue, 'fr'));
+  })();
   // Tirage actif si pesée clôturée, ou si le lien d'inscription est Off
   const tirageReady = isClosed && registrations.length > 0;
 
@@ -2702,6 +2714,25 @@ export default function CompetitionSettings({ onBack, onToast }) {
         >
           <div className="confirm-dialog competition-team-edit-modal" onClick={(e) => e.stopPropagation()}>
             <h3>Clubs · {clubsEditorCadre === 'equipe' ? 'Par équipe' : 'Individuel'}</h3>
+            <div className="competition-clubs-editor-stats" aria-label="Statistiques des clubs">
+              <div className="competition-clubs-editor-stat-total">
+                <strong>{clubsEditorCadreClubs.length}</strong>
+                <span>
+                  club{clubsEditorCadreClubs.length > 1 ? 's' : ''} enregistré
+                  {clubsEditorCadreClubs.length > 1 ? 's' : ''}
+                </span>
+              </div>
+              {clubsEditorLigueStats.length > 0 && (
+                <ul className="competition-clubs-editor-stat-ligues">
+                  {clubsEditorLigueStats.map(({ ligue, count }) => (
+                    <li key={ligue}>
+                      <span className="competition-clubs-editor-stat-ligue">{ligue}</span>
+                      <strong>{count}</strong>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
             {clubsImportProgress != null && (
               <div className="clubs-import-progress" role="status" aria-live="polite">
                 <p>Chargement des clubs…</p>
@@ -2742,7 +2773,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
                 </button>
               </div>
             </form>
-            {(settings?.competition_clubs || []).some((c) => c.cadre === clubsEditorCadre) && (
+            {clubsEditorCadreClubs.length > 0 && (
               <div className="competition-clubs-editor-search">
                 <input
                   type="search"
@@ -2754,7 +2785,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
                 />
               </div>
             )}
-            {(settings?.competition_clubs || []).filter((c) => c.cadre === clubsEditorCadre).length === 0 ? (
+            {clubsEditorCadreClubs.length === 0 ? (
               <p className="form-hint">Aucun club enregistré pour ce cadre.</p>
             ) : clubsEditorList.length === 0 ? (
               <p className="form-hint">Aucun club ne correspond à « {clubsEditorSearch.trim()} ».</p>

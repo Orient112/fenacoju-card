@@ -2369,6 +2369,66 @@ tbody tr:last-child td {
   grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.1fr) minmax(0, 0.7fr) minmax(0, 0.8fr) minmax(0, 0.9fr);
 }
 
+.competition-clubs-editor-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin: 0 0 1rem;
+  padding: 0.75rem 0.85rem;
+  background: #f5f8fd;
+  border: 1px solid #e2e8f0;
+  text-align: left;
+}
+
+.competition-clubs-editor-stat-total {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+}
+
+.competition-clubs-editor-stat-total strong {
+  font-family: var(--font-display);
+  font-size: 1.45rem;
+  font-weight: 800;
+  color: var(--primary-dark);
+  line-height: 1;
+}
+
+.competition-clubs-editor-stat-total span {
+  color: #64748b;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.competition-clubs-editor-stat-ligues {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.competition-clubs-editor-stat-ligues li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.55rem;
+  background: #fff;
+  border: 1px solid #dbe4f0;
+  font-size: 0.82rem;
+}
+
+.competition-clubs-editor-stat-ligue {
+  color: #475569;
+  font-weight: 600;
+}
+
+.competition-clubs-editor-stat-ligues strong {
+  color: var(--primary-dark);
+  font-weight: 800;
+}
+
 .competition-clubs-editor-search {
   margin: 0 0 0.75rem;
 }
