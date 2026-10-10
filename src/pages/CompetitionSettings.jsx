@@ -5,7 +5,6 @@ import {
   uploadCompetitionLogo,
   deleteCompetitionLogo,
   fetchCompetitionRegistrations,
-  createCompetitionRegistration,
   createCompetitionRegistrationsBatch,
   deleteCompetitionRegistration,
   updateCompetitionRegistration,
