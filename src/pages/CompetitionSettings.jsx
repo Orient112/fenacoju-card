@@ -729,6 +729,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
   const [editRegForm, setEditRegForm] = useState({
     nom: '',
     prenom: '',
+    club: '',
     poids: '',
     date_naissance: '',
     categorie: '',
@@ -1561,6 +1562,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
     setEditRegForm({
       nom: reg.nom || '',
       prenom: reg.prenom || '',
+      club: reg.club || '',
       poids: reg.poids || '',
       date_naissance,
       categorie: categoryFromBirthDate(date_naissance) || reg.categorie || '',
@@ -1867,6 +1869,11 @@ export default function CompetitionSettings({ onBack, onToast }) {
   const handleSaveRegistration = async (e) => {
     e.preventDefault();
     if (!editRegTarget) return;
+    const club = String(editRegForm.club || '').trim();
+    if (!club) {
+      onToast?.('Le club est obligatoire', 'error');
+      return;
+    }
     const resolvedCategorie = categoryFromBirthDate(editRegForm.date_naissance)
       || String(editRegForm.categorie || '').trim();
     const ageError = validateCategoryAge(resolvedCategorie, editRegForm.date_naissance);
@@ -1880,6 +1887,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
       const updated = await updateCompetitionRegistration(editRegTarget.id, {
         nom: editRegForm.nom,
         prenom: editRegForm.prenom,
+        club,
         poids: editRegForm.poids,
         date_naissance: editRegForm.date_naissance,
         categorie: resolvedCategorie,
@@ -2608,11 +2616,20 @@ export default function CompetitionSettings({ onBack, onToast }) {
       )}
 
       {editRegTarget && (
-        <div className="confirm-overlay" onClick={() => setEditRegTarget(null)}>
-          <div className="confirm-dialog competition-edit-reg-modal" onClick={(e) => e.stopPropagation()}>
-            <h3>Modifier l&apos;inscription</h3>
+        <div className="confirm-overlay" onClick={() => !saving && setEditRegTarget(null)}>
+          <div
+            className="confirm-dialog competition-edit-reg-modal competition-edit-inscription-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <header className="competition-edit-inscription-head">
+              <p className="competition-edit-inscription-kicker">Inscription Individuel</p>
+              <h3>Modifier l&apos;inscription</h3>
+              <p className="competition-edit-inscription-sub">
+                Mettez à jour l&apos;identité, le club et la catégorie du judoka.
+              </p>
+            </header>
             <form onSubmit={handleSaveRegistration}>
-              <div className="competition-edit-reg-grid">
+              <div className="competition-edit-inscription-grid">
                 <div className="form-group">
                   <label htmlFor="edit-prenom">Prénom</label>
                   <input
@@ -2628,6 +2645,19 @@ export default function CompetitionSettings({ onBack, onToast }) {
                     id="edit-nom"
                     value={editRegForm.nom}
                     onChange={(e) => setEditRegForm((prev) => ({ ...prev, nom: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div className="form-group form-group-full">
+                  <label htmlFor="edit-club">Club</label>
+                  <CompetitionClubSelect
+                    id="edit-club"
+                    name="club"
+                    value={editRegForm.club}
+                    clubs={(settings?.competition_clubs || [])
+                      .filter((c) => c.cadre === 'individuel')
+                      .map((c) => ({ id: c.id, nom: c.nom, ligue: c.ligue }))}
+                    onChange={(e) => setEditRegForm((prev) => ({ ...prev, club: e.target.value }))}
                     required
                   />
                 </div>
@@ -2648,6 +2678,15 @@ export default function CompetitionSettings({ onBack, onToast }) {
                     }}
                     required
                   />
+                  {(() => {
+                    const age = calcAgeFromDate(editRegForm.date_naissance);
+                    if (!Number.isFinite(age) || age < 0) return null;
+                    return (
+                      <p className="competition-edit-inscription-age">
+                        Âge : <strong>{age}</strong> an{age > 1 ? 's' : ''}
+                      </p>
+                    );
+                  })()}
                 </div>
                 <div className="form-group">
                   <label htmlFor="edit-categorie">Catégorie</label>
@@ -2662,11 +2701,8 @@ export default function CompetitionSettings({ onBack, onToast }) {
                       <option key={cat} value={cat}>{cat}</option>
                     ))}
                   </select>
-                  {categoryFromBirthDate(editRegForm.date_naissance) && (
-                    <p className="form-hint">Déterminée automatiquement selon l&apos;âge (Juniors 17–21 ans, Seniors 22–99 ans).</p>
-                  )}
                 </div>
-                <div className="form-group">
+                <div className="form-group form-group-full">
                   <label htmlFor="edit-poids">Poids (kg)</label>
                   <input
                     id="edit-poids"
@@ -2677,8 +2713,8 @@ export default function CompetitionSettings({ onBack, onToast }) {
                   />
                 </div>
               </div>
-              <div className="confirm-actions">
-                <button type="button" className="btn btn-outline" onClick={() => setEditRegTarget(null)}>
+              <div className="confirm-actions competition-edit-inscription-actions">
+                <button type="button" className="btn btn-outline" onClick={() => setEditRegTarget(null)} disabled={saving}>
                   Annuler
                 </button>
                 <button type="submit" className="btn btn-primary" disabled={saving}>
