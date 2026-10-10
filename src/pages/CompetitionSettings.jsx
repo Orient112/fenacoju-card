@@ -30,6 +30,7 @@ import {
   buildReceiptPayloadFromRegistrations,
   extractOrderNumber,
 } from '../utils/competitionReceipt';
+import { validateCategoryAge } from '../utils/categoryAge';
 
 function isTeamRegistration(r) {
   return r?.mode_inscription === 'equipe' || String(r?.taille || '').startsWith('__mode_equipe__');
@@ -745,6 +746,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
   const [addingTeamJudoka, setAddingTeamJudoka] = useState(false);
   const [clubsEditorCadre, setClubsEditorCadre] = useState(null);
   const [clubsEditorSearch, setClubsEditorSearch] = useState('');
+  const [clubsEditorLigueFilter, setClubsEditorLigueFilter] = useState(null);
   const [clubDraft, setClubDraft] = useState('');
   const [ligueDraft, setLigueDraft] = useState('');
   const [editingClub, setEditingClub] = useState(null);
@@ -1186,6 +1188,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
       setActionMode(null);
       setClubsEditorCadre(mode);
       setClubsEditorSearch('');
+      setClubsEditorLigueFilter(null);
       setClubDraft('');
       setLigueDraft('');
       setEditingClub(null);
@@ -1235,6 +1238,12 @@ export default function CompetitionSettings({ onBack, onToast }) {
       onToast?.('La date de naissance est obligatoire', 'error');
       return;
     }
+    const categorie = String(addIndividuelForm.categorie || '').trim();
+    const ageError = validateCategoryAge(categorie, dateNaissance);
+    if (ageError) {
+      onToast?.(ageError, 'error');
+      return;
+    }
     setSaving(true);
     setError('');
     try {
@@ -1244,7 +1253,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
         club,
         sexe: addIndividuelForm.sexe === 'F' ? 'F' : 'M',
         date_naissance: dateNaissance,
-        categorie: String(addIndividuelForm.categorie || '').trim(),
+        categorie,
         mode_inscription: 'individuel',
         poids: '',
       });
@@ -1775,6 +1784,11 @@ export default function CompetitionSettings({ onBack, onToast }) {
   const handleSaveRegistration = async (e) => {
     e.preventDefault();
     if (!editRegTarget) return;
+    const ageError = validateCategoryAge(editRegTarget.categorie, editRegForm.date_naissance);
+    if (ageError) {
+      onToast?.(ageError, 'error');
+      return;
+    }
     setSaving(true);
     setError('');
     try {
@@ -1877,6 +1891,10 @@ export default function CompetitionSettings({ onBack, onToast }) {
     (c) => c.cadre === clubsEditorCadre,
   );
   const clubsEditorList = clubsEditorCadreClubs.filter((c) => {
+    if (clubsEditorLigueFilter) {
+      const ligue = String(c.ligue || '').trim() || 'Sans ligue';
+      if (ligue !== clubsEditorLigueFilter) return false;
+    }
     if (!clubsEditorSearchTerm) return true;
     const haystack = `${c.nom || ''} ${c.ligue || ''}`.toLowerCase();
     return haystack.includes(clubsEditorSearchTerm);
@@ -1891,6 +1909,9 @@ export default function CompetitionSettings({ onBack, onToast }) {
       .map(([ligue, count]) => ({ ligue, count }))
       .sort((a, b) => b.count - a.count || a.ligue.localeCompare(b.ligue, 'fr'));
   })();
+  const toggleClubsEditorLigueFilter = (ligue) => {
+    setClubsEditorLigueFilter((prev) => (prev === ligue ? null : ligue));
+  };
   // Tirage actif si pesée clôturée, ou si le lien d'inscription est Off
   const tirageReady = isClosed && registrations.length > 0;
 
@@ -2709,30 +2730,60 @@ export default function CompetitionSettings({ onBack, onToast }) {
             if (clubsImportProgress == null) {
               setClubsEditorCadre(null);
               setClubsEditorSearch('');
+              setClubsEditorLigueFilter(null);
             }
           }}
         >
           <div className="confirm-dialog competition-team-edit-modal" onClick={(e) => e.stopPropagation()}>
             <h3>Clubs · {clubsEditorCadre === 'equipe' ? 'Par équipe' : 'Individuel'}</h3>
             <div className="competition-clubs-editor-stats" aria-label="Statistiques des clubs">
-              <div className="competition-clubs-editor-stat-total">
+              <button
+                type="button"
+                className={`competition-clubs-editor-stat-total${clubsEditorLigueFilter == null ? ' is-active' : ''}`}
+                onClick={() => setClubsEditorLigueFilter(null)}
+                aria-pressed={clubsEditorLigueFilter == null}
+                title="Afficher tous les clubs"
+              >
                 <strong>{clubsEditorCadreClubs.length}</strong>
                 <span>
                   club{clubsEditorCadreClubs.length > 1 ? 's' : ''} enregistré
                   {clubsEditorCadreClubs.length > 1 ? 's' : ''}
                 </span>
-              </div>
+              </button>
               {clubsEditorLigueStats.length > 0 && (
                 <ul className="competition-clubs-editor-stat-ligues">
                   {clubsEditorLigueStats.map(({ ligue, count }) => (
                     <li key={ligue}>
-                      <span className="competition-clubs-editor-stat-ligue">{ligue}</span>
-                      <strong>{count}</strong>
+                      <button
+                        type="button"
+                        className={`competition-clubs-editor-stat-ligue-btn${clubsEditorLigueFilter === ligue ? ' is-active' : ''}`}
+                        onClick={() => toggleClubsEditorLigueFilter(ligue)}
+                        aria-pressed={clubsEditorLigueFilter === ligue}
+                        title={clubsEditorLigueFilter === ligue
+                          ? 'Afficher tous les clubs'
+                          : `Afficher uniquement les clubs de ${ligue}`}
+                      >
+                        <span className="competition-clubs-editor-stat-ligue">{ligue}</span>
+                        <strong>{count}</strong>
+                      </button>
                     </li>
                   ))}
                 </ul>
               )}
             </div>
+            {clubsEditorLigueFilter && (
+              <p className="form-hint competition-clubs-editor-filter-hint">
+                Filtre ligue : <strong>{clubsEditorLigueFilter}</strong>
+                {' · '}
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => setClubsEditorLigueFilter(null)}
+                >
+                  Tout afficher
+                </button>
+              </p>
+            )}
             {clubsImportProgress != null && (
               <div className="clubs-import-progress" role="status" aria-live="polite">
                 <p>Chargement des clubs…</p>
@@ -2788,7 +2839,11 @@ export default function CompetitionSettings({ onBack, onToast }) {
             {clubsEditorCadreClubs.length === 0 ? (
               <p className="form-hint">Aucun club enregistré pour ce cadre.</p>
             ) : clubsEditorList.length === 0 ? (
-              <p className="form-hint">Aucun club ne correspond à « {clubsEditorSearch.trim()} ».</p>
+              <p className="form-hint">
+                {clubsEditorLigueFilter && !clubsEditorSearchTerm
+                  ? `Aucun club pour la ligue « ${clubsEditorLigueFilter} ».`
+                  : `Aucun club ne correspond à « ${clubsEditorSearch.trim() || clubsEditorLigueFilter} ».`}
+              </p>
             ) : (
               <ul className="competition-club-editor-list">
                 {clubsEditorList.map((club) => (
@@ -2894,6 +2949,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
                 onClick={() => {
                   setClubsEditorCadre(null);
                   setClubsEditorSearch('');
+                  setClubsEditorLigueFilter(null);
                 }}
               >
                 Fermer

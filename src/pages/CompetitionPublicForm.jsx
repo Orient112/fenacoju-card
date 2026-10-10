@@ -5,6 +5,7 @@ import {
   registerPublicCompetition,
   resolveMediaUrl,
   CATEGORIES,
+  validateCategoryAge,
 } from '../api';
 import CompetitionPaymentModal, { formatMoney } from '../components/CompetitionPaymentModal';
 import CompetitionClubSelect from '../components/CompetitionClubSelect';
@@ -310,6 +311,11 @@ export default function CompetitionPublicForm({ token }) {
       setError('Complétez les champs obligatoires avant d\'ajouter');
       return;
     }
+    const ageError = validateCategoryAge(form.categorie, form.date_naissance);
+    if (ageError) {
+      setError(ageError);
+      return;
+    }
     const payload = buildIndividuelPayload();
     const key = [
       payload.nom, payload.prenom, payload.date_naissance, payload.club,
@@ -335,6 +341,11 @@ export default function CompetitionPublicForm({ token }) {
     setError('');
     let list = [...basket];
     if (form.nom?.trim() && form.prenom?.trim() && form.club?.trim() && form.date_naissance) {
+      const ageError = validateCategoryAge(form.categorie, form.date_naissance);
+      if (ageError) {
+        setError(ageError);
+        return;
+      }
       const payload = buildIndividuelPayload();
       const key = [
         payload.nom, payload.prenom, payload.date_naissance, payload.club,
@@ -342,6 +353,15 @@ export default function CompetitionPublicForm({ token }) {
       ].join('|').toLowerCase();
       if (!list.some((item) => item._key === key)) {
         list = [...list, { ...payload, _key: key }];
+      }
+    }
+    for (const item of list) {
+      const ageError = validateCategoryAge(item.categorie, item.date_naissance);
+      if (ageError) {
+        setError(`${item.prenom || ''} ${item.nom || ''}`.trim()
+          ? `${ageError} (${item.prenom} ${item.nom})`
+          : ageError);
+        return;
       }
     }
     if (!list.length) {

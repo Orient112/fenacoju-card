@@ -6,6 +6,8 @@ import CameraCapture from './CameraCapture';
 
 import SearchableSelect from './SearchableSelect';
 
+import { validateCategoryAge } from '../utils/categoryAge';
+
 
 
 const JUDOKA_FORM_FIELDS = [
@@ -204,6 +206,12 @@ export default function JudokaForm({ judoka, lockedClub, registeredClubs = [], e
     e.preventDefault();
 
     setError('');
+
+    const ageError = validateCategoryAge(form.categorie, form.date_naissance);
+    if (ageError) {
+      setError(ageError);
+      return;
+    }
 
     setLoading(true);
 

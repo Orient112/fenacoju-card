@@ -344,14 +344,12 @@ export function formatDate(dateStr) {
   return `${d}/${m}/${y}`;
 }
 
-export function calcAge(dateNaissance) {
-  const today = new Date();
-  const birth = new Date(dateNaissance);
-  let age = today.getFullYear() - birth.getFullYear();
-  const m = today.getMonth() - birth.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
-  return age;
-}
+export {
+  calcAgeFromDate as calcAge,
+  validateCategoryAge,
+  getCategoryAgeRule,
+  CATEGORY_AGE_RANGES,
+} from './utils/categoryAge.js';
 
 export function getCardValidityYear(judoka) {
   const base = judoka.date_inscription || judoka.created_at?.split('T')[0];

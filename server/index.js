@@ -16,6 +16,7 @@ import {
   deleteJudoka,
   generateCardNumber,
 } from './database.js';
+import { validateCategoryAge } from './categoryAge.js';
 import {
   login,
   logout,
@@ -1528,6 +1529,12 @@ app.post('/api/judokas', handlePhotoUpload, async (req, res) => {
       return res.status(400).json({ error: 'Champs obligatoires manquants' });
     }
 
+    const categorie = body.categorie?.trim() || '';
+    const ageError = validateCategoryAge(categorie, body.date_naissance);
+    if (ageError) {
+      return res.status(400).json({ error: ageError });
+    }
+
     const users = await getAllUsers();
     const club = enforceJudokaClub(req.user, body.club?.trim());
     if (req.user.type === 'ligue' || req.user.type === 'entente') {
@@ -1553,7 +1560,7 @@ app.post('/api/judokas', handlePhotoUpload, async (req, res) => {
       sexe: body.sexe,
       club,
       grade: body.grade,
-      categorie: body.categorie?.trim() || '',
+      categorie,
       numero_licence: body.numero_licence?.trim() || '',
       telephone: body.telephone?.trim() || '',
       email: body.email?.trim() || '',
@@ -1608,6 +1615,12 @@ async function handleUpdateJudoka(req, res) {
       return res.status(400).json({ error: 'Champs obligatoires manquants' });
     }
 
+    const categorie = body.categorie?.trim() || '';
+    const ageError = validateCategoryAge(categorie, body.date_naissance);
+    if (ageError) {
+      return res.status(400).json({ error: ageError });
+    }
+
     const club = enforceJudokaClub(req.user, body.club?.trim());
     const clubUnchanged =
       club.trim().toLowerCase() === (existing.club || '').trim().toLowerCase();
@@ -1628,7 +1641,7 @@ async function handleUpdateJudoka(req, res) {
       sexe: body.sexe,
       club,
       grade: body.grade,
-      categorie: body.categorie?.trim() || '',
+      categorie,
       numero_licence: body.numero_licence?.trim() || '',
       telephone: body.telephone?.trim() || '',
       email: body.email?.trim() || '',
