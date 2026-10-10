@@ -723,7 +723,13 @@ export default function CompetitionSettings({ onBack, onToast }) {
   const [deleteRegTarget, setDeleteRegTarget] = useState(null);
   const [deleteClubTarget, setDeleteClubTarget] = useState(null);
   const [editRegTarget, setEditRegTarget] = useState(null);
-  const [editRegForm, setEditRegForm] = useState({ nom: '', prenom: '', poids: '', date_naissance: '' });
+  const [editRegForm, setEditRegForm] = useState({
+    nom: '',
+    prenom: '',
+    poids: '',
+    date_naissance: '',
+    categorie: '',
+  });
   const [showAddIndividuel, setShowAddIndividuel] = useState(false);
   const [addIndividuelForm, setAddIndividuelForm] = useState({
     nom: '',
@@ -1476,11 +1482,13 @@ export default function CompetitionSettings({ onBack, onToast }) {
 
   const openEditRegistration = (reg) => {
     setEditRegTarget(reg);
+    const date_naissance = String(reg.date_naissance || '').slice(0, 10);
     setEditRegForm({
       nom: reg.nom || '',
       prenom: reg.prenom || '',
       poids: reg.poids || '',
-      date_naissance: String(reg.date_naissance || '').slice(0, 10),
+      date_naissance,
+      categorie: categoryFromBirthDate(date_naissance) || reg.categorie || '',
     });
   };
 
@@ -1785,7 +1793,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
     e.preventDefault();
     if (!editRegTarget) return;
     const resolvedCategorie = categoryFromBirthDate(editRegForm.date_naissance)
-      || editRegTarget.categorie;
+      || String(editRegForm.categorie || '').trim();
     const ageError = validateCategoryAge(resolvedCategorie, editRegForm.date_naissance);
     if (ageError) {
       onToast?.(ageError, 'error');
@@ -2503,9 +2511,34 @@ export default function CompetitionSettings({ onBack, onToast }) {
                     id="edit-date-naissance"
                     type="date"
                     value={editRegForm.date_naissance}
-                    onChange={(e) => setEditRegForm((prev) => ({ ...prev, date_naissance: e.target.value }))}
+                    onChange={(e) => {
+                      const date_naissance = e.target.value;
+                      const autoCat = categoryFromBirthDate(date_naissance);
+                      setEditRegForm((prev) => ({
+                        ...prev,
+                        date_naissance,
+                        ...(autoCat ? { categorie: autoCat } : {}),
+                      }));
+                    }}
                     required
                   />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="edit-categorie">Catégorie</label>
+                  <select
+                    id="edit-categorie"
+                    value={editRegForm.categorie}
+                    onChange={(e) => setEditRegForm((prev) => ({ ...prev, categorie: e.target.value }))}
+                    disabled={Boolean(categoryFromBirthDate(editRegForm.date_naissance))}
+                  >
+                    <option value="">— Sélectionner —</option>
+                    {(CATEGORIES || []).map((cat) => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                  {categoryFromBirthDate(editRegForm.date_naissance) && (
+                    <p className="form-hint">Déterminée automatiquement selon l&apos;âge (Juniors 17–21 ans, Seniors 22–99 ans).</p>
+                  )}
                 </div>
                 <div className="form-group">
                   <label htmlFor="edit-poids">Poids (kg)</label>
