@@ -302,28 +302,73 @@ export function formatReceiptAmount(montant, monnaie) {
   return `${formatted} ${suffix}`;
 }
 
+/** Parse un montant issu du formulaire / API (string ou number). */
+export function parseFeeNumber(raw) {
+  if (raw == null || raw === '') return NaN;
+  if (typeof raw === 'number') return Number.isFinite(raw) ? raw : NaN;
+  const cleaned = String(raw)
+    .trim()
+    .replace(/\s/g, '')
+    .replace(/\u202f/g, '')
+    .replace(',', '.');
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : NaN;
+}
+
 /**
  * Frais de participation en Franc Congolais (Paramètres de Compétition).
  * Individuel : prix par judoka × nombre d’inscrits sur le reçu.
  * Par équipe : prix par club (une fois).
+ * Ignore les 0 pour laisser la première valeur positive parmi les clés.
  */
 export function getCompetitionFeeCdf(competition, mode, judokaCount = 1) {
   const isTeam = mode === 'equipe';
-  const read = (...keys) => {
+  const pickPositive = (...keys) => {
+    let fallback = 0;
     for (const key of keys) {
-      const raw = competition?.[key];
-      if (raw == null || raw === '') continue;
-      const n = Number(raw);
-      if (Number.isFinite(n) && n >= 0) return n;
+      const n = parseFeeNumber(competition?.[key]);
+      if (!Number.isFinite(n) || n < 0) continue;
+      if (n > 0) return n;
+      fallback = 0;
     }
-    return 0;
+    return fallback;
   };
   if (isTeam) {
-    return Math.max(0, read('frais_equipe_cdf', 'frais_equipe'));
+    return pickPositive('frais_equipe_cdf', 'frais_equipe');
   }
-  const unit = Math.max(0, read('frais_individuel_cdf', 'frais_individuel'));
+  const unit = pickPositive('frais_individuel_cdf', 'frais_individuel');
   const count = Math.max(1, Number(judokaCount) || 1);
   return unit * count;
+}
+
+/** Fusionne plusieurs sources (settings, form, API) et garde le meilleur frais CDF. */
+export function resolveCompetitionFeesCdf(...sources) {
+  const merged = {};
+  const keys = [
+    'frais_individuel_cdf',
+    'frais_individuel',
+    'frais_equipe_cdf',
+    'frais_equipe',
+    'frais_individuel_usd',
+    'frais_equipe_usd',
+    'frais_monnaie',
+  ];
+  for (const src of sources) {
+    if (!src || typeof src !== 'object') continue;
+    for (const key of keys) {
+      if (src[key] == null || src[key] === '') continue;
+      if (key === 'frais_monnaie') {
+        merged[key] = src[key];
+        continue;
+      }
+      const n = parseFeeNumber(src[key]);
+      if (!Number.isFinite(n) || n < 0) continue;
+      const prev = merged[key];
+      // Garder le montant le plus élevé (> 0 prioritaire sur 0)
+      if (prev == null || n > prev) merged[key] = n;
+    }
+  }
+  return merged;
 }
 
 export function getReceiptDisplayReference(payload) {

@@ -1,6 +1,10 @@
 import { useMemo, useState } from 'react';
 import QRCode from 'react-qr-code';
-import { encodeReceiptQr } from '../utils/competitionReceipt';
+import {
+  encodeReceiptQr,
+  formatReceiptAmount,
+  getCompetitionFeeCdf,
+} from '../utils/competitionReceipt';
 import { exportCompetitionReceiptPdf } from '../utils/exportCompetitionReceiptPdf';
 
 const QR_SIZE = 200;
@@ -33,6 +37,19 @@ export default function CompetitionReceiptProofModal({ payload, exportArgs, onCl
     ? new Date(payload.date).toLocaleString('fr-FR')
     : '—';
 
+  const resolvedMontant = (() => {
+    const fee = getCompetitionFeeCdf(
+      exportArgs?.competition,
+      isTeam ? 'equipe' : 'individuel',
+      isTeam ? 1 : Math.max(1, participants.length || 1),
+    );
+    if (fee > 0) return fee;
+    if (Number(payload.montant) > 0) return Number(payload.montant);
+    if (Number(exportArgs?.paiement?.montant) > 0) return Number(exportArgs.paiement.montant);
+    return 0;
+  })();
+  const amountLabel = formatReceiptAmount(resolvedMontant, 'CDF');
+
   const handleDownload = async () => {
     if (!exportArgs || busy) return;
     setBusy(true);
@@ -40,6 +57,11 @@ export default function CompetitionReceiptProofModal({ payload, exportArgs, onCl
     try {
       await exportCompetitionReceiptPdf({
         ...exportArgs,
+        paiement: {
+          ...(exportArgs.paiement || {}),
+          montant: resolvedMontant,
+          monnaie: 'CDF',
+        },
         open: true,
       });
     } catch (err) {
@@ -91,6 +113,10 @@ export default function CompetitionReceiptProofModal({ payload, exportArgs, onCl
                   <strong>{payload.club || '—'}</strong>
                 </div>
                 <div className="competition-receipt-proof-meta-row">
+                  <span>Montant</span>
+                  <strong>{amountLabel}</strong>
+                </div>
+                <div className="competition-receipt-proof-meta-row">
                   <span>Date</span>
                   <strong>{dateLabel}</strong>
                 </div>
@@ -102,6 +128,10 @@ export default function CompetitionReceiptProofModal({ payload, exportArgs, onCl
                 <div className="competition-receipt-proof-meta-row">
                   <span>Club</span>
                   <strong className="competition-receipt-proof-club">{payload.club || '—'}</strong>
+                </div>
+                <div className="competition-receipt-proof-meta-row">
+                  <span>Montant</span>
+                  <strong>{amountLabel}</strong>
                 </div>
                 <div className="competition-receipt-proof-meta-row">
                   <span>Date</span>

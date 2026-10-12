@@ -191,61 +191,82 @@ function ensureDefaults(raw = {}) {
   settings.categories_poids = parseCategoriesPoids(settings.categories_poids);
   settings.categories_poids_individuel = parseCategoriesPoids(settings.categories_poids_individuel);
   settings.competition_clubs = parseCompetitionClubs(settings.competition_clubs);
-  settings.frais_monnaie = String(settings.frais_monnaie || '').toUpperCase() === 'USD' ? 'USD' : 'CDF';
-  settings.frais_individuel_cdf = Math.max(0, Number(settings.frais_individuel_cdf ?? settings.frais_individuel) || 0);
-  settings.frais_individuel_usd = Math.max(0, Number(settings.frais_individuel_usd) || 0);
-  settings.frais_equipe_cdf = Math.max(0, Number(settings.frais_equipe_cdf ?? settings.frais_equipe) || 0);
-  settings.frais_equipe_usd = Math.max(0, Number(settings.frais_equipe_usd) || 0);
+  settings.logo_url = String(settings.logo_url || '').trim();
+  const desc = String(settings.description || '');
+  // META peut être en fin de description (stockage Supabase) — source de vérité des frais
+  const metaMatch = desc.match(META_RE) || desc.match(/<!--FENACOJU_META:([\s\S]*?)-->/);
+  let meta = null;
+  if (metaMatch) {
+    try {
+      meta = JSON.parse(metaMatch[1]);
+    } catch {
+      meta = null;
+    }
+  }
+
+  const pickFee = (...vals) => {
+    for (const v of vals) {
+      if (v == null || v === '') continue;
+      const n = Number(v);
+      if (Number.isFinite(n) && n > 0) return n;
+    }
+    for (const v of vals) {
+      if (v == null || v === '') continue;
+      const n = Number(v);
+      if (Number.isFinite(n) && n >= 0) return n;
+    }
+    return 0;
+  };
+
+  if (meta) {
+    if (!settings.categories_poids.length && Array.isArray(meta.categories_poids)) {
+      settings.categories_poids = parseCategoriesPoids(meta.categories_poids);
+    }
+    if (!settings.categories_poids_individuel.length && Array.isArray(meta.categories_poids_individuel)) {
+      settings.categories_poids_individuel = parseCategoriesPoids(meta.categories_poids_individuel);
+    }
+    if (!settings.competition_clubs.length && Array.isArray(meta.competition_clubs)) {
+      settings.competition_clubs = parseCompetitionClubs(meta.competition_clubs);
+    }
+    if (meta.frais_monnaie) {
+      settings.frais_monnaie = String(meta.frais_monnaie).toUpperCase() === 'USD' ? 'USD' : 'CDF';
+    }
+    if (meta.logo_url !== undefined) {
+      settings.logo_url = String(meta.logo_url || '').trim();
+    }
+    settings.description = desc.replace(META_RE, '').replace(/<!--FENACOJU_META:[\s\S]*?-->/g, '').trimEnd();
+  }
+
+  settings.frais_monnaie = String(settings.frais_monnaie || meta?.frais_monnaie || '').toUpperCase() === 'USD'
+    ? 'USD'
+    : 'CDF';
+  // Toujours prendre le max positif entre colonnes, meta et aliases
+  settings.frais_individuel_cdf = pickFee(
+    meta?.frais_individuel_cdf,
+    settings.frais_individuel_cdf,
+    meta?.frais_individuel,
+    settings.frais_individuel,
+  );
+  settings.frais_individuel_usd = pickFee(
+    meta?.frais_individuel_usd,
+    settings.frais_individuel_usd,
+  );
+  settings.frais_equipe_cdf = pickFee(
+    meta?.frais_equipe_cdf,
+    settings.frais_equipe_cdf,
+    meta?.frais_equipe,
+    settings.frais_equipe,
+  );
+  settings.frais_equipe_usd = pickFee(
+    meta?.frais_equipe_usd,
+    settings.frais_equipe_usd,
+  );
   settings.frais_individuel = settings.frais_monnaie === 'USD'
     ? settings.frais_individuel_usd
     : settings.frais_individuel_cdf;
   settings.frais_equipe = settings.frais_monnaie === 'USD'
     ? settings.frais_equipe_usd
     : settings.frais_equipe_cdf;
-  settings.logo_url = String(settings.logo_url || '').trim();
-  const desc = String(settings.description || '');
-  const metaMatch = desc.match(META_RE);
-  if (metaMatch) {
-    try {
-      const meta = JSON.parse(metaMatch[1]);
-      if (!settings.categories_poids.length && Array.isArray(meta.categories_poids)) {
-        settings.categories_poids = parseCategoriesPoids(meta.categories_poids);
-      }
-      if (!settings.categories_poids_individuel.length && Array.isArray(meta.categories_poids_individuel)) {
-        settings.categories_poids_individuel = parseCategoriesPoids(meta.categories_poids_individuel);
-      }
-      if (!settings.competition_clubs.length && Array.isArray(meta.competition_clubs)) {
-        settings.competition_clubs = parseCompetitionClubs(meta.competition_clubs);
-      }
-      if (meta.frais_monnaie) {
-        settings.frais_monnaie = String(meta.frais_monnaie).toUpperCase() === 'USD' ? 'USD' : 'CDF';
-      }
-      if (meta.frais_individuel_cdf != null || meta.frais_individuel != null) {
-        settings.frais_individuel_cdf = Math.max(0, Number(meta.frais_individuel_cdf ?? meta.frais_individuel) || 0);
-      }
-      if (meta.frais_individuel_usd != null) {
-        settings.frais_individuel_usd = Math.max(0, Number(meta.frais_individuel_usd) || 0);
-      }
-      if (meta.frais_equipe_cdf != null || meta.frais_equipe != null) {
-        settings.frais_equipe_cdf = Math.max(0, Number(meta.frais_equipe_cdf ?? meta.frais_equipe) || 0);
-      }
-      if (meta.frais_equipe_usd != null) {
-        settings.frais_equipe_usd = Math.max(0, Number(meta.frais_equipe_usd) || 0);
-      }
-      if (meta.logo_url !== undefined) {
-        settings.logo_url = String(meta.logo_url || '').trim();
-      }
-      settings.frais_individuel = settings.frais_monnaie === 'USD'
-        ? settings.frais_individuel_usd
-        : settings.frais_individuel_cdf;
-      settings.frais_equipe = settings.frais_monnaie === 'USD'
-        ? settings.frais_equipe_usd
-        : settings.frais_equipe_cdf;
-    } catch {
-      // ignore meta
-    }
-    settings.description = desc.replace(META_RE, '').trimEnd();
-  }
   return settings;
 }
 

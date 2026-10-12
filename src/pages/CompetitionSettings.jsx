@@ -33,6 +33,7 @@ import {
   buildReceiptPayloadFromRegistrations,
   extractOrderNumber,
   getCompetitionFeeCdf,
+  resolveCompetitionFeesCdf,
 } from '../utils/competitionReceipt';
 import { validateCategoryAge, categoryFromBirthDate, calcAgeFromDate } from '../utils/categoryAge';
 
@@ -1597,7 +1598,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
     });
   };
 
-  const openReceiptProof = (mode, regs, club = '') => {
+  const openReceiptProof = async (mode, regs, club = '') => {
     const list = (Array.isArray(regs) ? regs : []).filter(Boolean);
     if (!list.length) {
       onToast?.('Aucune inscription trouvée pour cette preuve de paiement', 'error');
@@ -1612,25 +1613,27 @@ export default function CompetitionSettings({ onBack, onToast }) {
     const orderNumber = extractOrderNumber(primary.mode_paiement);
     const isTeam = mode === 'equipe';
     const receiptMode = isTeam ? 'equipe' : 'individuel';
-    // Fusion settings + formulaire local pour toujours lire les frais CDF paramétrés
+
+    // Recharger les paramètres serveur + fusionner avec le formulaire local (évite 0 CDF)
+    let liveSettings = settings || {};
+    try {
+      liveSettings = await fetchCompetition();
+      setSettings((prev) => ({ ...prev, ...liveSettings }));
+    } catch {
+      // garder settings en mémoire
+    }
+    const formSnap = formRef.current || form;
+    const feeFields = resolveCompetitionFeesCdf(formSnap, liveSettings, settings);
     const competitionForFees = {
-      ...(settings || {}),
-      frais_individuel_cdf: Math.max(
-        0,
-        Number(settings?.frais_individuel_cdf ?? form.frais_individuel_cdf ?? settings?.frais_individuel) || 0,
-      ),
-      frais_equipe_cdf: Math.max(
-        0,
-        Number(settings?.frais_equipe_cdf ?? form.frais_equipe_cdf ?? settings?.frais_equipe) || 0,
-      ),
-      frais_individuel: Math.max(
-        0,
-        Number(settings?.frais_individuel_cdf ?? form.frais_individuel_cdf ?? settings?.frais_individuel) || 0,
-      ),
-      frais_equipe: Math.max(
-        0,
-        Number(settings?.frais_equipe_cdf ?? form.frais_equipe_cdf ?? settings?.frais_equipe) || 0,
-      ),
+      ...liveSettings,
+      ...settings,
+      ...feeFields,
+      frais_individuel_cdf: feeFields.frais_individuel_cdf
+        ?? feeFields.frais_individuel
+        ?? 0,
+      frais_equipe_cdf: feeFields.frais_equipe_cdf
+        ?? feeFields.frais_equipe
+        ?? 0,
     };
     const montant = getCompetitionFeeCdf(
       competitionForFees,

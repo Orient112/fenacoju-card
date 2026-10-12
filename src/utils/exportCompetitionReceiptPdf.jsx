@@ -7,6 +7,7 @@ import {
   displayReceiptReference,
   encodeReceiptQr,
   formatReceiptAmount,
+  getCompetitionFeeCdf,
 } from './competitionReceipt';
 
 async function qrCodePngDataUrl(value, size = 280) {
@@ -104,6 +105,25 @@ export async function exportCompetitionReceiptPdf({
     club,
     sexe,
   });
+
+  // Forcer le montant CDF des paramètres (Individuel / Par équipe)
+  const receiptMode = mode === 'equipe' ? 'equipe' : 'individuel';
+  const peopleCount = Math.max(
+    1,
+    (participants || registrations || []).length || 1,
+  );
+  const feeCdf = getCompetitionFeeCdf(
+    competition,
+    receiptMode,
+    receiptMode === 'equipe' ? 1 : peopleCount,
+  );
+  if (feeCdf > 0) {
+    payload.montant = feeCdf;
+    payload.monnaie = 'CDF';
+  } else if (!(Number(payload.montant) > 0) && Number(paiement?.montant) > 0) {
+    payload.montant = Number(paiement.montant);
+    payload.monnaie = 'CDF';
+  }
 
   const qrValue = encodeReceiptQr(payload);
   const qrPng = await qrCodePngDataUrl(qrValue, 320);
