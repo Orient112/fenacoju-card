@@ -71,19 +71,9 @@ export function buildReceiptPayload({
   sexe,
 }) {
   const regs = registrations || [];
+  const receiptMode = mode === 'equipe' ? 'equipe' : 'individuel';
   const orderNumber = extractOrderNumber(paiement)
     || extractOrderNumber(regs[0]?.mode_paiement);
-  const payMontant = Number(paiement?.montant);
-  const totalFromRegs = regs.reduce((sum, r) => sum + (Number(r.montant_paye) || 0), 0);
-  let montant = Number.isFinite(payMontant) ? payMontant : 0;
-  if (!Number.isFinite(payMontant) || payMontant < 0) {
-    montant = mode === 'equipe'
-      ? (Number(regs[0]?.montant_paye) || 0)
-      : totalFromRegs;
-  }
-  const monnaie = String(paiement?.monnaie || 'CDF').toUpperCase() === 'USD' ? 'USD' : 'CDF';
-  const telephone = String(paiement?.telephone || '').trim();
-  const registrationIds = regs.map((r) => r.id).filter(Boolean);
   const list = (participants || regs).map((p) => ({
     nom: String(p.nom || '').trim(),
     prenom: String(p.prenom || '').trim(),
@@ -92,13 +82,35 @@ export function buildReceiptPayload({
     role: String(p.role_equipe || p.role || '').trim(),
     sexe: p.sexe === 'F' ? 'F' : (p.sexe === 'M' ? 'M' : ''),
   }));
+  const judokaCount = receiptMode === 'equipe'
+    ? 1
+    : Math.max(1, list.length || regs.length || 1);
+
+  // Priorité : frais CDF des paramètres → montant paiement → montant_paye stocké
+  const feeCdf = getCompetitionFeeCdf(competition, receiptMode, judokaCount);
+  const payMontant = Number(paiement?.montant);
+  const totalFromRegs = regs.reduce((sum, r) => sum + (Number(r.montant_paye) || 0), 0);
+  let montant = feeCdf;
+  if (!(montant > 0) && Number.isFinite(payMontant) && payMontant > 0) {
+    montant = payMontant;
+  }
+  if (!(montant > 0)) {
+    montant = receiptMode === 'equipe'
+      ? (Number(regs[0]?.montant_paye) || 0)
+      : totalFromRegs;
+  }
+  const monnaie = feeCdf > 0
+    ? 'CDF'
+    : (String(paiement?.monnaie || 'CDF').toUpperCase() === 'USD' ? 'USD' : 'CDF');
+  const telephone = String(paiement?.telephone || '').trim();
+  const registrationIds = regs.map((r) => r.id).filter(Boolean);
 
   const base = {
     v: 1,
     t: RECEIPT_QR_TYPE,
     competitionToken: String(competition?.public_token || competition?.token || '').trim(),
     competitionNom: String(competition?.nom || 'Compétition').trim(),
-    mode: mode === 'equipe' ? 'equipe' : 'individuel',
+    mode: receiptMode,
     orderNumber,
     montant,
     monnaie,
@@ -297,10 +309,19 @@ export function formatReceiptAmount(montant, monnaie) {
  */
 export function getCompetitionFeeCdf(competition, mode, judokaCount = 1) {
   const isTeam = mode === 'equipe';
+  const read = (...keys) => {
+    for (const key of keys) {
+      const raw = competition?.[key];
+      if (raw == null || raw === '') continue;
+      const n = Number(raw);
+      if (Number.isFinite(n) && n >= 0) return n;
+    }
+    return 0;
+  };
   if (isTeam) {
-    return Math.max(0, Number(competition?.frais_equipe_cdf ?? competition?.frais_equipe) || 0);
+    return Math.max(0, read('frais_equipe_cdf', 'frais_equipe'));
   }
-  const unit = Math.max(0, Number(competition?.frais_individuel_cdf ?? competition?.frais_individuel) || 0);
+  const unit = Math.max(0, read('frais_individuel_cdf', 'frais_individuel'));
   const count = Math.max(1, Number(judokaCount) || 1);
   return unit * count;
 }

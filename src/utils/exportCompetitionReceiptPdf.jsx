@@ -145,13 +145,16 @@ export async function exportCompetitionReceiptPdf({
   );
   y += 10;
 
+  const hasClub = Boolean(payload.club);
+  const infoRows = 4 + (hasClub ? 1 : 0);
+  const infoBoxH = 10 + infoRows * 7 + 10;
   pdf.setDrawColor(226, 232, 240);
   pdf.setFillColor(248, 250, 252);
-  pdf.roundedRect(margin, y, pageW - margin * 2, 38, 0, 0, 'FD');
+  pdf.roundedRect(margin, y, pageW - margin * 2, infoBoxH, 2, 2, 'FD');
 
-  let infoY = y + 8;
-  const labelW = 42;
-  const valueW = pageW - margin * 2 - labelW - 8;
+  let infoY = y + 9;
+  const labelW = 48;
+  const valueW = pageW - margin * 2 - labelW - 10;
   infoY = drawRow(pdf, 'Date', new Date(payload.date).toLocaleString('fr-FR'), margin + 4, infoY, labelW, valueW);
   infoY = drawRow(
     pdf,
@@ -162,21 +165,27 @@ export async function exportCompetitionReceiptPdf({
     labelW,
     valueW
   );
-  infoY = drawRow(
-    pdf,
-    'Montant payé',
-    formatReceiptAmount(payload.montant, payload.monnaie),
-    margin + 4,
-    infoY,
-    labelW,
-    valueW
-  );
+
+  // Montant mis en évidence (frais CDF Paramètres de Compétition)
+  const amountLabel = formatReceiptAmount(payload.montant, payload.monnaie || 'CDF');
+  pdf.setFillColor(232, 240, 254);
+  pdf.roundedRect(margin + 3, infoY - 4.5, pageW - margin * 2 - 6, 9, 1.5, 1.5, 'F');
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(9);
+  pdf.setTextColor(100, 116, 139);
+  pdf.text('Montant', margin + 6, infoY);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(11);
+  pdf.setTextColor(18, 45, 102);
+  pdf.text(clip(pdf, amountLabel || '0 CDF', valueW), margin + 4 + labelW, infoY);
+  infoY += 9;
+
   infoY = drawRow(pdf, 'Téléphone', payload.telephone || '—', margin + 4, infoY, labelW, valueW);
-  if (payload.club) {
+  if (hasClub) {
     drawRow(pdf, 'Club', payload.club, margin + 4, infoY, labelW, valueW);
   }
 
-  y += 46;
+  y += infoBoxH + 8;
 
   pdf.setFont('helvetica', 'bold');
   pdf.setFontSize(11);

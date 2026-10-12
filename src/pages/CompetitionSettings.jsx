@@ -1612,13 +1612,33 @@ export default function CompetitionSettings({ onBack, onToast }) {
     const orderNumber = extractOrderNumber(primary.mode_paiement);
     const isTeam = mode === 'equipe';
     const receiptMode = isTeam ? 'equipe' : 'individuel';
+    // Fusion settings + formulaire local pour toujours lire les frais CDF paramétrés
+    const competitionForFees = {
+      ...(settings || {}),
+      frais_individuel_cdf: Math.max(
+        0,
+        Number(settings?.frais_individuel_cdf ?? form.frais_individuel_cdf ?? settings?.frais_individuel) || 0,
+      ),
+      frais_equipe_cdf: Math.max(
+        0,
+        Number(settings?.frais_equipe_cdf ?? form.frais_equipe_cdf ?? settings?.frais_equipe) || 0,
+      ),
+      frais_individuel: Math.max(
+        0,
+        Number(settings?.frais_individuel_cdf ?? form.frais_individuel_cdf ?? settings?.frais_individuel) || 0,
+      ),
+      frais_equipe: Math.max(
+        0,
+        Number(settings?.frais_equipe_cdf ?? form.frais_equipe_cdf ?? settings?.frais_equipe) || 0,
+      ),
+    };
     const montant = getCompetitionFeeCdf(
-      settings,
+      competitionForFees,
       receiptMode,
       isTeam ? 1 : Math.max(1, list.length),
     );
     const exportArgs = {
-      competition: settings,
+      competition: competitionForFees,
       mode: receiptMode,
       paiement: { orderNumber, telephone, montant, monnaie: 'CDF' },
       participants: list,
@@ -1628,7 +1648,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
     };
     setReceiptProof({
       payload: buildReceiptPayloadFromRegistrations({
-        competition: settings,
+        competition: competitionForFees,
         mode: receiptMode,
         registrations: list,
         club: clubName,
