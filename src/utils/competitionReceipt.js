@@ -290,6 +290,21 @@ export function formatReceiptAmount(montant, monnaie) {
   return `${formatted} ${suffix}`;
 }
 
+/**
+ * Frais de participation en Franc Congolais (Paramètres de Compétition).
+ * Individuel : prix par judoka × nombre d’inscrits sur le reçu.
+ * Par équipe : prix par club (une fois).
+ */
+export function getCompetitionFeeCdf(competition, mode, judokaCount = 1) {
+  const isTeam = mode === 'equipe';
+  if (isTeam) {
+    return Math.max(0, Number(competition?.frais_equipe_cdf ?? competition?.frais_equipe) || 0);
+  }
+  const unit = Math.max(0, Number(competition?.frais_individuel_cdf ?? competition?.frais_individuel) || 0);
+  const count = Math.max(1, Number(judokaCount) || 1);
+  return unit * count;
+}
+
 export function getReceiptDisplayReference(payload) {
   if (!payload) return '—';
   return displayReceiptReference(payload.orderNumber, payload.telephone);
@@ -310,12 +325,12 @@ export function buildReceiptPayloadFromRegistrations({
     : String(primary.telephone || '').trim();
   const orderNumber = extractOrderNumber(primary.mode_paiement);
   const isTeam = mode === 'equipe';
-  const montant = isTeam
-    ? Math.max(0, Number(primary.montant_paye) || 0)
-    : regs.reduce((sum, r) => sum + (Math.max(0, Number(r.montant_paye) || 0)), 0);
-  const monnaie = String(competition?.frais_monnaie || 'CDF').toUpperCase() === 'USD'
-    ? 'USD'
-    : 'CDF';
+  // Montant = frais CDF des paramètres (Individuel / Par équipe), pas le montant_paye stocké
+  const montant = getCompetitionFeeCdf(
+    competition,
+    isTeam ? 'equipe' : 'individuel',
+    isTeam ? 1 : Math.max(1, regs.length),
+  );
 
   const payload = buildReceiptPayload({
     competition,
@@ -324,7 +339,7 @@ export function buildReceiptPayloadFromRegistrations({
       orderNumber,
       telephone,
       montant,
-      monnaie,
+      monnaie: 'CDF',
     },
     participants: regs,
     registrations: regs,

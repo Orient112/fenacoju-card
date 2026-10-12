@@ -32,6 +32,7 @@ import { IconCharge, IconEdit, IconExport, IconQrCode, IconTrash } from '../comp
 import {
   buildReceiptPayloadFromRegistrations,
   extractOrderNumber,
+  getCompetitionFeeCdf,
 } from '../utils/competitionReceipt';
 import { validateCategoryAge, categoryFromBirthDate, calcAgeFromDate } from '../utils/categoryAge';
 
@@ -1610,14 +1611,16 @@ export default function CompetitionSettings({ onBack, onToast }) {
       : String(primary.telephone || '').trim();
     const orderNumber = extractOrderNumber(primary.mode_paiement);
     const isTeam = mode === 'equipe';
-    const montant = isTeam
-      ? Math.max(0, Number(primary.montant_paye) || 0)
-      : list.reduce((sum, r) => sum + (Math.max(0, Number(r.montant_paye) || 0)), 0);
-    const monnaie = String(settings?.frais_monnaie || 'CDF').toUpperCase() === 'USD' ? 'USD' : 'CDF';
+    const receiptMode = isTeam ? 'equipe' : 'individuel';
+    const montant = getCompetitionFeeCdf(
+      settings,
+      receiptMode,
+      isTeam ? 1 : Math.max(1, list.length),
+    );
     const exportArgs = {
       competition: settings,
-      mode: isTeam ? 'equipe' : 'individuel',
-      paiement: { orderNumber, telephone, montant, monnaie },
+      mode: receiptMode,
+      paiement: { orderNumber, telephone, montant, monnaie: 'CDF' },
       participants: list,
       registrations: list,
       club: clubName,
@@ -1626,7 +1629,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
     setReceiptProof({
       payload: buildReceiptPayloadFromRegistrations({
         competition: settings,
-        mode: isTeam ? 'equipe' : 'individuel',
+        mode: receiptMode,
         registrations: list,
         club: clubName,
       }),
