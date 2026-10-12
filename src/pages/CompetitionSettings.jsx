@@ -1598,7 +1598,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
     });
   };
 
-  const openReceiptProof = async (mode, regs, club = '') => {
+  const openReceiptProof = (mode, regs, club = '') => {
     const list = (Array.isArray(regs) ? regs : []).filter(Boolean);
     if (!list.length) {
       onToast?.('Aucune inscription trouvée pour cette preuve de paiement', 'error');
@@ -1614,19 +1614,11 @@ export default function CompetitionSettings({ onBack, onToast }) {
     const isTeam = mode === 'equipe';
     const receiptMode = isTeam ? 'equipe' : 'individuel';
 
-    // Recharger les paramètres serveur + fusionner avec le formulaire local (évite 0 CDF)
-    let liveSettings = settings || {};
-    try {
-      liveSettings = await fetchCompetition();
-      setSettings((prev) => ({ ...prev, ...liveSettings }));
-    } catch {
-      // garder settings en mémoire
-    }
+    // Ouverture immédiate (données locales) — pas d’attente réseau
     const formSnap = formRef.current || form;
-    const feeFields = resolveCompetitionFeesCdf(formSnap, liveSettings, settings);
+    const feeFields = resolveCompetitionFeesCdf(formSnap, settings);
     const competitionForFees = {
-      ...liveSettings,
-      ...settings,
+      ...(settings || {}),
       ...feeFields,
       frais_individuel_cdf: feeFields.frais_individuel_cdf
         ?? feeFields.frais_individuel
