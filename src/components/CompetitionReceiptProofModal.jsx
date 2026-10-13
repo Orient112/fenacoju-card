@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { Component, useMemo, useState } from 'react';
 import QRCode from 'react-qr-code';
 import {
   encodeReceiptQr,
@@ -13,12 +13,71 @@ function participantName(p) {
   return `${p?.prenom || ''} ${p?.nom || ''}`.trim();
 }
 
+/** QR compact pour éviter plantage si beaucoup de judokas (Par équipe). */
+function encodeDisplayQr(payload) {
+  if (!payload) return '';
+  const full = encodeReceiptQr(payload);
+  // Si le payload est raisonnable, garder le QR complet
+  if (full.length <= 900) return full;
+  const compact = {
+    v: payload.v,
+    t: payload.t,
+    competitionToken: payload.competitionToken,
+    competitionNom: payload.competitionNom,
+    mode: payload.mode,
+    orderNumber: payload.orderNumber,
+    montant: payload.montant,
+    monnaie: payload.monnaie,
+    club: payload.club,
+    date: payload.date,
+    count: (payload.participants || []).length,
+    registrationIds: (payload.registrationIds || []).slice(0, 20),
+    c: payload.c,
+  };
+  return JSON.stringify(compact);
+}
+
+class QrErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { failed: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  render() {
+    if (this.state.failed) {
+      return <p className="form-hint">QR Code indisponible</p>;
+    }
+    return this.props.children;
+  }
+}
+
+function SafeQr({ value, size }) {
+  if (!value) {
+    return <p className="form-hint">QR Code indisponible</p>;
+  }
+  return (
+    <QrErrorBoundary key={value.slice(0, 32)}>
+      <QRCode
+        value={value}
+        size={size}
+        level="M"
+        bgColor="#ffffff"
+        fgColor="#0f172a"
+      />
+    </QrErrorBoundary>
+  );
+}
+
 export default function CompetitionReceiptProofModal({ payload, exportArgs, onClose }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
   const qrValue = useMemo(
-    () => (payload ? encodeReceiptQr(payload) : ''),
+    () => (payload ? encodeDisplayQr(payload) : ''),
     [payload],
   );
 
@@ -72,7 +131,7 @@ export default function CompetitionReceiptProofModal({ payload, exportArgs, onCl
   };
 
   return (
-    <div className="confirm-overlay" onClick={onClose}>
+    <div className="confirm-overlay competition-receipt-proof-overlay" onClick={onClose}>
       <div
         className={`competition-receipt-proof-modal ${isTeam ? 'is-team' : 'is-individuel'}`}
         onClick={(e) => e.stopPropagation()}
@@ -89,17 +148,7 @@ export default function CompetitionReceiptProofModal({ payload, exportArgs, onCl
 
         <div className="competition-receipt-proof-body">
           <div className="competition-receipt-proof-qr">
-            {qrValue ? (
-              <QRCode
-                value={qrValue}
-                size={QR_SIZE}
-                level="M"
-                bgColor="#ffffff"
-                fgColor="#0f172a"
-              />
-            ) : (
-              <p className="form-hint">QR Code indisponible</p>
-            )}
+            <SafeQr value={qrValue} size={QR_SIZE} />
           </div>
 
           {!isTeam ? (
@@ -157,7 +206,7 @@ export default function CompetitionReceiptProofModal({ payload, exportArgs, onCl
                     ))}
                   </ul>
                 ) : (
-                  <p className="form-hint">Aucun participant</p>
+                  <p className="form-hint">Aucun participant listé — vous pouvez quand même télécharger le PDF.</p>
                 )}
               </div>
             </div>

@@ -6597,6 +6597,10 @@ tbody tr:last-child td {
   justify-content: center;
 }
 
+.competition-receipt-proof-overlay {
+  z-index: 400;
+}
+
 .competition-receipt-proof-modal {
   background: var(--surface);
   border-radius: var(--radius);
@@ -6605,6 +6609,8 @@ tbody tr:last-child td {
   max-height: 90vh;
   overflow: auto;
   padding: 1.25rem 1.35rem;
+  position: relative;
+  z-index: 401;
 }
 
 .competition-receipt-proof-head {

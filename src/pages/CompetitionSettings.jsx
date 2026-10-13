@@ -1599,57 +1599,61 @@ export default function CompetitionSettings({ onBack, onToast }) {
   };
 
   const openReceiptProof = (mode, regs, club = '') => {
-    const list = (Array.isArray(regs) ? regs : []).filter(Boolean);
-    if (!list.length) {
-      onToast?.('Aucune inscription trouvée pour cette preuve de paiement', 'error');
-      return;
-    }
-    const clubName = club || list[0]?.club || '';
-    const primary = list[0] || {};
-    const parts = String(primary.mode_paiement || '').split('|');
-    const telephone = (parts[0] === 'mobile_money' && parts[1])
-      ? parts[1].trim()
-      : String(primary.telephone || '').trim();
-    const orderNumber = extractOrderNumber(primary.mode_paiement);
-    const isTeam = mode === 'equipe';
-    const receiptMode = isTeam ? 'equipe' : 'individuel';
+    try {
+      const list = (Array.isArray(regs) ? regs : []).filter(Boolean);
+      const isTeam = mode === 'equipe';
+      const clubName = String(club || list[0]?.club || '').trim();
+      if (!list.length && !(isTeam && clubName)) {
+        onToast?.('Aucune inscription trouvée pour cette preuve de paiement', 'error');
+        return;
+      }
+      const primary = list[0] || {};
+      const parts = String(primary.mode_paiement || '').split('|');
+      const telephone = (parts[0] === 'mobile_money' && parts[1])
+        ? parts[1].trim()
+        : String(primary.telephone || '').trim();
+      const orderNumber = extractOrderNumber(primary.mode_paiement);
+      const receiptMode = isTeam ? 'equipe' : 'individuel';
 
-    // Ouverture immédiate (données locales) — pas d’attente réseau
-    const formSnap = formRef.current || form;
-    const feeFields = resolveCompetitionFeesCdf(formSnap, settings);
-    const competitionForFees = {
-      ...(settings || {}),
-      ...feeFields,
-      frais_individuel_cdf: feeFields.frais_individuel_cdf
-        ?? feeFields.frais_individuel
-        ?? 0,
-      frais_equipe_cdf: feeFields.frais_equipe_cdf
-        ?? feeFields.frais_equipe
-        ?? 0,
-    };
-    const montant = getCompetitionFeeCdf(
-      competitionForFees,
-      receiptMode,
-      isTeam ? 1 : Math.max(1, list.length),
-    );
-    const exportArgs = {
-      competition: competitionForFees,
-      mode: receiptMode,
-      paiement: { orderNumber, telephone, montant, monnaie: 'CDF' },
-      participants: list,
-      registrations: list,
-      club: clubName,
-      sexe: primary.sexe,
-    };
-    setReceiptProof({
-      payload: buildReceiptPayloadFromRegistrations({
+      // Ouverture immédiate (données locales) — pas d’attente réseau
+      const formSnap = formRef.current || form;
+      const feeFields = resolveCompetitionFeesCdf(formSnap, settings);
+      const competitionForFees = {
+        ...(settings || {}),
+        ...feeFields,
+        frais_individuel_cdf: feeFields.frais_individuel_cdf
+          ?? feeFields.frais_individuel
+          ?? 0,
+        frais_equipe_cdf: feeFields.frais_equipe_cdf
+          ?? feeFields.frais_equipe
+          ?? 0,
+      };
+      const montant = getCompetitionFeeCdf(
+        competitionForFees,
+        receiptMode,
+        isTeam ? 1 : Math.max(1, list.length),
+      );
+      const exportArgs = {
+        competition: competitionForFees,
+        mode: receiptMode,
+        paiement: { orderNumber, telephone, montant, monnaie: 'CDF' },
+        participants: list,
+        registrations: list,
+        club: clubName,
+        sexe: primary.sexe,
+      };
+      const payload = buildReceiptPayloadFromRegistrations({
         competition: competitionForFees,
         mode: receiptMode,
         registrations: list,
         club: clubName,
-      }),
-      exportArgs,
-    });
+      });
+      // Ouvrir d’abord le modal (état minimal), puis payload complet
+      setReceiptProof({ payload, exportArgs });
+    } catch (err) {
+      console.error('openReceiptProof', err);
+      onToast?.(err.message || 'Impossible d’ouvrir la preuve de paiement', 'error');
+    }
   };
 
   const openReceiptProofIndividual = (reg) => {
@@ -1658,32 +1662,35 @@ export default function CompetitionSettings({ onBack, onToast }) {
   };
 
   const openReceiptProofTeam = (team) => {
-    const clubName = String(team?.club || '').trim();
+    const clubName = String(team?.club || team?.nom || '').trim();
     const clubKey = clubName.toLowerCase();
-    const idSet = new Set((team?.ids || []).map((id) => String(id)));
+    // 1) Membres déjà attachés au club dans le tableau
+    const fromTeam = Array.isArray(team?.members) ? team.members.filter(Boolean) : [];
+    const idSet = new Set(
+      [
+        ...(team?.ids || []),
+        ...fromTeam.map((m) => m?.id),
+      ].filter(Boolean).map((id) => String(id)),
+    );
     const fromIds = idSet.size
       ? registrations.filter((r) => idSet.has(String(r.id)))
       : [];
-    const fromTeamMode = registrations.filter(
-      (r) => isTeamRegistration(r)
-        && String(r.club || '').trim().toLowerCase() === clubKey,
-    );
-    const fromClubAny = registrations.filter(
-      (r) => String(r.club || '').trim().toLowerCase() === clubKey,
-    );
-    const fromTeam = Array.isArray(team?.members) ? team.members.filter(Boolean) : [];
+    const fromTeamMode = clubKey
+      ? registrations.filter(
+        (r) => isTeamRegistration(r)
+          && String(r.club || '').trim().toLowerCase() === clubKey,
+      )
+      : [];
     const byId = new Map();
-    [...fromIds, ...fromTeamMode, ...fromTeam, ...fromClubAny].forEach((r) => {
+    [...fromTeam, ...fromIds, ...fromTeamMode].forEach((r) => {
       if (!r) return;
-      const key = r.id || `${r.prenom || ''}|${r.nom || ''}|${r.categorie || ''}|${r.role_equipe || ''}`;
+      const key = r.id
+        || `${r.prenom || ''}|${r.nom || ''}|${r.categorie || ''}|${r.role_equipe || r.role || ''}`;
       if (!byId.has(String(key))) byId.set(String(key), r);
     });
     const members = [...byId.values()];
-    if (!members.length) {
-      onToast?.('Ajoutez au moins 1 judoka à ce club pour afficher la preuve de paiement', 'error');
-      return;
-    }
-    openReceiptProof('equipe', members, clubName || members[0]?.club || '');
+    // Toujours ouvrir le modal (même sans judoka) pour permettre le téléchargement PDF
+    openReceiptProof('equipe', members, clubName);
   };
 
   const handleAddEditTeamJudoka = async (e) => {
