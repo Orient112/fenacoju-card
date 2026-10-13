@@ -10,6 +10,7 @@ import {
   updateCompetitionRegistration,
   deleteCompetitionPublicLink,
   chargeCompetitionTeamFromIndividuel,
+  generateCompetitionLicences,
   competitionPublicUrl,
   competitionWeighUrl,
   resolveMediaUrl,
@@ -28,7 +29,7 @@ import ReceiptScanModal from '../components/ReceiptScanModal';
 import CompetitionLinkQrModal from '../components/CompetitionLinkQrModal';
 import CompetitionReceiptProofModal from '../components/CompetitionReceiptProofModal';
 import { ClubLigueLabel } from '../components/CompetitionClubSelect';
-import { IconCharge, IconEdit, IconExport, IconQrCode, IconTrash } from '../components/ActionIcons';
+import { IconCard, IconCharge, IconEdit, IconExport, IconQrCode, IconTrash } from '../components/ActionIcons';
 import {
   buildReceiptPayloadFromRegistrations,
   extractOrderNumber,
@@ -732,10 +733,15 @@ export default function CompetitionSettings({ onBack, onToast }) {
     nom: '',
     prenom: '',
     club: '',
+    sexe: 'M',
     poids: '',
     date_naissance: '',
     categorie: '',
   });
+  const [showLicenceModal, setShowLicenceModal] = useState(false);
+  const [licenceSearch, setLicenceSearch] = useState('');
+  const [licenceSelected, setLicenceSelected] = useState(() => new Set());
+  const [licenceBusy, setLicenceBusy] = useState(false);
   const [showAddIndividuel, setShowAddIndividuel] = useState(false);
   const [addIndividuelForm, setAddIndividuelForm] = useState({
     nom: '',
@@ -1565,10 +1571,68 @@ export default function CompetitionSettings({ onBack, onToast }) {
       nom: reg.nom || '',
       prenom: reg.prenom || '',
       club: reg.club || '',
+      sexe: reg.sexe === 'F' ? 'F' : 'M',
       poids: reg.poids || '',
       date_naissance,
       categorie: categoryFromBirthDate(date_naissance) || reg.categorie || '',
     });
+  };
+
+  const openLicenceModal = () => {
+    setLicenceSearch('');
+    setLicenceSelected(new Set());
+    setShowLicenceModal(true);
+  };
+
+  const toggleLicenceSelection = (id) => {
+    const key = String(id);
+    setLicenceSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const handleGenerateLicences = async () => {
+    const ids = [...licenceSelected];
+    if (!ids.length) {
+      onToast?.('Sélectionnez au moins un judoka', 'error');
+      return;
+    }
+    setLicenceBusy(true);
+    try {
+      const result = await generateCompetitionLicences(ids);
+      const created = result.judokas || [];
+      if (!created.length) {
+        onToast?.(result.skipped?.length
+          ? 'Aucun judoka éligible pour une licence'
+          : 'Aucune carte générée', 'error');
+        return;
+      }
+      const { exportCardsToPdf } = await import('../utils/exportCardsPdf.jsx');
+      await exportCardsToPdf(created);
+      const clubMsg = [
+        result.clubs_created?.length
+          ? `${result.clubs_created.length} club(s) enregistré(s)`
+          : null,
+        result.clubs_reused?.length
+          ? `${result.clubs_reused.length} club(s) déjà connu(s)`
+          : null,
+      ].filter(Boolean).join(' · ');
+      onToast?.(
+        `${created.length} licence(s) générée(s)${clubMsg ? ` — ${clubMsg}` : ''}`,
+      );
+      setShowLicenceModal(false);
+      setLicenceSelected(new Set());
+      // Rafraîchir inscriptions (liens judoka_id éventuels)
+      const regs = await fetchCompetitionRegistrations().catch(() => null);
+      if (regs) setRegistrations(regs);
+    } catch (err) {
+      onToast?.(err.message || 'Génération des licences impossible', 'error');
+    } finally {
+      setLicenceBusy(false);
+    }
   };
 
   const openEditTeam = (team) => {
@@ -1913,6 +1977,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
         nom: editRegForm.nom,
         prenom: editRegForm.prenom,
         club,
+        sexe: editRegForm.sexe === 'F' ? 'F' : 'M',
         poids: editRegForm.poids,
         date_naissance: editRegForm.date_naissance,
         categorie: resolvedCategorie,
@@ -2264,6 +2329,14 @@ export default function CompetitionSettings({ onBack, onToast }) {
                   disabled={exporting || registrations.length === 0}
                 >
                   {exporting ? 'Export...' : 'Exporter Liste'}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-outline competition-action-btn"
+                  onClick={openLicenceModal}
+                  disabled={registrations.length === 0}
+                >
+                  Licence
                 </button>
               </div>
             </div>
@@ -2685,6 +2758,17 @@ export default function CompetitionSettings({ onBack, onToast }) {
                     onChange={(e) => setEditRegForm((prev) => ({ ...prev, club: e.target.value }))}
                     required
                   />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="edit-sexe">Sexe</label>
+                  <select
+                    id="edit-sexe"
+                    value={editRegForm.sexe}
+                    onChange={(e) => setEditRegForm((prev) => ({ ...prev, sexe: e.target.value }))}
+                  >
+                    <option value="M">Masculin</option>
+                    <option value="F">Féminin</option>
+                  </select>
                 </div>
                 <div className="form-group">
                   <label htmlFor="edit-date-naissance">Date de naissance</label>
@@ -3354,6 +3438,123 @@ export default function CompetitionSettings({ onBack, onToast }) {
                   )}
                 </section>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showLicenceModal && (
+        <div className="confirm-overlay" onClick={() => !licenceBusy && setShowLicenceModal(false)}>
+          <div
+            className="competition-charge-modal competition-licence-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="competition-params-modal-head">
+              <div>
+                <h3>Licence</h3>
+                <p className="form-hint">
+                  Sélectionnez un ou plusieurs judokas (Individuel et Par équipe) pour générer leur carte.
+                  Le club sera enregistré automatiquement s&apos;il n&apos;existe pas encore.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                onClick={() => setShowLicenceModal(false)}
+                disabled={licenceBusy}
+              >
+                Fermer
+              </button>
+            </div>
+            <div className="form-group" style={{ marginBottom: '0.75rem' }}>
+              <input
+                type="search"
+                placeholder="Rechercher nom, prénom, club…"
+                value={licenceSearch}
+                onChange={(e) => setLicenceSearch(e.target.value)}
+                disabled={licenceBusy}
+              />
+            </div>
+            {(() => {
+              const q = licenceSearch.trim().toLowerCase();
+              const list = (registrations || [])
+                .filter((r) => r?.nom || r?.prenom)
+                .filter((r) => {
+                  if (!q) return true;
+                  const hay = `${r.prenom || ''} ${r.nom || ''} ${r.club || ''}`.toLowerCase();
+                  return hay.includes(q);
+                })
+                .sort((a, b) => {
+                  const ca = String(a.club || '').localeCompare(String(b.club || ''), 'fr');
+                  if (ca !== 0) return ca;
+                  return `${a.nom || ''} ${a.prenom || ''}`.localeCompare(
+                    `${b.nom || ''} ${b.prenom || ''}`,
+                    'fr',
+                  );
+                });
+              if (!list.length) {
+                return <p className="form-hint">Aucun judoka trouvé.</p>;
+              }
+              return (
+                <div className="competition-charge-list">
+                  {list.map((r) => {
+                    const key = String(r.id);
+                    const selected = licenceSelected.has(key);
+                    const mode = isTeamRegistration(r) ? 'Par équipe' : 'Individuel';
+                    return (
+                      <div
+                        key={r.id}
+                        className={`competition-charge-row ${selected ? 'is-selected' : ''}`}
+                      >
+                        <label className="competition-charge-check">
+                          <input
+                            type="checkbox"
+                            checked={selected}
+                            onChange={() => toggleLicenceSelection(r.id)}
+                            disabled={licenceBusy}
+                          />
+                          <span>
+                            <strong>{r.prenom} {r.nom}</strong>
+                            <small>
+                              {r.club || 'Sans club'}
+                              {' · '}
+                              {r.sexe === 'F' ? 'F' : 'M'}
+                              {r.categorie ? ` · ${r.categorie}` : ''}
+                              {' · '}
+                              {mode}
+                            </small>
+                          </span>
+                        </label>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+            <div className="form-actions competition-licence-actions">
+              <span className="competition-licence-count">
+                {licenceSelected.size
+                  ? `${licenceSelected.size} sélectionné${licenceSelected.size > 1 ? 's' : ''}`
+                  : 'Aucune sélection'}
+              </span>
+              <button
+                type="button"
+                className="btn btn-outline"
+                onClick={() => setShowLicenceModal(false)}
+                disabled={licenceBusy}
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                className="btn btn-icon btn-icon-card"
+                onClick={handleGenerateLicences}
+                disabled={licenceBusy || licenceSelected.size === 0}
+                title="Licence"
+                aria-label="Licence"
+              >
+                {licenceBusy ? '…' : <IconCard />}
+              </button>
             </div>
           </div>
         </div>

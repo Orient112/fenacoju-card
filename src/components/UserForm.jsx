@@ -346,7 +346,7 @@ export default function UserForm({ type, editingUser, currentUser, registeredClu
   const pageSubtitle = getFormSubtitle(type, isEdit);
 
   return (
-    <div className="form-card">
+    <div className={`form-card${type === 'club' ? ' form-card-full' : ''}`}>
       <h2>{pageTitle}</h2>
       <p className="subtitle">{pageSubtitle}</p>
 

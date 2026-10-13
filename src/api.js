@@ -612,6 +612,19 @@ export async function deleteCompetitionRegistration(id) {
   return res.json();
 }
 
+/** Génère des cartes licence depuis des inscriptions compétition (crée clubs si besoin). */
+export async function generateCompetitionLicences(registrationIds) {
+  const res = await apiFetch('/api/competition/licences', {
+    method: 'POST',
+    body: JSON.stringify({ registration_ids: registrationIds }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Erreur lors de la génération des licences');
+  }
+  return res.json();
+}
+
 export async function chargeCompetitionTeamFromIndividuel(data) {
   const res = await apiFetch('/api/competition/registrations/charge-team', {
     method: 'POST',

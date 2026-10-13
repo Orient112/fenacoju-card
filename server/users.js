@@ -186,6 +186,63 @@ export async function isClubRegistered(clubName) {
   return clubs.some((c) => c.toLowerCase() === term);
 }
 
+/**
+ * Garantit qu’un club actif existe dans le système (pour licences compétition).
+ * Ne crée pas de doublon si le nom est déjà enregistré.
+ */
+export async function ensureRegisteredClub(clubName, creator) {
+  const nom = String(clubName || '').trim();
+  if (!nom) throw new Error('Le nom du club est obligatoire');
+  const term = nom.toLowerCase();
+  const users = await readUsers();
+  const existing = users.find(
+    (u) => u.type === 'club' && String(u.nom_club || '').trim().toLowerCase() === term,
+  );
+  if (existing) {
+    if (getAccountStatut(existing) !== 'actif') {
+      const updated = { ...existing, statut: 'actif' };
+      if (isSupabaseEnabled()) {
+        const { error } = await getSupabase().from('users').update({ statut: 'actif' }).eq('id', existing.id);
+        if (error) throw new Error(error.message);
+      } else {
+        const idx = users.findIndex((u) => u.id === existing.id);
+        if (idx !== -1) {
+          users[idx] = updated;
+          writeUsersJson(users);
+        }
+      }
+      return sanitizeUser(updated);
+    }
+    return sanitizeUser(existing);
+  }
+
+  const slug = nom
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '')
+    .slice(0, 18) || 'club';
+  const suffix = uuidv4().replace(/-/g, '').slice(0, 6);
+  const email = `club.${slug}.${suffix}@licence.fenacoju.local`;
+  const password = `Lc${suffix}${crypto.randomBytes(4).toString('hex')}!`;
+
+  // Créateur admin pour forcer statut actif et contourner pending
+  const adminLike = creator?.type === 'admin'
+    ? creator
+    : { type: 'admin', id: creator?.id || 'system-licence' };
+
+  return createUser({
+    type: 'club',
+    nom_club: nom,
+    email,
+    username: email,
+    password,
+    ville: '',
+    responsable: 'Licence compétition',
+    comites: [],
+  }, adminLike);
+}
+
 export async function login(identifier, password) {
   const user = await findByLogin(identifier);
   if (!user || user.password !== hashPassword(password)) return null;

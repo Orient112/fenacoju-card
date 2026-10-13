@@ -51,6 +51,21 @@ export async function getJudokaById(id) {
   return readAllJson().find((j) => j.id === id) || null;
 }
 
+export async function findJudokaByIdentity({ nom, prenom, date_naissance, club } = {}) {
+  const n = String(nom || '').trim().toLowerCase();
+  const p = String(prenom || '').trim().toLowerCase();
+  const d = String(date_naissance || '').trim().slice(0, 10);
+  const c = String(club || '').trim().toLowerCase();
+  if (!n || !p) return null;
+  const all = await readAll();
+  return all.find((j) => (
+    String(j.nom || '').trim().toLowerCase() === n
+    && String(j.prenom || '').trim().toLowerCase() === p
+    && (!d || String(j.date_naissance || '').slice(0, 10) === d)
+    && (!c || String(j.club || '').trim().toLowerCase() === c)
+  )) || null;
+}
+
 export async function getJudokaByCardNumber(numero_carte) {
   const raw = String(numero_carte || '').trim().toUpperCase();
   if (!raw) return null;

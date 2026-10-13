@@ -6072,6 +6072,24 @@ tbody tr:last-child td {
   padding: 1.25rem 1.35rem;
 }
 
+.competition-licence-modal {
+  width: min(760px, 96vw);
+}
+
+.competition-licence-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.competition-licence-count {
+  margin-right: auto;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
 .competition-charge-list {
   display: flex;
   flex-direction: column;

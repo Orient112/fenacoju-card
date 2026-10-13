@@ -15,6 +15,7 @@ import {
   updateJudoka,
   deleteJudoka,
   generateCardNumber,
+  findJudokaByIdentity,
 } from './database.js';
 import { validateCategoryAge, categoryFromBirthDate } from './categoryAge.js';
 import {
@@ -30,6 +31,7 @@ import {
   setUserAccountStatut,
   getRegisteredClubs,
   isClubRegistered,
+  ensureRegisteredClub,
   ensureAdminExists,
   updateOwnProfile,
   changeOwnPassword,
@@ -1032,13 +1034,136 @@ app.put('/api/competition/registrations/:id', async (req, res) => {
       poids: req.body?.poids,
       club: req.body?.club,
       categorie: req.body?.categorie,
+      sexe: req.body?.sexe,
       role_equipe: req.body?.role_equipe,
       date_naissance: req.body?.date_naissance,
     });
     res.json(updated);
   } catch (err) {
-    const status = /introuvable|obligatoire/i.test(err.message || '') ? 400 : 500;
+    const status = /introuvable|obligatoire|accepte uniquement|âge/i.test(err.message || '') ? 400 : 500;
     res.status(status).json({ error: err.message });
+  }
+});
+
+/** Génère licences (cartes) depuis inscriptions compétition + enregistre clubs si besoin. */
+app.post('/api/competition/licences', async (req, res) => {
+  try {
+    const current = await getCompetitionSettings();
+    const canToggle = canToggleCompetitionAccess(req.user);
+    const isDirector = isDirecteurCompetition(req.user);
+    if (!canToggle && !(isDirector && current.access_enabled)) {
+      return res.status(403).json({ error: 'Accès non autorisé' });
+    }
+
+    const ids = Array.isArray(req.body?.registration_ids)
+      ? req.body.registration_ids.map((id) => String(id)).filter(Boolean)
+      : [];
+    if (!ids.length) {
+      return res.status(400).json({ error: 'Sélectionnez au moins un judoka' });
+    }
+
+    const allRegs = await getCompetitionRegistrations();
+    const selected = allRegs.filter((r) => ids.includes(String(r.id)));
+    if (!selected.length) {
+      return res.status(400).json({ error: 'Aucune inscription correspondante' });
+    }
+
+    const clubsCreated = [];
+    const clubsReused = [];
+    const judokas = [];
+    const skipped = [];
+
+    for (const reg of selected) {
+      const clubName = String(reg.club || '').trim();
+      if (!clubName) {
+        skipped.push({ id: reg.id, reason: 'Club manquant' });
+        continue;
+      }
+      if (!reg.nom?.trim() || !reg.prenom?.trim()) {
+        skipped.push({ id: reg.id, reason: 'Nom/prénom manquants' });
+        continue;
+      }
+      if (!reg.date_naissance) {
+        skipped.push({ id: reg.id, reason: 'Date de naissance manquante' });
+        continue;
+      }
+
+      const before = await isClubRegistered(clubName);
+      await ensureRegisteredClub(clubName, req.user);
+      if (before) {
+        if (!clubsReused.includes(clubName)) clubsReused.push(clubName);
+      } else if (!clubsCreated.includes(clubName)) {
+        clubsCreated.push(clubName);
+      }
+
+      let judoka = null;
+      if (reg.judoka_id) {
+        judoka = await getJudokaById(reg.judoka_id);
+      }
+      if (!judoka) {
+        judoka = await findJudokaByIdentity({
+          nom: reg.nom,
+          prenom: reg.prenom,
+          date_naissance: reg.date_naissance,
+          club: clubName,
+        });
+      }
+
+      if (!judoka) {
+        const categorie = categoryFromBirthDate(reg.date_naissance)
+          || String(reg.categorie || '').trim()
+          || '';
+        const id = uuidv4();
+        const numero_carte = await generateCardNumber();
+        await createJudoka({
+          id,
+          numero_carte,
+          nom: String(reg.nom).trim(),
+          prenom: String(reg.prenom).trim(),
+          date_naissance: String(reg.date_naissance).slice(0, 10),
+          sexe: reg.sexe === 'F' ? 'F' : 'M',
+          club: clubName,
+          grade: String(reg.grade || '').trim() || 'Blanche',
+          categorie,
+          numero_licence: '',
+          telephone: String(reg.telephone || '').trim(),
+          email: String(reg.email || '').trim(),
+          taille: '',
+          poids: String(reg.poids || '').trim(),
+          photo: '',
+          entraineur_id: '',
+          entraineur_nom: '',
+          date_inscription: new Date().toISOString().split('T')[0],
+          statut: 'actif',
+        });
+        judoka = await getJudokaById(id);
+      }
+
+      if (judoka) {
+        judokas.push(judoka);
+        if (!reg.judoka_id || reg.numero_carte !== judoka.numero_carte) {
+          try {
+            await updateCompetitionRegistration(reg.id, {
+              judoka_id: judoka.id,
+              numero_carte: judoka.numero_carte,
+              deja_enregistre: true,
+            });
+          } catch {
+            // colonnes optionnelles
+          }
+        }
+      }
+    }
+
+    res.json({
+      count: judokas.length,
+      judokas,
+      clubs_created: clubsCreated,
+      clubs_reused: clubsReused,
+      skipped,
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'Génération des licences impossible' });
   }
 });
 
