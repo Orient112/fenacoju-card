@@ -5216,6 +5216,22 @@ tbody tr:last-child td {
   border-color: #125232;
 }
 
+.competition-team-already-banner {
+  margin: 1rem 0 1.25rem;
+  padding: 1.25rem 1.1rem;
+  border-radius: 12px;
+  border: 1px solid #c7d7ee;
+  background: linear-gradient(180deg, #f4f8ff 0%, #eef4ff 100%);
+  text-align: center;
+}
+
+.competition-team-already-banner p {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--primary, #1d4393);
+}
+
 .competition-team-roster {
   display: flex;
   flex-direction: column;

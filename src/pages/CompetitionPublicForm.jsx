@@ -720,23 +720,13 @@ export default function CompetitionPublicForm({ token }) {
   const filledTeamJudokas = Object.values(teamRoster).reduce((sum, b) => (
     sum + (b.principal ? 1 : 0) + (b.remplacant ? 1 : 0)
   ), 0);
-  const lockedTeamJudokas = Object.values(teamRoster).reduce((sum, b) => (
-    sum
-    + (b.principal?.locked ? 1 : 0)
-    + (b.remplacant?.locked ? 1 : 0)
-  ), 0);
-  const hasNewTeamMembers = Object.values(teamRoster).some((b) => (
-    (b.principal && !b.principal.locked) || (b.remplacant && !b.remplacant.locked)
-  ));
   const existingTeamInSystem = countExistingTeamMembers(
     competition.team_members,
     teamClub,
     teamSexe
   );
-  // Équipe déjà en base (judokas affichés) et aucun nouveau judoka à ajouter → validation inactive
-  const teamAlreadyRegistered = Boolean(teamClub)
-    && (existingTeamInSystem > 0 || lockedTeamJudokas > 0)
-    && !hasNewTeamMembers;
+  // Club déjà inscrit en Par équipe → masquer les noms, message seul, validation inactive
+  const teamAlreadyRegistered = Boolean(teamClub) && existingTeamInSystem > 0;
   const judokaCount = Math.max(paymentItems.length || basket.length, 1);
   const individuelAmountCdf = fraisIndividuelCdf * judokaCount;
   const individuelAmountUsd = fraisIndividuelUsd * judokaCount;
@@ -1071,15 +1061,17 @@ export default function CompetitionPublicForm({ token }) {
                       </button>
                     )}
                   </div>
-                  {teamAlreadyRegistered && (
-                    <p className="form-hint">Cette équipe est déjà enregistrée. Les judokas s&apos;affichent en lecture seule.</p>
-                  )}
                   {!teamAlreadyRegistered && clubsForSelect(teamClub).length === 0 && (
                     <p className="form-hint">Aucun club Par équipe n&apos;est encore enregistré pour cette compétition.</p>
                   )}
                 </div>
 
-                {!teamAlreadyRegistered && (
+                {teamAlreadyRegistered ? (
+                  <div className="competition-team-already-banner" role="status">
+                    <p>Club déjà enregistré</p>
+                  </div>
+                ) : (
+                  <>
                 <div className="competition-team-entry">
                   <h3>Ajouter un judoka</h3>
                   <div className="form-grid">
@@ -1131,7 +1123,6 @@ export default function CompetitionPublicForm({ token }) {
                     </button>
                   </div>
                 </div>
-                )}
 
                 <div className="competition-team-roster">
                   {weightCats.map((cat) => {
@@ -1221,6 +1212,8 @@ export default function CompetitionPublicForm({ token }) {
                     );
                   })}
                 </div>
+                  </>
+                )}
 
                 <div className="form-actions">
                   <button type="button" className="btn btn-outline" onClick={resetFlow}>
