@@ -6353,9 +6353,25 @@ tbody tr:last-child td {
   max-width: 920px;
 }
 
-.competition-weigh-shell.is-individuel {
+.competition-weigh-shell.is-individuel,
+.competition-weigh-shell.is-equipe {
   max-width: none;
   width: 100%;
+}
+
+.competition-weigh-shell.is-equipe .competition-weigh-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+
+.competition-weigh-shell.is-equipe .competition-weigh-club {
+  min-width: 0;
+}
+
+.competition-weigh-input .btn-icon {
+  flex-shrink: 0;
 }
 
 .competition-weigh-msg {

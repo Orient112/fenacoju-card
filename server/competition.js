@@ -899,7 +899,7 @@ export async function updateCompetitionRegistrationWeight(id, poids) {
 
   const existing = await getCompetitionRegistrationById(id);
   if (!existing) throw new Error('Inscription introuvable');
-  if (existing.poids) throw new Error('Ce judoka a déjà été pesé');
+  // Autorise la correction de poids (mode Modifier sur la page pesée)
 
   if (isSupabaseEnabled()) {
     try {
