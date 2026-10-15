@@ -305,15 +305,24 @@ app.get('/api/public/competition/:token', async (req, res) => {
 app.get('/api/public/competition/:token/registrations', async (req, res) => {
   try {
     const settings = await getCompetitionSettings();
-    if (!settings.public_enabled || settings.public_token !== req.params.token) {
+    // Pesée autorisée même si les inscriptions sont clôturées (token valide requis)
+    if (!settings.public_token || settings.public_token !== req.params.token) {
       return res.status(404).json({ error: 'Page de pesée indisponible' });
     }
     if (!isCompetitionConfigured(settings)) {
       return res.status(404).json({ error: 'Page de pesée indisponible' });
     }
     const registrations = await getCompetitionRegistrations();
+    const competition = toPublicCompetition(
+      settings,
+      { registrations_count: registrations.length, closed: !settings.public_enabled },
+      { forWeigh: true },
+    );
+    if (!competition) {
+      return res.status(404).json({ error: 'Page de pesée indisponible' });
+    }
     res.json({
-      competition: toPublicCompetition(settings, { registrations_count: registrations.length }),
+      competition,
       registrations: registrations.map(toPublicRegistration),
     });
   } catch (err) {
@@ -324,7 +333,8 @@ app.get('/api/public/competition/:token/registrations', async (req, res) => {
 app.put('/api/public/competition/:token/registrations/:id/poids', async (req, res) => {
   try {
     const settings = await getCompetitionSettings();
-    if (!settings.public_enabled || settings.public_token !== req.params.token) {
+    // Pesée autorisée même si les inscriptions sont clôturées (token valide requis)
+    if (!settings.public_token || settings.public_token !== req.params.token) {
       return res.status(404).json({ error: 'Page de pesée indisponible' });
     }
     if (!isCompetitionConfigured(settings)) {

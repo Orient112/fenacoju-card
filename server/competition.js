@@ -381,8 +381,14 @@ export function isCompetitionConfigured(settings) {
   return Boolean(settings?.nom?.trim() && settings?.date_debut && settings?.lieu?.trim());
 }
 
-export function toPublicCompetition(settings, extras = {}) {
-  if (!settings?.public_enabled || !isCompetitionConfigured(settings)) return null;
+/**
+ * @param {object} settings
+ * @param {object} [extras]
+ * @param {{ forWeigh?: boolean }} [options] — forWeigh: accessible même si inscriptions clôturées
+ */
+export function toPublicCompetition(settings, extras = {}, options = {}) {
+  const forWeigh = Boolean(options.forWeigh);
+  if ((!settings?.public_enabled && !forWeigh) || !isCompetitionConfigured(settings)) return null;
   return {
     nom: settings.nom,
     date_debut: settings.date_debut,
