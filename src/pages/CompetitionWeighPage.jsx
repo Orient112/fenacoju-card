@@ -29,28 +29,6 @@ function teamRoleLabel(r) {
   return 'Principal';
 }
 
-function groupMembersByCategory(members) {
-  const map = new Map();
-  for (const r of members || []) {
-    const cat = teamCategoryLabel(r);
-    const sexe = r.sexe === 'F' ? 'F' : 'M';
-    const key = `${sexe}|${cat}`;
-    if (!map.has(key)) map.set(key, { key, cat, sexe, members: [] });
-    map.get(key).members.push(r);
-  }
-  return [...map.values()].map((bucket) => ({
-    ...bucket,
-    members: [...bucket.members].sort((a, b) => {
-      const roleA = teamRoleLabel(a) === 'Principal' ? 0 : 1;
-      const roleB = teamRoleLabel(b) === 'Principal' ? 0 : 1;
-      return roleA - roleB;
-    }),
-  })).sort((a, b) => {
-    if (a.sexe !== b.sexe) return a.sexe === 'M' ? -1 : 1;
-    return a.cat.localeCompare(b.cat, 'fr', { numeric: true });
-  });
-}
-
 export default function CompetitionWeighPage({ token }) {
   const weighMode = useMemo(() => new URLSearchParams(window.location.search).get('mode'), []);
   const isTeamMode = weighMode === 'equipe';
@@ -176,15 +154,28 @@ export default function CompetitionWeighPage({ token }) {
     });
   }, [chipFiltered, search, filterClub, filterPoids, isTeamMode]);
 
-  const clubGroups = useMemo(() => {
-    const map = new Map();
-    for (const r of filtered) {
-      const club = (r.club || '').trim() || 'Club';
-      if (!map.has(club)) map.set(club, []);
-      map.get(club).push(r);
-    }
-    return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0], 'fr'));
-  }, [filtered]);
+  /** Liste unique Par équipe, classée par club puis catégorie / rôle / nom. */
+  const teamSortedList = useMemo(() => (
+    [...filtered].sort((a, b) => {
+      const clubA = String(a.club || '').trim() || 'Sans club';
+      const clubB = String(b.club || '').trim() || 'Sans club';
+      const byClub = clubA.localeCompare(clubB, 'fr');
+      if (byClub !== 0) return byClub;
+      const catA = teamCategoryLabel(a);
+      const catB = teamCategoryLabel(b);
+      const byCat = catA.localeCompare(catB, 'fr', { numeric: true });
+      if (byCat !== 0) return byCat;
+      const roleA = teamRoleLabel(a) === 'Principal' ? 0 : 1;
+      const roleB = teamRoleLabel(b) === 'Principal' ? 0 : 1;
+      if (roleA !== roleB) return roleA - roleB;
+      return teamJudokaName(a).localeCompare(teamJudokaName(b), 'fr');
+    })
+  ), [filtered]);
+
+  const teamClubsCount = useMemo(() => {
+    const set = new Set(teamSortedList.map((r) => String(r.club || '').trim()).filter(Boolean));
+    return set.size;
+  }, [teamSortedList]);
 
   const handleWeightChange = (id, value) => {
     setWeights((prev) => ({ ...prev, [id]: value }));
@@ -300,7 +291,7 @@ export default function CompetitionWeighPage({ token }) {
             <p>
               {competition.lieu}
               {isTeamMode
-                ? ` · ${clubGroups.length} club${clubGroups.length > 1 ? 's' : ''}`
+                ? ` · ${teamClubsCount} club${teamClubsCount > 1 ? 's' : ''} · ${filtered.length} judoka${filtered.length > 1 ? 's' : ''}`
                 : ` · ${filtered.length} inscrit${filtered.length > 1 ? 's' : ''}`}
             </p>
           </div>
@@ -380,84 +371,76 @@ export default function CompetitionWeighPage({ token }) {
             <p>{isTeamMode ? 'Aucun club ne correspond aux filtres / recherche.' : 'Aucun judoka ne correspond aux filtres / recherche.'}</p>
           </div>
         ) : isTeamMode ? (
-          <div className="competition-weigh-list">
-            {clubGroups.map(([club, members]) => {
-              const categories = groupMembersByCategory(members);
+          <div className="competition-weigh-list competition-weigh-list-equipe">
+            {teamSortedList.map((r, idx) => {
+              const done = Boolean(r.poids);
+              const editing = editingIds.has(String(r.id));
+              const canEditInput = !done || editing;
+              const club = String(r.club || '').trim() || 'Sans club';
+              const categorie = teamCategoryLabel(r);
               return (
-              <section key={club} className="competition-weigh-club">
-                <header className="competition-weigh-club-head">
-                  <h3>{club}</h3>
-                  <span>{categories.length} catégorie{categories.length > 1 ? 's' : ''}</span>
-                </header>
-                {categories.map((bucket) => (
-                  <div key={bucket.key} className="competition-weigh-cat-block">
-                    <h4>
-                      {bucket.cat}
-                      <span> · {bucket.sexe === 'F' ? 'Fille' : 'Garçon'}</span>
-                    </h4>
-                    {bucket.members.map((r) => {
-                      const done = Boolean(r.poids);
-                      const editing = editingIds.has(String(r.id));
-                      const canEditInput = !done || editing;
-                      return (
-                        <div key={r.id} className={`competition-weigh-row ${done && !editing ? 'is-done' : ''}${editing ? ' is-editing' : ''}`}>
-                          <div className="competition-weigh-identity">
-                            <div>
-                              <strong className="competition-weigh-name">{teamJudokaName(r)}</strong>
-                              <span className="competition-weigh-cat-meta">{teamRoleLabel(r)}</span>
-                            </div>
-                          </div>
-                          <div className="competition-weigh-input">
-                            <input
-                              type="number"
-                              inputMode="decimal"
-                              step="0.1"
-                              min="0"
-                              placeholder="Poids kg"
-                              value={weights[r.id] ?? ''}
-                              onChange={(e) => handleWeightChange(r.id, e.target.value)}
-                              aria-label={`Poids ${teamJudokaName(r)}`}
-                              readOnly={!canEditInput}
-                              disabled={!canEditInput}
-                            />
-                            {editing ? (
-                              <button
-                                type="button"
-                                className="btn btn-primary"
-                                disabled={savingId === r.id}
-                                onClick={() => handleValidate(r)}
-                              >
-                                {savingId === r.id ? '...' : 'Enregistrer'}
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                className={`btn ${done ? 'btn-pese-done' : 'btn-primary'}`}
-                                disabled={done || savingId === r.id}
-                                onClick={() => handleValidate(r)}
-                              >
-                                {done ? 'Pesé' : (savingId === r.id ? '...' : 'Valider')}
-                              </button>
-                            )}
-                            {done && (
-                              <button
-                                type="button"
-                                className={`btn btn-icon btn-icon-edit${editing ? ' is-active' : ''}`}
-                                onClick={() => startEditWeight(r)}
-                                disabled={editing || savingId === r.id}
-                                title="Modifier"
-                                aria-label={`Modifier le poids de ${teamJudokaName(r)}`}
-                              >
-                                <IconEdit />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
+                <div key={r.id} className={`competition-weigh-row ${done && !editing ? 'is-done' : ''}${editing ? ' is-editing' : ''}`}>
+                  <div className="competition-weigh-identity">
+                    <span className="competition-weigh-num">{idx + 1}</span>
+                    <div>
+                      <strong className="competition-weigh-name">{teamJudokaName(r)}</strong>
+                      <span className="competition-weigh-meta">
+                        Club : {club}
+                        {' · '}
+                        {categorie}
+                        {' · '}
+                        {teamRoleLabel(r)}
+                        {' · '}
+                        {r.sexe === 'F' ? 'Fille' : 'Garçon'}
+                      </span>
+                    </div>
                   </div>
-                ))}
-              </section>
+                  <div className="competition-weigh-input">
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      step="0.1"
+                      min="0"
+                      placeholder="Poids kg"
+                      value={weights[r.id] ?? ''}
+                      onChange={(e) => handleWeightChange(r.id, e.target.value)}
+                      aria-label={`Poids ${teamJudokaName(r)}`}
+                      readOnly={!canEditInput}
+                      disabled={!canEditInput}
+                    />
+                    {editing ? (
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        disabled={savingId === r.id}
+                        onClick={() => handleValidate(r)}
+                      >
+                        {savingId === r.id ? '...' : 'Enregistrer'}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className={`btn ${done ? 'btn-pese-done' : 'btn-primary'}`}
+                        disabled={done || savingId === r.id}
+                        onClick={() => handleValidate(r)}
+                      >
+                        {done ? 'Pesé' : (savingId === r.id ? '...' : 'Valider')}
+                      </button>
+                    )}
+                    {done && (
+                      <button
+                        type="button"
+                        className={`btn btn-icon btn-icon-edit${editing ? ' is-active' : ''}`}
+                        onClick={() => startEditWeight(r)}
+                        disabled={editing || savingId === r.id}
+                        title="Modifier"
+                        aria-label={`Modifier le poids de ${teamJudokaName(r)}`}
+                      >
+                        <IconEdit />
+                      </button>
+                    )}
+                  </div>
+                </div>
               );
             })}
           </div>
