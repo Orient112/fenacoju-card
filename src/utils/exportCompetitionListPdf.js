@@ -1,12 +1,8 @@
 import { jsPDF } from 'jspdf';
-import { sortRegistrationsByGenderAndWeight } from './competitionDraw';
+import { findCategoryForWeight, parseCategoriesPoids } from './weightCategories';
 
 function fullName(r) {
   return `${r.prenom || ''} ${r.nom || ''}`.trim() || '—';
-}
-
-function genderSectionTitle(sexe) {
-  return sexe === 'F' ? 'Filles' : 'Garçons';
 }
 
 function clubName(r) {
@@ -18,6 +14,38 @@ function roleLabel(r) {
   if (role.includes('remplac')) return 'Remplaçant';
   if (String(r?.categorie || '').toLowerCase().includes('rempl')) return 'Remplaçant';
   return 'Principal';
+}
+
+function weightSortValue(poids) {
+  const n = Number(String(poids ?? '').replace(',', '.').trim());
+  return Number.isFinite(n) ? n : Number.POSITIVE_INFINITY;
+}
+
+/** Tri Par équipe dans un club : catégories de poids croissantes, puis Principal, puis nom. */
+function sortTeamMembersByWeightCategory(members, categoriesPoids) {
+  const cats = parseCategoriesPoids(categoriesPoids);
+  const rank = (r) => {
+    const sexe = r.sexe === 'F' ? 'F' : 'M';
+    const byWeight = cats.length ? findCategoryForWeight(cats, r.poids, sexe) : null;
+    if (byWeight) return { max: byWeight.max, min: byWeight.min, label: byWeight.label };
+    const label = String(r.categorie || '').trim();
+    const byLabel = label
+      ? cats.find((c) => c.sexe === sexe && String(c.label).trim() === label)
+      : null;
+    if (byLabel) return { max: byLabel.max, min: byLabel.min, label: byLabel.label };
+    const w = weightSortValue(r.poids);
+    return { max: w, min: w, label };
+  };
+  return [...(members || [])].sort((a, b) => {
+    const ra = rank(a);
+    const rb = rank(b);
+    if (ra.max !== rb.max) return ra.max - rb.max;
+    if (ra.min !== rb.min) return ra.min - rb.min;
+    const roleA = roleLabel(a) === 'Remplaçant' ? 1 : 0;
+    const roleB = roleLabel(b) === 'Remplaçant' ? 1 : 0;
+    if (roleA !== roleB) return roleA - roleB;
+    return fullName(a).localeCompare(fullName(b), 'fr');
+  });
 }
 
 function groupByClub(list, { requireMembers = true } = {}) {
@@ -121,7 +149,7 @@ function exportTeamListToPdf(registrations, competition = {}) {
     if (!clubs.length) return;
     drawGenderTitle(section.title);
     clubs.forEach(([club, members]) => {
-      const sorted = [...members].sort((a, b) => fullName(a).localeCompare(fullName(b), 'fr'));
+      const sorted = sortTeamMembersByWeightCategory(members, competition.categories_poids);
       drawClubTitle(club, sorted.length);
       sorted.forEach((r, idx) => {
         ensureSpace(12);
@@ -310,126 +338,11 @@ export function exportCompetitionListToPdf(registrations, competition = {}) {
 
   if (competition.cadre === 'Par équipe') {
     // Clubs sans aucun judoka exclus (groupByClub requireMembers)
+    // Dans chaque club : tri par catégories de poids
     exportTeamListToPdf(registrations, competition);
     return;
   }
 
-  // Tous les inscrits individuels, pesés ou non
-  const sorted = sortRegistrationsByGenderAndWeight(registrations);
-  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-  const marginX = 14;
-  let y = 18;
-  const pageWidth = pdf.internal.pageSize.getWidth();
-  const pageHeight = pdf.internal.pageSize.getHeight();
-  const usableWidth = pageWidth - marginX * 2;
-
-  pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(16);
-  pdf.text(competition.nom || 'Compétition FENACOJU', marginX, y);
-  y += 7;
-
-  pdf.setFont('helvetica', 'normal');
-  pdf.setFontSize(10);
-  const meta = [
-    'Cadre : Individuel',
-    competition.lieu ? `Lieu : ${competition.lieu}` : null,
-    competition.date_debut ? `Date : ${competition.date_debut}` : null,
-    `Inscrits : ${sorted.length}`,
-  ].filter(Boolean);
-  pdf.text(meta.join('  ·  '), marginX, y);
-  y += 10;
-
-  const headers = ['#', 'Nom', 'Club', 'N° carte', 'Catégorie', 'Sexe', 'Poids'];
-  const colWidths = [10, 45, 40, 28, 28, 14, 18];
-  const rowHeight = 7;
-
-  const ensureSpace = (needed = 14) => {
-    if (y > pageHeight - needed) {
-      pdf.addPage();
-      y = 18;
-      return true;
-    }
-    return false;
-  };
-
-  const drawHeader = () => {
-    pdf.setFillColor(29, 67, 147);
-    pdf.rect(marginX, y - 4.5, usableWidth, rowHeight, 'F');
-    pdf.setTextColor(255, 255, 255);
-    pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(9);
-    let x = marginX + 1;
-    headers.forEach((h, i) => {
-      pdf.text(h, x, y);
-      x += colWidths[i];
-    });
-    y += rowHeight;
-    pdf.setTextColor(15, 23, 42);
-    pdf.setFont('helvetica', 'normal');
-  };
-
-  const drawSectionTitle = (title) => {
-    ensureSpace(16);
-    pdf.setFillColor(226, 232, 240);
-    pdf.rect(marginX, y - 4.5, usableWidth, rowHeight + 1, 'F');
-    pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(11);
-    pdf.setTextColor(29, 67, 147);
-    pdf.text(title, marginX + 2, y);
-    y += rowHeight + 2;
-    pdf.setTextColor(15, 23, 42);
-    drawHeader();
-  };
-
-  let currentGender = null;
-  let indexInSection = 0;
-
-  sorted.forEach((r) => {
-    const sexe = r.sexe === 'F' ? 'F' : 'M';
-    if (sexe !== currentGender) {
-      currentGender = sexe;
-      indexInSection = 0;
-      drawSectionTitle(genderSectionTitle(sexe));
-    }
-
-    ensureSpace(12);
-    if (y > pageHeight - 18) {
-      pdf.addPage();
-      y = 18;
-      drawSectionTitle(genderSectionTitle(sexe));
-    }
-
-    if (indexInSection % 2 === 0) {
-      pdf.setFillColor(241, 245, 249);
-      pdf.rect(marginX, y - 4.5, usableWidth, rowHeight, 'F');
-    }
-
-    const row = [
-      String(indexInSection + 1),
-      fullName(r),
-      r.club || '—',
-      r.numero_carte || '—',
-      r.categorie || '—',
-      sexe === 'F' ? 'F' : 'M',
-      r.poids ? `${r.poids} kg` : '—',
-    ];
-
-    let x = marginX + 1;
-    pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(9);
-    row.forEach((cell, i) => {
-      const text = pdf.splitTextToSize(String(cell), colWidths[i] - 2)[0] || '';
-      pdf.text(text, x, y);
-      x += colWidths[i];
-    });
-    y += rowHeight;
-    indexInSection += 1;
-  });
-
-  const slug = (competition.nom || 'competition')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/gi, '-')
-    .replace(/^-|-$/g, '')
-    .slice(0, 40);
-  pdf.save(`fenacoju-inscrits-${slug || 'liste'}-${new Date().toISOString().split('T')[0]}.pdf`);
+  // Individuel : liste classée par club
+  exportCompetitionClubsIndividuelPdf(registrations, competition);
 }

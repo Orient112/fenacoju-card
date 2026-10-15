@@ -1189,12 +1189,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
     }
     if (action === 'weigh') {
       if (!canWeigh) {
-        onToast?.(
-          isClosed
-            ? 'La pesée est inactive tant que les inscriptions sont clôturées'
-            : 'Publiez d\'abord le formulaire de compétition',
-          'error'
-        );
+        onToast?.('Publiez d\'abord le formulaire de compétition', 'error');
         return;
       }
       setActionMode('weigh');
@@ -2064,7 +2059,8 @@ export default function CompetitionSettings({ onBack, onToast }) {
   const configured = Boolean(settings?.configured);
   const isPublic = Boolean(settings?.public_enabled);
   const isClosed = configured && !isPublic;
-  const canWeigh = configured && isPublic;
+  // Pesée accessible même après clôture des inscriptions (token public requis)
+  const canWeigh = configured && Boolean(settings?.public_token);
   const weighedCount = registrations.filter((r) => r.poids).length;
   const individualCount = registrations.filter((r) => !isTeamRegistration(r)).length;
   const teamCount = registrations.length - individualCount;
