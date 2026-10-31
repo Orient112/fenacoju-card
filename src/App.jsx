@@ -48,6 +48,8 @@ const QrScanModal = lazy(() => import('./components/QrScanModal'));
 const CreateTypeModal = lazy(() => import('./components/CreateTypeModal'));
 const ClubDetailModal = lazy(() => import('./components/ClubDetailModal'));
 const GradePassationModal = lazy(() => import('./components/GradePassationModal'));
+const JudokaFicheModal = lazy(() => import('./components/JudokaFicheModal'));
+const TransferModal = lazy(() => import('./components/TransferModal'));
 const AccountDetailModal = lazy(() => import('./components/AccountDetailModal'));
 const CompetitionSettings = lazy(() => import('./pages/CompetitionSettings'));
 
@@ -253,6 +255,11 @@ export default function App() {
   const [viewClub, setViewClub] = useState(null);
   const [viewAccount, setViewAccount] = useState(null);
   const [gradeTarget, setGradeTarget] = useState(null);
+  const [ficheTarget, setFicheTarget] = useState(null);
+  const [transferTarget, setTransferTarget] = useState(null);
+  const [showTransfersInbox, setShowTransfersInbox] = useState(false);
+  const [gradeHistoryOpen, setGradeHistoryOpen] = useState(false);
+  const [gradeHistory, setGradeHistory] = useState([]);
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [toast, setToast] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -272,6 +279,12 @@ export default function App() {
   const readOnlyJudokas = perms.readOnlyJudokas === true;
   const hideJudokaActions = perms.hideJudokaActions === true;
   const canManageGrades = perms.manageGrades === true;
+  const canManageClubGrades = perms.manageClubGrades === true;
+  const canPromoteGrade = canManageGrades || canManageClubGrades;
+  const canRequestTransfers = perms.requestTransfers === true || user?.type === 'admin';
+  const canValidateTransfersLigue = perms.validateTransfersLigue === true;
+  const canConfirmTransfersFederation = perms.validateTransfers === true;
+  const canViewGradeHistory = perms.viewGradeHistory === true || canManageGrades;
   const canCreateArbitres = perms.createArbitres === true;
   const showHeaderCreate = perms.showHeaderCreate !== false && (perms.createUsers || perms.createTypes?.length > 0);
   const canScanQr = canUseQrScan(user, perms);
@@ -1063,11 +1076,12 @@ export default function App() {
                     <Suspense fallback={<PageLoader label="Chargement de la liste..." />}>
                       <JudokaList
                         judokas={filteredJudokas}
-                        showActions={!readOnlyJudokas && (!hideJudokaActions || canManageGrades)}
+                        showActions={!readOnlyJudokas && (!hideJudokaActions || canPromoteGrade)}
                         onViewCard={!readOnlyJudokas && !hideJudokaActions && canViewCards ? setCardJudoka : null}
                         onEdit={!hideJudokaActions && perms.createJudokas ? openEditForm : null}
+                        onViewFiche={setFicheTarget}
                         onDelete={!hideJudokaActions && perms.deleteJudokas ? setDeleteTarget : null}
-                        onPromoteGrade={canManageGrades ? setGradeTarget : null}
+                        onPromoteGrade={canPromoteGrade ? setGradeTarget : null}
                         onAddNew={perms.createJudokas ? openNewJudoka : null}
                       />
                     </Suspense>
@@ -1272,8 +1286,8 @@ export default function App() {
           <div className="header-brand">
             <img src="/fenacoju-logo.png" alt="FENACOJU" className="header-logo-img" width="52" height="52" decoding="async" />
             <div>
-              <h1>FENACOJU Base</h1>
-              <p>Gestion des Clubs et Judokas Congolais</p>
+              <h1>Fight Management</h1>
+              <p>Système intégral de gestion des arts martiaux</p>
             </div>
           </div>
           <nav className="header-nav">
@@ -1337,9 +1351,42 @@ export default function App() {
                   setCreateType(null);
                 }}
                 disabled={!serverOnline || !competitionButtonEnabled}
-                title={competitionButtonEnabled ? 'Paramètres compétition' : 'En attente d\'activation Admin / Coordon'}
+                title={competitionButtonEnabled
+                  ? (user?.type === 'entente' ? 'Compétition Entente (clubs liés)' : 'Paramètres compétition')
+                  : 'En attente d\'activation Admin / Coordon'}
               >
                 Compétition
+              </button>
+            )}
+            {(canValidateTransfersLigue || canConfirmTransfersFederation) && (
+              <button
+                className="nav-btn"
+                type="button"
+                onClick={() => setShowTransfersInbox(true)}
+                disabled={!serverOnline}
+                title="Validation des transferts"
+              >
+                Transferts
+              </button>
+            )}
+            {canViewGradeHistory && (
+              <button
+                className="nav-btn"
+                type="button"
+                disabled={!serverOnline}
+                onClick={async () => {
+                  try {
+                    const { fetchGradeHistory } = await import('./api');
+                    const data = await fetchGradeHistory({ blackOnly: true });
+                    setGradeHistory(data);
+                    setGradeHistoryOpen(true);
+                  } catch (err) {
+                    showToast(err.message || 'Historique indisponible', 'error');
+                  }
+                }}
+                title="Historique passations ceinture noire"
+              >
+                Grades
               </button>
             )}
             {perms.export && !showCompetitionButton && (
@@ -1400,6 +1447,8 @@ export default function App() {
         <Suspense fallback={null}>
           <GradePassationModal
             judoka={gradeTarget}
+            mode={canManageClubGrades && !canManageGrades ? 'club' : 'full'}
+            entraineurs={entraineurs}
             onClose={() => setGradeTarget(null)}
             onSuccess={async (updated) => {
               showToast(`Grade mis à jour : ${updated.prenom} ${updated.nom} · ${updated.grade}`);
@@ -1408,6 +1457,80 @@ export default function App() {
             }}
           />
         </Suspense>
+      )}
+
+      {ficheTarget && (
+        <Suspense fallback={null}>
+          <JudokaFicheModal
+            judoka={ficheTarget}
+            onClose={() => setFicheTarget(null)}
+            onRequestTransfer={canRequestTransfers ? (j) => {
+              setFicheTarget(null);
+              setTransferTarget(j);
+            } : null}
+          />
+        </Suspense>
+      )}
+
+      {transferTarget && (
+        <Suspense fallback={null}>
+          <TransferModal
+            mode="request"
+            judoka={transferTarget}
+            clubs={registeredClubs}
+            onClose={() => setTransferTarget(null)}
+            onToast={showToast}
+            onDone={loadData}
+          />
+        </Suspense>
+      )}
+
+      {showTransfersInbox && (
+        <Suspense fallback={null}>
+          <TransferModal
+            mode="inbox"
+            canValidateLigue={canValidateTransfersLigue}
+            canConfirmFederation={canConfirmTransfersFederation}
+            onClose={() => setShowTransfersInbox(false)}
+            onToast={showToast}
+            onDone={loadData}
+          />
+        </Suspense>
+      )}
+
+      {gradeHistoryOpen && (
+        <div className="confirm-overlay" onClick={() => setGradeHistoryOpen(false)}>
+          <div className="transfer-modal" onClick={(e) => e.stopPropagation()}>
+            <header className="competition-params-modal-head">
+              <div>
+                <h3>Historique ceintures noires</h3>
+                <p className="form-hint">Passations enregistrées par le Responsable Grade.</p>
+              </div>
+              <button type="button" className="btn btn-outline btn-sm" onClick={() => setGradeHistoryOpen(false)}>Fermer</button>
+            </header>
+            {gradeHistory.length === 0 ? (
+              <p className="form-hint">Aucune passation ceinture noire.</p>
+            ) : (
+              <ul className="transfer-list">
+                {gradeHistory.map((h) => (
+                  <li key={h.id} className="transfer-row">
+                    <div>
+                      <strong>{h.grade_from || '—'} → {h.grade_to}</strong>
+                      <small>
+                        {h.instructeur_nom ? `Instructeur : ${h.instructeur_nom}` : 'Sans instructeur'}
+                        {h.points != null ? ` · Points : ${h.points}` : ''}
+                      </small>
+                      <p className="form-hint">
+                        {h.changed_by_name || '—'}
+                        {h.created_at ? ` · ${new Date(h.created_at).toLocaleString('fr-FR')}` : ''}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
       )}
 
       {viewClub && (

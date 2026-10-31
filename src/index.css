@@ -296,10 +296,17 @@ canvas {
 
 .btn-icon-edit,
 .btn-icon-view,
+.btn-icon-fiche,
 .btn-primary.btn-icon {
   --icon-accent: #1d4393;
   --icon-soft: #e8f0fe;
   --icon-border: #b8cef5;
+}
+
+.btn-icon-fiche {
+  --icon-accent: #0f766e;
+  --icon-soft: #e6f7f5;
+  --icon-border: #9ed4ce;
 }
 
 .btn-icon-card,
@@ -3645,6 +3652,118 @@ tbody tr:last-child td {
   width: min(460px, 94vw);
   padding: 1.25rem 1.3rem;
   box-shadow: var(--shadow-lg);
+}
+
+.judoka-fiche-modal,
+.transfer-modal {
+  background: #fff;
+  border-radius: var(--radius);
+  width: min(720px, 96vw);
+  max-height: 90vh;
+  overflow: auto;
+  padding: 1.25rem 1.35rem;
+  box-shadow: var(--shadow-lg);
+}
+
+.judoka-fiche-head,
+.judoka-fiche-head-actions {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.judoka-fiche-kicker {
+  margin: 0;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.judoka-fiche-identity {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.65rem;
+  margin: 1rem 0;
+}
+
+.judoka-fiche-identity div {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.55rem 0.7rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.judoka-fiche-identity span {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.judoka-fiche-history h4 {
+  margin: 0 0 0.65rem;
+  color: var(--primary);
+}
+
+.judoka-fiche-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.judoka-fiche-timeline li {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.7rem 0.85rem;
+  background: #fbfdff;
+}
+
+.judoka-fiche-timeline-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.transfer-list {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.transfer-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.75rem;
+  background: #f8fafc;
+}
+
+.transfer-row small {
+  display: block;
+  color: var(--text-muted);
+  margin-top: 0.2rem;
+}
+
+.transfer-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  justify-content: flex-end;
 }
 
 .grade-passation-modal h3 {

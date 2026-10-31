@@ -384,7 +384,7 @@ export default function QrScanModal({ onClose }) {
           <div className="qr-scan-result qr-scan-result-found">
             <div className="qr-found-success-strip">
               <span className="qr-found-success-icon" aria-hidden="true">✓</span>
-              <p>Ce judoka est enregistré dans FENACOJU Base.</p>
+              <p>Ce judoka est enregistré dans Fight Management.</p>
             </div>
             <JudokaFoundView judoka={judoka} />
             <div className="qr-scan-result-actions qr-scan-result-actions-footer">

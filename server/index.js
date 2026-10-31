@@ -19,6 +19,19 @@ import {
 } from './database.js';
 import { validateCategoryAge, categoryFromBirthDate } from './categoryAge.js';
 import {
+  addGradeHistory,
+  actorLabel,
+  confirmTransferByFederation,
+  createTransfer,
+  getGradeHistory,
+  getJudokaEvents,
+  getTransfers,
+  isBlackBeltGrade,
+  isClubAllowedGrade,
+  rejectTransfer,
+  validateTransferByLigue,
+} from './judokaLifecycle.js';
+import {
   login,
   logout,
   getSessionUser,
@@ -297,6 +310,46 @@ app.get('/api/public/competition/:token', async (req, res) => {
     });
     if (!pub) return res.status(404).json({ error: 'Formulaire de compétition indisponible' });
     res.json(pub);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/** Judokas d'un club pour sélection équipe (inscription publique Par équipe) */
+app.get('/api/public/competition/:token/club-judokas', async (req, res) => {
+  try {
+    const settings = await getCompetitionSettings();
+    if (!settings.public_token || settings.public_token !== req.params.token) {
+      return res.status(404).json({ error: 'Formulaire de compétition indisponible' });
+    }
+    if (!settings.public_enabled || !isCompetitionConfigured(settings)) {
+      return res.status(404).json({ error: 'Formulaire de compétition indisponible' });
+    }
+    const club = String(req.query.club || '').trim().toLowerCase();
+    if (!club) return res.status(400).json({ error: 'Club obligatoire' });
+    const allowed = (settings.competition_clubs || [])
+      .filter((c) => c.cadre === 'equipe')
+      .some((c) => String(c.nom || '').trim().toLowerCase() === club);
+    if (!allowed) {
+      return res.status(400).json({ error: 'Ce club n\'est pas enregistré en Par équipe' });
+    }
+    const all = await getAllJudokas();
+    const list = all
+      .filter((j) => String(j.club || '').trim().toLowerCase() === club && (j.statut || 'actif') === 'actif')
+      .map((j) => ({
+        id: j.id,
+        nom: j.nom,
+        prenom: j.prenom,
+        sexe: j.sexe === 'F' ? 'F' : 'M',
+        date_naissance: j.date_naissance,
+        grade: j.grade,
+        categorie: j.categorie,
+        poids: j.poids || '',
+        numero_carte: j.numero_carte,
+        club: j.club,
+      }))
+      .sort((a, b) => `${a.nom} ${a.prenom}`.localeCompare(`${b.nom} ${b.prenom}`, 'fr'));
+    res.json(list);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -751,18 +804,28 @@ app.get('/api/competition', async (req, res) => {
     const perms = getPermissions(req.user);
     const canToggle = canToggleCompetitionAccess(req.user);
     const canManage = canManageCompetition(req.user);
-    const accessOk = canToggle || (isDirecteurCompetition(req.user) && settings.access_enabled);
+    const accessOk = canToggle
+      || ((isDirecteurCompetition(req.user) || req.user.type === 'entente') && settings.access_enabled);
 
     if (!canToggle && !perms.canManageCompetition) {
       return res.status(403).json({ error: 'Accès non autorisé' });
     }
 
+    let competitionClubs = settings.competition_clubs || [];
+    if (req.user.type === 'entente') {
+      const users = await getAllUsers();
+      const allowed = new Set(getScopedClubNames(users, req.user).map((c) => c.toLowerCase()));
+      competitionClubs = competitionClubs.filter((c) => allowed.has(String(c.nom || '').trim().toLowerCase()));
+    }
+
     res.json({
       ...settings,
+      competition_clubs: competitionClubs,
       configured: isCompetitionConfigured(settings),
       access_ok: accessOk,
       can_toggle_access: canToggle,
       can_edit: accessOk && (canToggle || canManage),
+      scope_entente: req.user.type === 'entente',
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -796,11 +859,11 @@ app.put('/api/competition', async (req, res) => {
   try {
     const current = await getCompetitionSettings();
     const canToggle = canToggleCompetitionAccess(req.user);
-    const isDirector = isDirecteurCompetition(req.user);
+    const canManage = canManageCompetition(req.user);
 
-    if (!canToggle && !(isDirector && current.access_enabled)) {
+    if (!canToggle && !(canManage && current.access_enabled)) {
       return res.status(403).json({
-        error: isDirector
+        error: canManage
           ? 'Le bouton Compétition n\'est pas encore activé par Admin / Coordon'
           : 'Accès non autorisé',
       });
@@ -865,8 +928,8 @@ app.post('/api/competition/logo', upload.single('logo'), async (req, res) => {
   try {
     const current = await getCompetitionSettings();
     const canToggle = canToggleCompetitionAccess(req.user);
-    const isDirector = isDirecteurCompetition(req.user);
-    if (!canToggle && !(isDirector && current.access_enabled)) {
+    const canManage = canManageCompetition(req.user);
+    if (!canToggle && !(canManage && current.access_enabled)) {
       return res.status(403).json({ error: 'Accès non autorisé' });
     }
     if (!req.file) {
@@ -891,8 +954,8 @@ app.delete('/api/competition/logo', async (req, res) => {
   try {
     const current = await getCompetitionSettings();
     const canToggle = canToggleCompetitionAccess(req.user);
-    const isDirector = isDirecteurCompetition(req.user);
-    if (!canToggle && !(isDirector && current.access_enabled)) {
+    const canManage = canManageCompetition(req.user);
+    if (!canToggle && !(canManage && current.access_enabled)) {
       return res.status(403).json({ error: 'Accès non autorisé' });
     }
     if (current.logo_url) {
@@ -913,8 +976,8 @@ app.delete('/api/competition/public-link', async (req, res) => {
   try {
     const current = await getCompetitionSettings();
     const canToggle = canToggleCompetitionAccess(req.user);
-    const isDirector = isDirecteurCompetition(req.user);
-    if (!canToggle && !(isDirector && current.access_enabled)) {
+    const canManage = canManageCompetition(req.user);
+    if (!canToggle && !(canManage && current.access_enabled)) {
       return res.status(403).json({ error: 'Accès non autorisé' });
     }
     if (current.public_enabled) {
@@ -937,11 +1000,17 @@ app.get('/api/competition/registrations', async (req, res) => {
   try {
     const current = await getCompetitionSettings();
     const canToggle = canToggleCompetitionAccess(req.user);
-    const isDirector = isDirecteurCompetition(req.user);
-    if (!canToggle && !(isDirector && current.access_enabled)) {
+    const canManage = canManageCompetition(req.user);
+    if (!canToggle && !(canManage && current.access_enabled)) {
       return res.status(403).json({ error: 'Accès non autorisé' });
     }
-    res.json(await getCompetitionRegistrations());
+    let list = await getCompetitionRegistrations();
+    if (req.user.type === 'entente') {
+      const users = await getAllUsers();
+      const allowed = new Set(getScopedClubNames(users, req.user).map((c) => c.toLowerCase()));
+      list = list.filter((r) => allowed.has(String(r.club || '').trim().toLowerCase()));
+    }
+    res.json(list);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -951,8 +1020,8 @@ app.post('/api/competition/registrations/charge-team', async (req, res) => {
   try {
     const current = await getCompetitionSettings();
     const canToggle = canToggleCompetitionAccess(req.user);
-    const isDirector = isDirecteurCompetition(req.user);
-    if (!canToggle && !(isDirector && current.access_enabled)) {
+    const canManage = canManageCompetition(req.user);
+    if (!canToggle && !(canManage && current.access_enabled)) {
       return res.status(403).json({ error: 'Accès non autorisé' });
     }
     const body = req.body || {};
@@ -970,8 +1039,8 @@ app.post('/api/competition/registrations', async (req, res) => {
   try {
     const current = await getCompetitionSettings();
     const canToggle = canToggleCompetitionAccess(req.user);
-    const isDirector = isDirecteurCompetition(req.user);
-    if (!canToggle && !(isDirector && current.access_enabled)) {
+    const canManage = canManageCompetition(req.user);
+    if (!canToggle && !(canManage && current.access_enabled)) {
       return res.status(403).json({ error: 'Accès non autorisé' });
     }
     const body = req.body || {};
@@ -1018,8 +1087,8 @@ app.delete('/api/competition/registrations/:id', async (req, res) => {
   try {
     const current = await getCompetitionSettings();
     const canToggle = canToggleCompetitionAccess(req.user);
-    const isDirector = isDirecteurCompetition(req.user);
-    if (!canToggle && !(isDirector && current.access_enabled)) {
+    const canManage = canManageCompetition(req.user);
+    if (!canToggle && !(canManage && current.access_enabled)) {
       return res.status(403).json({ error: 'Accès non autorisé' });
     }
     const result = await deleteCompetitionRegistration(req.params.id);
@@ -1034,8 +1103,8 @@ app.put('/api/competition/registrations/:id', async (req, res) => {
   try {
     const current = await getCompetitionSettings();
     const canToggle = canToggleCompetitionAccess(req.user);
-    const isDirector = isDirecteurCompetition(req.user);
-    if (!canToggle && !(isDirector && current.access_enabled)) {
+    const canManage = canManageCompetition(req.user);
+    if (!canToggle && !(canManage && current.access_enabled)) {
       return res.status(403).json({ error: 'Accès non autorisé' });
     }
     const updated = await updateCompetitionRegistration(req.params.id, {
@@ -1060,8 +1129,8 @@ app.post('/api/competition/licences', async (req, res) => {
   try {
     const current = await getCompetitionSettings();
     const canToggle = canToggleCompetitionAccess(req.user);
-    const isDirector = isDirecteurCompetition(req.user);
-    if (!canToggle && !(isDirector && current.access_enabled)) {
+    const canManage = canManageCompetition(req.user);
+    if (!canToggle && !(canManage && current.access_enabled)) {
       return res.status(403).json({ error: 'Accès non autorisé' });
     }
 
@@ -1750,13 +1819,51 @@ async function handleUpdateJudoka(req, res) {
     }
 
     const body = req.body;
-    const gradeOnly = perms.manageGrades && !perms.createJudokas && !perms.manageUsers && req.user.type !== 'admin';
-    if (gradeOnly) {
+    const gradeOnly = (perms.manageGrades || perms.manageClubGrades)
+      && !perms.createJudokas
+      && !perms.manageUsers
+      && req.user.type !== 'admin';
+    const isGradePassation = String(body.passation_grade || '') === '1' || gradeOnly;
+    if (gradeOnly || (isGradePassation && (perms.manageGrades || perms.manageClubGrades || perms.createJudokas))) {
       const nextGrade = String(body.grade || '').trim();
       if (!nextGrade) {
         return res.status(400).json({ error: 'Le nouveau grade est requis' });
       }
+      if (nextGrade === existing.grade) {
+        return res.status(400).json({ error: 'Choisissez un grade différent du grade actuel' });
+      }
+      const toBlack = isBlackBeltGrade(nextGrade);
+      const fromBlack = isBlackBeltGrade(existing.grade);
+      if ((toBlack || fromBlack) && !perms.manageBlackBelts && !perms.manageGrades && req.user.type !== 'admin') {
+        return res.status(403).json({
+          error: 'La passation vers/depuis la ceinture noire est réservée au Responsable Grade',
+        });
+      }
+      if (!toBlack && !isClubAllowedGrade(nextGrade) && req.user.type === 'club') {
+        return res.status(400).json({ error: 'Grade non autorisé pour une passation Club' });
+      }
+      if (req.user.type === 'club' && toBlack) {
+        return res.status(403).json({ error: 'Les Clubs ne peuvent pas attribuer la ceinture noire' });
+      }
+      if (toBlack && !body.instructeur_nom?.trim() && !body.instructeur_id) {
+        // Instructeur recommandé pour ceinture noire ; obligatoire côté UI Responsable Grade
+      }
+      if (toBlack && (perms.manageBlackBelts || perms.manageGrades) && !String(body.instructeur_nom || '').trim()) {
+        return res.status(400).json({ error: 'Désignez un instructeur pour l\'examen ceinture noire' });
+      }
+
       await updateJudoka(req.params.id, { grade: nextGrade });
+      await addGradeHistory({
+        judoka_id: existing.id,
+        grade_from: existing.grade || '',
+        grade_to: nextGrade,
+        instructeur_id: body.instructeur_id || null,
+        instructeur_nom: String(body.instructeur_nom || '').trim(),
+        points: body.points,
+        note: String(body.note || '').trim(),
+        changed_by: req.user.id,
+        changed_by_name: actorLabel(req.user),
+      });
       return res.json(await getJudokaById(req.params.id));
     }
     if (!body.nom?.trim() || !body.prenom?.trim() || !body.date_naissance || !body.club?.trim() || !body.grade) {
@@ -1826,6 +1933,146 @@ app.delete('/api/judokas/:id', async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+/** Fiche de suivi + historique mouvements */
+app.get('/api/judokas/:id/fiche', async (req, res) => {
+  try {
+    const users = await getAllUsers();
+    const judoka = await getJudokaById(req.params.id);
+    if (!judoka) return res.status(404).json({ error: 'Judoka introuvable' });
+    if (!canAccessJudoka(req.user, judoka, users)) {
+      return res.status(403).json({ error: 'Accès non autorisé' });
+    }
+    const [events, grades, transfers] = await Promise.all([
+      getJudokaEvents(judoka.id),
+      getGradeHistory({ judokaId: judoka.id }),
+      getTransfers({ judokaId: judoka.id }),
+    ]);
+    res.json({ judoka, events, grades, transfers });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/** Historique passations ceintures (Responsable Grade) */
+app.get('/api/grades/history', async (req, res) => {
+  try {
+    const perms = getPermissions(req.user);
+    if (!perms.viewGradeHistory && !perms.manageGrades && req.user.type !== 'admin') {
+      return res.status(403).json({ error: 'Accès non autorisé' });
+    }
+    const blackOnly = String(req.query.black || '') === '1';
+    const history = await getGradeHistory({ blackOnly });
+    res.json(history);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/** Transferts */
+app.get('/api/transfers', async (req, res) => {
+  try {
+    const perms = getPermissions(req.user);
+    const users = await getAllUsers();
+    let list = await getTransfers({
+      statut: req.query.statut || null,
+      judokaId: req.query.judoka_id || null,
+    });
+    // Restreindre au périmètre
+    if (req.user.type === 'club') {
+      const club = String(req.user.nom_club || '').trim().toLowerCase();
+      list = list.filter((t) =>
+        String(t.club_from || '').toLowerCase() === club
+        || String(t.club_to || '').toLowerCase() === club
+      );
+    } else if (req.user.type === 'ligue' || req.user.type === 'entente') {
+      const clubs = new Set(getScopedClubNames(users, req.user).map((c) => c.toLowerCase()));
+      list = list.filter((t) =>
+        clubs.has(String(t.club_from || '').toLowerCase())
+        || clubs.has(String(t.club_to || '').toLowerCase())
+      );
+    } else if (!perms.validateTransfers && !perms.manageAll && req.user.type !== 'admin') {
+      if (!perms.requestTransfers) {
+        return res.status(403).json({ error: 'Accès non autorisé' });
+      }
+    }
+    res.json(list);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/transfers', async (req, res) => {
+  try {
+    const perms = getPermissions(req.user);
+    if (!perms.requestTransfers && req.user.type !== 'admin' && !perms.manageAll) {
+      return res.status(403).json({ error: 'Demande de transfert non autorisée' });
+    }
+    const users = await getAllUsers();
+    const judoka = await getJudokaById(req.body?.judoka_id);
+    if (!judoka) return res.status(404).json({ error: 'Judoka introuvable' });
+    if (!canAccessJudoka(req.user, judoka, users)) {
+      return res.status(403).json({ error: 'Accès non autorisé' });
+    }
+    const clubTo = String(req.body?.club_to || '').trim();
+    if (!(await isClubRegistered(clubTo))) {
+      return res.status(400).json({ error: 'Le club de destination n\'est pas enregistré' });
+    }
+    const transfer = await createTransfer({
+      judoka_id: judoka.id,
+      club_from: judoka.club,
+      club_to: clubTo,
+      motif: req.body?.motif || '',
+      requested_by: req.user.id,
+      requested_by_name: actorLabel(req.user),
+    });
+    res.status(201).json(transfer);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/transfers/:id/validate-ligue', async (req, res) => {
+  try {
+    const perms = getPermissions(req.user);
+    if (!perms.validateTransfersLigue && req.user.type !== 'admin') {
+      return res.status(403).json({ error: 'Validation Ligue non autorisée' });
+    }
+    const transfer = await validateTransferByLigue(req.params.id, req.user);
+    res.json(transfer);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/transfers/:id/confirm-federation', async (req, res) => {
+  try {
+    const perms = getPermissions(req.user);
+    if (!perms.validateTransfers && req.user.type !== 'admin') {
+      return res.status(403).json({ error: 'Confirmation Fédération non autorisée (Secrétaire Général / Coordon)' });
+    }
+    const transfer = await confirmTransferByFederation(req.params.id, req.user, {
+      applyClubChange: async (t) => {
+        await updateJudoka(t.judoka_id, { club: t.club_to });
+      },
+    });
+    res.json(transfer);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/transfers/:id/reject', async (req, res) => {
+  try {
+    const perms = getPermissions(req.user);
+    const canReject = perms.validateTransfersLigue || perms.validateTransfers || req.user.type === 'admin';
+    if (!canReject) return res.status(403).json({ error: 'Rejet non autorisé' });
+    const transfer = await rejectTransfer(req.params.id, req.user, req.body?.motif || '');
+    res.json(transfer);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
 });
 

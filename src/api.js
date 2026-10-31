@@ -338,6 +338,107 @@ export async function deleteJudoka(id) {
   return res.json();
 }
 
+export async function fetchJudokaFiche(id) {
+  const res = await apiFetch(`/api/judokas/${encodeURIComponent(id)}/fiche`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Impossible de charger la fiche de suivi');
+  }
+  return res.json();
+}
+
+export async function fetchGradeHistory({ blackOnly = false } = {}) {
+  const res = await apiFetch(`/api/grades/history${blackOnly ? '?black=1' : ''}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Impossible de charger l\'historique des grades');
+  }
+  return res.json();
+}
+
+export async function fetchTransfers(params = {}) {
+  const q = new URLSearchParams();
+  if (params.statut) q.set('statut', params.statut);
+  if (params.judoka_id) q.set('judoka_id', params.judoka_id);
+  const res = await apiFetch(`/api/transfers?${q.toString()}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Impossible de charger les transferts');
+  }
+  return res.json();
+}
+
+export async function requestJudokaTransfer({ judoka_id, club_to, motif = '' }) {
+  const res = await apiFetch('/api/transfers', {
+    method: 'POST',
+    body: JSON.stringify({ judoka_id, club_to, motif }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Demande de transfert impossible');
+  }
+  return res.json();
+}
+
+export async function validateTransferLigue(id) {
+  const res = await apiFetch(`/api/transfers/${encodeURIComponent(id)}/validate-ligue`, { method: 'POST' });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Validation Ligue impossible');
+  }
+  return res.json();
+}
+
+export async function confirmTransferFederation(id) {
+  const res = await apiFetch(`/api/transfers/${encodeURIComponent(id)}/confirm-federation`, { method: 'POST' });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Confirmation Fédération impossible');
+  }
+  return res.json();
+}
+
+export async function rejectTransfer(id, motif = '') {
+  const res = await apiFetch(`/api/transfers/${encodeURIComponent(id)}/reject`, {
+    method: 'POST',
+    body: JSON.stringify({ motif }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Rejet impossible');
+  }
+  return res.json();
+}
+
+export async function fetchPublicClubJudokas(token, club) {
+  const res = await fetchWithTimeout(
+    apiUrl(`/api/public/competition/${encodeURIComponent(token)}/club-judokas?club=${encodeURIComponent(club)}`)
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Impossible de charger les judokas du club');
+  }
+  return res.json();
+}
+
+export const GRADES_CLUB = [
+  'Blanche',
+  'Blanche-Jaune',
+  'Jaune',
+  'Jaune-Orange',
+  'Orange',
+  'Orange-Verte',
+  'Verte',
+  'Verte-Bleue',
+  'Bleue',
+  'Bleue-Marron',
+  'Marron',
+];
+
+export function isBlackBeltGrade(grade) {
+  return String(grade || '').toLowerCase().startsWith('noire');
+}
+
 export function formatDate(dateStr) {
   if (!dateStr) return '';
   const [y, m, d] = dateStr.split('-');

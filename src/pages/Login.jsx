@@ -34,11 +34,11 @@ export default function Login({ onLogin }) {
         <div className="login-panel-inner">
           <div className="login-brand">
             <img src="/fenacoju-logo.png" alt="FENACOJU" className="login-logo" />
-            <h1>FENACOJU Base</h1>
+            <h1>Fight Management</h1>
           </div>
 
           <p className="login-lead">
-            Gestion des Clubs, Athlètes et Compétitions de la Fédération Nationale Congolaise de Judo.
+            Système intégral de gestion des arts martiaux.
           </p>
 
           <form onSubmit={handleSubmit} className="login-form" autoComplete="off">

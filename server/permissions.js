@@ -20,6 +20,7 @@ export const FEDERATION_ROLES = {
     manageAll: true,
     manageUsers: true,
     validateAccounts: true,
+    validateTransfers: true,
     hideJudokaActions: true,
     liveRefresh: true,
     dashboardTabs: [...SENIOR_FEDERATION_TABS, 'federation'],
@@ -57,6 +58,7 @@ export const FEDERATION_ROLES = {
     manageUsers: false,
     refreshList: false,
     hideJudokaActions: true,
+    validateTransfers: true,
     dashboardTabs: [...SENIOR_FEDERATION_TABS, 'federation'],
     scanQr: true,
     createTypes: [],
@@ -103,6 +105,8 @@ export const FEDERATION_ROLES = {
     manageAll: true,
     manageUsers: false,
     manageGrades: true,
+    manageBlackBelts: true,
+    viewGradeHistory: true,
     hideJudokaActions: true,
     createTypes: [],
     dashboardTabs: ['judokas', 'clubs', 'entraineurs', 'arbitres'],
@@ -262,6 +266,11 @@ export function getPermissions(user) {
       viewClubDetails: true,
       showHeaderCreate: true,
       canToggleCompetitionAccess: true,
+      validateTransfers: true,
+      manageBlackBelts: true,
+      viewGradeHistory: true,
+      manageClubGrades: true,
+      requestTransfers: true,
     };
   }
 
@@ -277,6 +286,7 @@ export function getPermissions(user) {
       export: false,
       deleteJudokas: false,
       manageUsers: false,
+      validateTransfersLigue: true,
       createTypes: ['entente'],
       dashboardTabs: ['judokas', 'ententes', 'clubs', 'entraineurs'],
       canMessage: true,
@@ -306,6 +316,7 @@ export function getPermissions(user) {
       orgScope: true,
       showHeaderCreate: false,
       liveRefresh: true,
+      canManageCompetition: true,
     };
   }
 
@@ -321,6 +332,8 @@ export function getPermissions(user) {
       export: false,
       deleteJudokas: false,
       readOnlyJudokas: false,
+      manageClubGrades: true,
+      requestTransfers: true,
       createTypes: ['entraineur'],
       dashboardTabs: ['judokas', 'entraineurs'],
       clubScope: user.nom_club,

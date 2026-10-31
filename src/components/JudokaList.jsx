@@ -1,15 +1,24 @@
 import { formatDate } from '../api';
-import { IconCard, IconEdit, IconEye, IconGrade, IconTrash } from './ActionIcons';
+import { IconCard, IconEdit, IconFiche, IconGrade, IconTrash } from './ActionIcons';
 
-export default function JudokaList({ judokas, onViewCard, onEdit, onDelete, onPromoteGrade, onAddNew, showActions = true }) {
-  const hasActions = showActions && (onViewCard || onEdit || onDelete || onPromoteGrade);
+export default function JudokaList({
+  judokas,
+  onViewCard,
+  onEdit,
+  onDelete,
+  onPromoteGrade,
+  onViewFiche,
+  onAddNew,
+  showActions = true,
+}) {
+  const hasActions = showActions && (onViewCard || onEdit || onDelete || onPromoteGrade || onViewFiche);
 
   if (judokas.length === 0) {
     return (
       <div className="empty-state">
         <div className="icon">🥋</div>
         <h3>Aucun judoka trouvé</h3>
-        <p>Aucun judoka dans votre périmètre d'accès.</p>
+        <p>Aucun judoka dans votre périmètre d&apos;accès.</p>
         {onAddNew && (
           <button className="btn btn-primary" style={{ marginTop: '1rem' }} onClick={onAddNew}>
             Enregistrer un judoka
@@ -85,6 +94,16 @@ export default function JudokaList({ judokas, onViewCard, onEdit, onDelete, onPr
                       title="Modifier"
                     >
                       <IconEdit />
+                    </button>
+                  )}
+                  {onViewFiche && (
+                    <button
+                      type="button"
+                      className="btn btn-icon btn-icon-fiche"
+                      onClick={() => onViewFiche(j)}
+                      title="Fiche"
+                    >
+                      <IconFiche />
                     </button>
                   )}
                   {onDelete && (

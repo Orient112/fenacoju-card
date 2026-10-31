@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 
-import { GRADES, CATEGORIES, resolveMediaUrl } from '../api';
+import { GRADES, GRADES_CLUB, CATEGORIES, resolveMediaUrl } from '../api';
 
 import CameraCapture from './CameraCapture';
 
@@ -559,7 +559,7 @@ export default function JudokaForm({ judoka, lockedClub, registeredClubs = [], e
 
             <select name="grade" value={form.grade} onChange={handleChange}>
 
-              {GRADES.map((g) => (
+              {(lockedClub ? GRADES_CLUB : GRADES).map((g) => (
 
                 <option key={g} value={g}>{g}</option>
 

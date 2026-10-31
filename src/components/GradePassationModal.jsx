@@ -1,10 +1,29 @@
-import { useState } from 'react';
-import { GRADES, updateJudoka } from '../api';
+import { useMemo, useState } from 'react';
+import { GRADES, GRADES_CLUB, isBlackBeltGrade, updateJudoka } from '../api';
 
-export default function GradePassationModal({ judoka, onClose, onSuccess }) {
-  const [grade, setGrade] = useState(judoka.grade || 'Blanche');
+export default function GradePassationModal({
+  judoka,
+  onClose,
+  onSuccess,
+  mode = 'full', // full | club | black
+  entraineurs = [],
+}) {
+  const allowedGrades = useMemo(() => {
+    if (mode === 'club') return GRADES_CLUB;
+    if (mode === 'black') return GRADES.filter((g) => isBlackBeltGrade(g));
+    return GRADES;
+  }, [mode]);
+
+  const [grade, setGrade] = useState(
+    allowedGrades.includes(judoka.grade) ? judoka.grade : (allowedGrades[0] || judoka.grade || 'Blanche')
+  );
+  const [instructeurId, setInstructeurId] = useState('');
+  const [points, setPoints] = useState('');
+  const [note, setNote] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const needsBlackExtras = mode === 'black' || isBlackBeltGrade(grade);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -13,11 +32,29 @@ export default function GradePassationModal({ judoka, onClose, onSuccess }) {
       setError('Choisissez un grade différent du grade actuel');
       return;
     }
+    if (mode === 'club' && isBlackBeltGrade(grade)) {
+      setError('Les Clubs ne peuvent attribuer que Blanche à Marron');
+      return;
+    }
+    if (needsBlackExtras && !instructeurId) {
+      setError('Désignez un instructeur pour l\'examen ceinture noire');
+      return;
+    }
+
+    const instructeur = entraineurs.find((x) => String(x.id) === String(instructeurId));
+    const instructeurNom = instructeur
+      ? `${instructeur.prenom || ''} ${instructeur.nom || ''}`.trim() || instructeur.nom_club || ''
+      : '';
 
     setLoading(true);
     try {
       const formData = new FormData();
+      formData.append('passation_grade', '1');
       formData.append('grade', grade);
+      if (instructeurId) formData.append('instructeur_id', instructeurId);
+      if (instructeurNom) formData.append('instructeur_nom', instructeurNom);
+      if (points !== '') formData.append('points', points);
+      if (note.trim()) formData.append('note', note.trim());
       const updated = await updateJudoka(judoka.id, formData);
       await onSuccess(updated);
     } catch (err) {
@@ -34,11 +71,16 @@ export default function GradePassationModal({ judoka, onClose, onSuccess }) {
         <p>
           Valider le nouveau grade de <strong>{judoka.prenom} {judoka.nom}</strong>
           {judoka.club ? <> · {judoka.club}</> : null}.
-          La fiche du judoka sera mise à jour immédiatement.
         </p>
         <p className="grade-passation-current">
           Grade actuel <span>{judoka.grade || '—'}</span>
         </p>
+        {mode === 'club' && (
+          <p className="form-hint">Passation Club : ceintures Blanche à Marron uniquement.</p>
+        )}
+        {mode === 'black' && (
+          <p className="form-hint">Ceinture noire : désignation d&apos;un instructeur et points d&apos;examen.</p>
+        )}
 
         {error && <div className="form-error">{error}</div>}
 
@@ -46,11 +88,51 @@ export default function GradePassationModal({ judoka, onClose, onSuccess }) {
           <div className="form-group">
             <label htmlFor="passation-grade">Nouveau grade</label>
             <select id="passation-grade" value={grade} onChange={(e) => setGrade(e.target.value)} required>
-              {GRADES.map((g) => (
+              {allowedGrades.map((g) => (
                 <option key={g} value={g}>{g}</option>
               ))}
             </select>
           </div>
+
+          {needsBlackExtras && (
+            <>
+              <div className="form-group">
+                <label htmlFor="passation-instructeur">Instructeur (examen) *</label>
+                <select
+                  id="passation-instructeur"
+                  value={instructeurId}
+                  onChange={(e) => setInstructeurId(e.target.value)}
+                  required
+                >
+                  <option value="">— Sélectionner —</option>
+                  {entraineurs.map((en) => (
+                    <option key={en.id} value={en.id}>
+                      {`${en.prenom || ''} ${en.nom || ''}`.trim() || en.email || en.id}
+                      {en.club ? ` · ${en.club}` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label htmlFor="passation-points">Points</label>
+                <input
+                  id="passation-points"
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value={points}
+                  onChange={(e) => setPoints(e.target.value)}
+                  placeholder="Ex. 75"
+                />
+              </div>
+            </>
+          )}
+
+          <div className="form-group">
+            <label htmlFor="passation-note">Note / observation</label>
+            <textarea id="passation-note" rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
+          </div>
+
           <div className="confirm-actions">
             <button type="button" className="btn btn-outline" onClick={onClose} disabled={loading}>
               Annuler

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   fetchPublicCompetition,
+  fetchPublicClubJudokas,
   lookupPublicCompetitionJudoka,
   registerPublicCompetition,
   resolveMediaUrl,
@@ -29,7 +30,13 @@ const emptyForm = () => ({
 });
 
 const TEAM_MIN_CATEGORIES = 3;
-const emptyTeamEntry = () => ({ nom: '', prenom: '', role: 'principal', poids: '' });
+const emptyTeamEntry = () => ({
+  judoka_id: '',
+  nom: '',
+  prenom: '',
+  role: 'principal',
+  poids: '',
+});
 
 function teamMemberDisplayName(member) {
   if (!member) return '';
@@ -101,6 +108,8 @@ export default function CompetitionPublicForm({ token }) {
   const [teamEntry, setTeamEntry] = useState(emptyTeamEntry());
   const [teamSexe, setTeamSexe] = useState('');
   const [showTeamSexModal, setShowTeamSexModal] = useState(false);
+  const [clubJudokas, setClubJudokas] = useState([]);
+  const [clubJudokasLoading, setClubJudokasLoading] = useState(false);
   const [judokaMeta, setJudokaMeta] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [successName, setSuccessName] = useState('');
@@ -457,22 +466,52 @@ export default function CompetitionPublicForm({ token }) {
     }
   };
 
-  const classifyTeamEntry = () => {
-    setError('');
-    const nom = String(teamEntry.nom || '').trim();
-    const prenom = String(teamEntry.prenom || '').trim();
-    const poids = String(teamEntry.poids || '').trim();
-    const role = teamEntry.role === 'remplacant' ? 'remplacant' : 'principal';
-    if (!nom) {
-      setError('Saisissez le nom du judoka');
+  const loadClubJudokasForTeam = async (club) => {
+    if (!club || !token) {
+      setClubJudokas([]);
       return;
     }
-    if (!prenom) {
-      setError('Saisissez le prénom du judoka');
+    setClubJudokasLoading(true);
+    try {
+      const list = await fetchPublicClubJudokas(token, club);
+      setClubJudokas(Array.isArray(list) ? list : []);
+    } catch (err) {
+      setClubJudokas([]);
+      setError(err.message || 'Impossible de charger les judokas du club');
+    } finally {
+      setClubJudokasLoading(false);
+    }
+  };
+
+  const classifyTeamEntry = () => {
+    setError('');
+    const selected = clubJudokas.find((j) => String(j.id) === String(teamEntry.judoka_id));
+    const nom = String(selected?.nom || teamEntry.nom || '').trim();
+    const prenom = String(selected?.prenom || teamEntry.prenom || '').trim();
+    const poids = String(teamEntry.poids || selected?.poids || '').trim();
+    const role = teamEntry.role === 'remplacant' ? 'remplacant' : 'principal';
+    if (!teamEntry.judoka_id || !selected) {
+      setError('Sélectionnez un judoka du club');
+      return;
+    }
+    if (!nom || !prenom) {
+      setError('Judoka invalide');
+      return;
+    }
+    if ((selected.sexe === 'F' ? 'F' : 'M') !== (teamSexe === 'F' ? 'F' : 'M')) {
+      setError('Ce judoka ne correspond pas au sexe de l\'équipe');
       return;
     }
     if (!poids) {
       setError('Saisissez le poids du judoka');
+      return;
+    }
+    const already = Object.values(teamRoster).some((b) => (
+      (b.principal && (b.principal.judoka_id === selected.id || teamMemberDisplayName(b.principal) === `${prenom} ${nom}`.trim()))
+      || (b.remplacant && (b.remplacant.judoka_id === selected.id || teamMemberDisplayName(b.remplacant) === `${prenom} ${nom}`.trim()))
+    ));
+    if (already) {
+      setError('Ce judoka est déjà classé dans l\'équipe');
       return;
     }
     const cat = findCategoryForWeight(weightCats, poids, teamSexe);
@@ -496,11 +535,13 @@ export default function CompetitionPublicForm({ token }) {
         principal: current.principal,
         remplacant: current.remplacant,
         [role]: {
+          judoka_id: selected.id,
           nom,
           prenom,
           nom_complet: `${prenom} ${nom}`.trim(),
           poids,
           role,
+          numero_carte: selected.numero_carte || '',
         },
       },
     }));
@@ -519,12 +560,14 @@ export default function CompetitionPublicForm({ token }) {
     setTeamClub('');
     setTeamRoster({});
     setTeamEntry(emptyTeamEntry());
+    setClubJudokas([]);
     setStep('team');
   };
 
   const loadExistingTeamRoster = (club, sexe) => {
     if (!club) {
       setTeamRoster({});
+      setClubJudokas([]);
       return;
     }
     setTeamRoster(buildTeamRosterFromMembers(
@@ -533,6 +576,7 @@ export default function CompetitionPublicForm({ token }) {
       club,
       sexe
     ));
+    loadClubJudokasForTeam(club);
   };
 
   const openTeamPayment = (e) => {
@@ -1040,8 +1084,12 @@ export default function CompetitionPublicForm({ token }) {
                         const nextClub = e.target.value;
                         setTeamClub(nextClub);
                         setError('');
+                        setTeamEntry(emptyTeamEntry());
                         if (nextClub) loadExistingTeamRoster(nextClub, teamSexe);
-                        else setTeamRoster({});
+                        else {
+                          setTeamRoster({});
+                          setClubJudokas([]);
+                        }
                       }}
                       required
                       autoFocus={!teamAlreadyRegistered}
@@ -1054,6 +1102,7 @@ export default function CompetitionPublicForm({ token }) {
                         onClick={() => {
                           setTeamClub('');
                           setTeamRoster({});
+                          setClubJudokas([]);
                           setError('');
                         }}
                       >
@@ -1073,27 +1122,49 @@ export default function CompetitionPublicForm({ token }) {
                 ) : (
                   <>
                 <div className="competition-team-entry">
-                  <h3>Ajouter un judoka</h3>
+                  <h3>Composer l&apos;équipe</h3>
+                  <p className="form-hint">
+                    Sélectionnez les judokas déjà enregistrés dans votre club (pas de saisie manuelle).
+                  </p>
                   <div className="form-grid">
-                    <div className="form-group">
-                      <label htmlFor="team-nom">Nom</label>
-                      <input
-                        id="team-nom"
-                        value={teamEntry.nom}
-                        onChange={(e) => setTeamEntry((prev) => ({ ...prev, nom: e.target.value }))}
-                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); classifyTeamEntry(); } }}
-                        placeholder="Ex. Mukendi"
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label htmlFor="team-prenom">Prénom</label>
-                      <input
-                        id="team-prenom"
-                        value={teamEntry.prenom}
-                        onChange={(e) => setTeamEntry((prev) => ({ ...prev, prenom: e.target.value }))}
-                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); classifyTeamEntry(); } }}
-                        placeholder="Ex. Jean"
-                      />
+                    <div className="form-group form-group-full">
+                      <label htmlFor="team-judoka">Judoka du club *</label>
+                      <select
+                        id="team-judoka"
+                        value={teamEntry.judoka_id}
+                        disabled={!teamClub || clubJudokasLoading}
+                        onChange={(e) => {
+                          const id = e.target.value;
+                          const selected = clubJudokas.find((j) => String(j.id) === String(id));
+                          setTeamEntry((prev) => ({
+                            ...prev,
+                            judoka_id: id,
+                            nom: selected?.nom || '',
+                            prenom: selected?.prenom || '',
+                            poids: selected?.poids || prev.poids || '',
+                          }));
+                        }}
+                      >
+                        <option value="">
+                          {clubJudokasLoading
+                            ? 'Chargement…'
+                            : !teamClub
+                              ? 'Choisissez d\'abord un club'
+                              : '— Sélectionner un judoka —'}
+                        </option>
+                        {clubJudokas
+                          .filter((j) => (j.sexe === 'F' ? 'F' : 'M') === (teamSexe === 'F' ? 'F' : 'M'))
+                          .map((j) => (
+                            <option key={j.id} value={j.id}>
+                              {j.prenom} {j.nom}
+                              {j.grade ? ` · ${j.grade}` : ''}
+                              {j.numero_carte ? ` · ${j.numero_carte}` : ''}
+                            </option>
+                          ))}
+                      </select>
+                      {teamClub && !clubJudokasLoading && clubJudokas.length === 0 && (
+                        <p className="form-hint">Aucun judoka actif trouvé pour ce club dans le système.</p>
+                      )}
                     </div>
                     <div className="form-group">
                       <label htmlFor="team-role">Rôle</label>
