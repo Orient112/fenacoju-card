@@ -85,6 +85,7 @@ export async function ensureDefaultJudoFederation() {
     id: DEFAULT_JUDO_FEDERATION_ID,
     nom: 'Fédération Nationale Congolaise de Judo',
     slug: 'fenacoju-judo',
+    logo_url: '',
     admin_user_id: null,
     created_at: new Date().toISOString(),
   };
@@ -152,6 +153,7 @@ export async function createFederationWithAdmin({
     id: federationId,
     nom: fedName,
     slug,
+    logo_url: '',
     admin_user_id: adminId,
     created_at: new Date().toISOString(),
   };
@@ -299,6 +301,207 @@ export async function ensureSuperAdminExists() {
     });
   }
   fs.writeFileSync(usersPath, JSON.stringify(users, null, 2));
+}
+
+export async function updateFederation(id, patch = {}) {
+  const existing = await getFederationById(id);
+  if (!existing) throw new Error('Fédération introuvable');
+
+  let next = { ...existing };
+  if (patch.nom !== undefined) {
+    const nom = String(patch.nom || '').trim();
+    if (!nom) throw new Error('Le nom de la fédération est obligatoire');
+    next.nom = nom;
+  }
+  if (patch.slug !== undefined) {
+    next.slug = slugify(patch.slug) || next.slug;
+  }
+  if (patch.logo_url !== undefined) {
+    next.logo_url = String(patch.logo_url || '').trim();
+  }
+  if (patch.admin_user_id !== undefined) {
+    next.admin_user_id = patch.admin_user_id || null;
+  }
+
+  if (isSupabaseEnabled()) {
+    try {
+      const payload = {
+        nom: next.nom,
+        slug: next.slug,
+        logo_url: next.logo_url || '',
+        admin_user_id: next.admin_user_id,
+      };
+      let { data, error } = await getSupabase()
+        .from('federations')
+        .update(payload)
+        .eq('id', id)
+        .select('*')
+        .maybeSingle();
+      if (error && /logo_url|column|schema cache/i.test(error.message || '')) {
+        const { logo_url: _l, ...withoutLogo } = payload;
+        ({ data, error } = await getSupabase()
+          .from('federations')
+          .update(withoutLogo)
+          .eq('id', id)
+          .select('*')
+          .maybeSingle());
+      }
+      if (error) throw error;
+      next = { ...next, ...(data || {}) };
+      if (patch.admin_password) {
+        await updateFederationAdminPassword(next, patch.admin_password);
+      }
+      return next;
+    } catch (err) {
+      if (!/relation|does not exist|schema cache/i.test(err.message || '')) throw err;
+    }
+  }
+
+  const list = readJson();
+  const idx = list.findIndex((f) => f.id === id);
+  if (idx === -1) throw new Error('Fédération introuvable');
+  list[idx] = next;
+  writeJson(list);
+  if (patch.admin_password) {
+    await updateFederationAdminPassword(next, patch.admin_password);
+  }
+  return next;
+}
+
+async function updateFederationAdminPassword(federation, password) {
+  const pwd = String(password || '');
+  if (pwd.length < 6) throw new Error('Mot de passe Admin : au moins 6 caractères');
+  const hashed = hashPassword(pwd);
+  const adminId = federation.admin_user_id;
+  if (isSupabaseEnabled()) {
+    try {
+      if (adminId) {
+        const { error } = await getSupabase().from('users').update({ password: hashed }).eq('id', adminId);
+        if (error) throw error;
+        return;
+      }
+      const { error } = await getSupabase()
+        .from('users')
+        .update({ password: hashed })
+        .eq('federation_id', federation.id)
+        .eq('type', 'admin');
+      if (error) throw error;
+      return;
+    } catch (err) {
+      if (!/relation|does not exist|schema cache/i.test(err.message || '')) throw err;
+    }
+  }
+  const usersPath = path.join(dataDir, 'users.json');
+  if (!fs.existsSync(usersPath)) return;
+  const users = JSON.parse(fs.readFileSync(usersPath, 'utf-8'));
+  let changed = false;
+  for (const u of users) {
+    if (u.type === 'admin' && (u.id === adminId || u.federation_id === federation.id)) {
+      u.password = hashed;
+      changed = true;
+    }
+  }
+  if (changed) fs.writeFileSync(usersPath, JSON.stringify(users, null, 2));
+}
+
+export async function deleteFederation(id) {
+  if (id === DEFAULT_JUDO_FEDERATION_ID) {
+    throw new Error('La fédération Judo par défaut ne peut pas être supprimée');
+  }
+  const existing = await getFederationById(id);
+  if (!existing) throw new Error('Fédération introuvable');
+
+  if (isSupabaseEnabled()) {
+    try {
+      // Soft cleanup: supprimer admin + fédération (données métier restent orphelines ou cascade)
+      if (existing.admin_user_id) {
+        await getSupabase().from('users').delete().eq('id', existing.admin_user_id);
+      }
+      await getSupabase().from('users').delete().eq('federation_id', id).eq('type', 'admin');
+      const { error } = await getSupabase().from('federations').delete().eq('id', id);
+      if (error) throw error;
+      return { success: true, id };
+    } catch (err) {
+      if (!/relation|does not exist|schema cache/i.test(err.message || '')) throw err;
+    }
+  }
+
+  const list = readJson().filter((f) => f.id !== id);
+  writeJson(list);
+  const usersPath = path.join(dataDir, 'users.json');
+  if (fs.existsSync(usersPath)) {
+    const users = JSON.parse(fs.readFileSync(usersPath, 'utf-8'));
+    const nextUsers = users.filter((u) => !(u.type === 'admin' && u.federation_id === id));
+    fs.writeFileSync(usersPath, JSON.stringify(nextUsers, null, 2));
+  }
+  return { success: true, id };
+}
+
+/** Stats globales SuperAdmin (toutes fédérations). */
+export async function getSuperAdminStats() {
+  const federations = await listFederations();
+  let users = [];
+  let judokas = [];
+  let arbitres = [];
+
+  if (isSupabaseEnabled()) {
+    try {
+      const supabase = getSupabase();
+      const [u, j, a] = await Promise.all([
+        supabase.from('users').select('id,type,federation_id,statut'),
+        supabase.from('judokas').select('id,federation_id,statut'),
+        supabase.from('arbitres').select('id,federation_id,statut'),
+      ]);
+      users = u.data || [];
+      judokas = j.data || [];
+      arbitres = a.data || [];
+    } catch (err) {
+      console.warn('getSuperAdminStats:', err.message);
+    }
+  } else {
+    const usersPath = path.join(dataDir, 'users.json');
+    const judokasPath = path.join(dataDir, 'judokas.json');
+    const arbitresPath = path.join(dataDir, 'arbitres.json');
+    users = fs.existsSync(usersPath) ? JSON.parse(fs.readFileSync(usersPath, 'utf-8')) : [];
+    judokas = fs.existsSync(judokasPath) ? JSON.parse(fs.readFileSync(judokasPath, 'utf-8')) : [];
+    arbitres = fs.existsSync(arbitresPath) ? JSON.parse(fs.readFileSync(arbitresPath, 'utf-8')) : [];
+  }
+
+  const nonSuper = users.filter((u) => u.type !== 'superadmin');
+  const fedIdOf = (row) => row.federation_id || DEFAULT_JUDO_FEDERATION_ID;
+
+  const by_federation = federations.map((f) => {
+    const fUsers = nonSuper.filter((u) => fedIdOf(u) === f.id);
+    const fJudokas = judokas.filter((j) => fedIdOf(j) === f.id);
+    const fArbitres = arbitres.filter((a) => fedIdOf(a) === f.id);
+    return {
+      id: f.id,
+      nom: f.nom,
+      slug: f.slug,
+      logo_url: f.logo_url || '',
+      judokas: fJudokas.length,
+      judokas_actifs: fJudokas.filter((j) => (j.statut || 'actif') === 'actif').length,
+      clubs: fUsers.filter((u) => u.type === 'club' && (u.statut || 'actif') === 'actif').length,
+      ligues: fUsers.filter((u) => u.type === 'ligue').length,
+      ententes: fUsers.filter((u) => u.type === 'entente').length,
+      entraineurs: fUsers.filter((u) => u.type === 'entraineur').length,
+      arbitres: fArbitres.length,
+      admin: fUsers.find((u) => u.type === 'admin') || null,
+    };
+  });
+
+  return {
+    federations: federations.length,
+    admins: nonSuper.filter((u) => u.type === 'admin').length,
+    judokas: judokas.length,
+    judokas_actifs: judokas.filter((j) => (j.statut || 'actif') === 'actif').length,
+    clubs: nonSuper.filter((u) => u.type === 'club' && (u.statut || 'actif') === 'actif').length,
+    ligues: nonSuper.filter((u) => u.type === 'ligue').length,
+    ententes: nonSuper.filter((u) => u.type === 'entente').length,
+    entraineurs: nonSuper.filter((u) => u.type === 'entraineur').length,
+    arbitres: arbitres.length,
+    by_federation,
+  };
 }
 
 export async function assignLegacyDataToDefaultFederation(getAllUsersFn) {

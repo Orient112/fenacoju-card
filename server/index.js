@@ -81,6 +81,9 @@ import {
   listFederations,
   createFederationWithAdmin,
   getFederationById,
+  updateFederation,
+  deleteFederation,
+  getSuperAdminStats,
 } from './federations.js';
 import {
   getAllArbitres,
@@ -842,7 +845,18 @@ app.get('/api/competition', async (req, res) => {
   }
 });
 
-/** SuperAdmin : liste des fédérations / admins */
+/** SuperAdmin : stats globales + fédérations */
+app.get('/api/federations/stats', async (req, res) => {
+  try {
+    if (req.user.type !== 'superadmin') {
+      return res.status(403).json({ error: 'Réservé au SuperAdmin' });
+    }
+    res.json(await getSuperAdminStats());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/federations', async (req, res) => {
   try {
     if (req.user.type !== 'superadmin') {
@@ -869,6 +883,68 @@ app.post('/api/federations', async (req, res) => {
     }
     const result = await createFederationWithAdmin(req.body || {}, req.user);
     res.status(201).json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.put('/api/federations/:id', async (req, res) => {
+  try {
+    if (req.user.type !== 'superadmin') {
+      return res.status(403).json({ error: 'Réservé au SuperAdmin' });
+    }
+    const updated = await updateFederation(req.params.id, req.body || {});
+    res.json(updated);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/federations/:id/logo', upload.single('logo'), async (req, res) => {
+  try {
+    if (req.user.type !== 'superadmin') {
+      return res.status(403).json({ error: 'Réservé au SuperAdmin' });
+    }
+    if (!req.file) {
+      return res.status(400).json({ error: 'Choisissez un fichier image (JPG, PNG ou WebP)' });
+    }
+    const existing = await getFederationById(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Fédération introuvable' });
+    const logoUrl = await saveUploadedFile(req.file, 'federation-logos');
+    if (existing.logo_url && existing.logo_url !== logoUrl) {
+      try { await deleteStoredFile(existing.logo_url); } catch { /* ignore */ }
+    }
+    const updated = await updateFederation(req.params.id, { logo_url: logoUrl });
+    res.json(updated);
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'Impossible de charger le logo' });
+  }
+});
+
+app.delete('/api/federations/:id/logo', async (req, res) => {
+  try {
+    if (req.user.type !== 'superadmin') {
+      return res.status(403).json({ error: 'Réservé au SuperAdmin' });
+    }
+    const existing = await getFederationById(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Fédération introuvable' });
+    if (existing.logo_url) {
+      try { await deleteStoredFile(existing.logo_url); } catch { /* ignore */ }
+    }
+    const updated = await updateFederation(req.params.id, { logo_url: '' });
+    res.json(updated);
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'Impossible de retirer le logo' });
+  }
+});
+
+app.delete('/api/federations/:id', async (req, res) => {
+  try {
+    if (req.user.type !== 'superadmin') {
+      return res.status(403).json({ error: 'Réservé au SuperAdmin' });
+    }
+    const result = await deleteFederation(req.params.id);
+    res.json(result);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

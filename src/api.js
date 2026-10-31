@@ -950,7 +950,7 @@ export const CLUB_DOCUMENT_LABELS = {
 };
 
 export const USER_TYPES = {
-  admin: { label: 'Admin Fédération', description: 'Compte Admin = une fédération isolée (créé par SuperAdmin)' },
+  admin: { label: 'Admin Fédération', description: 'Compte Admin d\'une fédération (créé par SuperAdmin)' },
   federation: { label: 'Compte Fédération', description: 'Compte connecté avec identifiant et mot de passe' },
   membre: { label: 'Membre Fédération', description: 'Fiche membre sans accès au système — fonction fédérale' },
   ligue: { label: 'Ligue', description: 'Créer un compte Ligue (validé par le Coordon)' },
@@ -976,6 +976,59 @@ export async function createFederation(data) {
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || 'Création de fédération impossible');
+  }
+  return res.json();
+}
+
+export async function fetchSuperAdminStats() {
+  const res = await apiFetch('/api/federations/stats');
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Impossible de charger les statistiques');
+  }
+  return res.json();
+}
+
+export async function updateFederation(id, data) {
+  const res = await apiFetch(`/api/federations/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Mise à jour impossible');
+  }
+  return res.json();
+}
+
+export async function deleteFederation(id) {
+  const res = await apiFetch(`/api/federations/${id}`, { method: 'DELETE' });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Suppression impossible');
+  }
+  return res.json();
+}
+
+export async function uploadFederationLogo(id, file) {
+  const formData = new FormData();
+  formData.append('logo', file);
+  const res = await apiFetch(`/api/federations/${id}/logo`, {
+    method: 'POST',
+    body: formData,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Impossible de charger le logo');
+  }
+  return res.json();
+}
+
+export async function deleteFederationLogo(id) {
+  const res = await apiFetch(`/api/federations/${id}/logo`, { method: 'DELETE' });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Impossible de retirer le logo');
   }
   return res.json();
 }

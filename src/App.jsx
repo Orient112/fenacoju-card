@@ -53,6 +53,7 @@ const TransferModal = lazy(() => import('./components/TransferModal'));
 const AccountDetailModal = lazy(() => import('./components/AccountDetailModal'));
 const CompetitionSettings = lazy(() => import('./pages/CompetitionSettings'));
 const SuperAdminFederations = lazy(() => import('./components/SuperAdminFederations'));
+const SuperAdminDashboard = lazy(() => import('./components/SuperAdminDashboard'));
 
 function PageLoader({ label = 'Chargement...' }) {
   return (
@@ -159,7 +160,7 @@ function canUseQrScan(user, perms) {
 
 function getVisibleTabs(user, tabs) {
   if (user.type === 'superadmin') {
-    return [{ key: 'federations', label: 'Fédérations' }];
+    return [{ key: 'overview', label: 'Dashboard' }];
   }
 
   if (user.type === 'admin') {
@@ -817,7 +818,7 @@ export default function App() {
           <main className={`container dashboard-shell ${loading ? 'is-loading' : ''}`}>
             <div className="dashboard-topbar">
               <div className="dashboard-topbar-title">
-                {view === 'list' && 'Dashboard'}
+                {view === 'list' && (user.type === 'superadmin' && dashboardTab === 'federations' ? 'Fédérations' : 'Dashboard')}
                 {view === 'form' && (editing ? 'Modifier le judoka' : 'Nouvel enregistrement')}
                 {view === 'user-form' && (editingUser ? 'Modifier le compte' : 'Créer un compte')}
                 {view === 'arbitre-form' && (editingArbitre ? 'Modifier l\'arbitre' : 'Nouvel arbitre')}
@@ -847,10 +848,23 @@ export default function App() {
               </div>
             </div>
 
-        {view === 'list' && user.type === 'superadmin' && (
+        {view === 'list' && user.type === 'superadmin' && dashboardTab === 'federations' && (
           <div className="dashboard-workspace">
             <Suspense fallback={<PageLoader label="Chargement des fédérations..." />}>
               <SuperAdminFederations onToast={showToast} />
+            </Suspense>
+          </div>
+        )}
+
+        {view === 'list' && user.type === 'superadmin' && dashboardTab !== 'federations' && (
+          <div className="dashboard-workspace">
+            <Suspense fallback={<PageLoader label="Chargement du tableau de bord..." />}>
+              <SuperAdminDashboard
+                onManageFederations={() => {
+                  setDashboardTab('federations');
+                  setView('list');
+                }}
+              />
             </Suspense>
           </div>
         )}
@@ -1329,8 +1343,14 @@ export default function App() {
           </div>
           <nav className="header-nav">
             <button
-              className={`nav-btn ${view === 'list' ? 'active' : ''}`}
-              onClick={() => { setView('list'); setEditing(null); setEditingUser(null); setCreateType(null); }}
+              className={`nav-btn ${view === 'list' && (user.type !== 'superadmin' || dashboardTab !== 'federations') ? 'active' : ''}`}
+              onClick={() => {
+                setView('list');
+                setEditing(null);
+                setEditingUser(null);
+                setCreateType(null);
+                if (user.type === 'superadmin') setDashboardTab('overview');
+              }}
             >
               Dashboard
             </button>
@@ -1344,7 +1364,7 @@ export default function App() {
             )}
             {user.type === 'superadmin' && (
               <button
-                className="nav-btn"
+                className={`nav-btn ${view === 'list' && dashboardTab === 'federations' ? 'active' : ''}`}
                 type="button"
                 onClick={() => {
                   setDashboardTab('federations');
