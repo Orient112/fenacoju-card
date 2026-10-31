@@ -36,8 +36,8 @@ function personName(u) {
 
 const TAB_CONFIG = {
   judokas: {
-    title: 'Liste des Judokas',
-    filename: 'fenacoju-liste-judokas',
+    title: 'Liste des Athlètes',
+    filename: 'fenacoju-liste-athlètes',
     headers: ['N° carte', 'Nom', 'Prénom', 'Club', 'Grade', 'Catégorie', 'Sexe', 'Inscription', 'Statut'],
     colW: [32, 32, 32, 48, 28, 28, 16, 28, 22],
     row: (j) => [

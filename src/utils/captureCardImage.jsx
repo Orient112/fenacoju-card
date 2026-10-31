@@ -30,7 +30,7 @@ export async function captureCardImage(judoka) {
   });
   await waitForImages(host);
 
-  const node = host.querySelector('.judoka-card');
+  const node = host.querySelector('.athlète-card');
   if (!node) {
     root.unmount();
     document.body.removeChild(host);

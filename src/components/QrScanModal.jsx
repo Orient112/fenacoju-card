@@ -72,7 +72,7 @@ function JudokaFoundView({ judoka }) {
           )}
         </div>
         <div className="qr-found-hero-content">
-          <p className="qr-found-hero-kicker">Judoka enregistré</p>
+          <p className="qr-found-hero-kicker">Athlète enregistré</p>
           <h3 className="qr-found-hero-name">{fullName}</h3>
           <p className="qr-found-hero-club">{judoka.club}</p>
           <div className="qr-found-hero-badges">
@@ -140,7 +140,7 @@ export default function QrScanModal({ onClose }) {
   const fileInputRef = useRef(null);
   const [phase, setPhase] = useState('scanning');
   const [scanSession, setScanSession] = useState(0);
-  const [judoka, setJudoka] = useState(null);
+  const [athlète, setJudoka] = useState(null);
   const [qrPayload, setQrPayload] = useState(null);
   const [notFoundMessage, setNotFoundMessage] = useState('');
   const [error, setError] = useState('');
@@ -201,7 +201,7 @@ export default function QrScanModal({ onClose }) {
         setNotFoundMessage('Ce QR Code n\'est pas enregistré dans le système.');
         setPhase('not_found');
       } else if (err.status === 403) {
-        setNotFoundMessage('Ce judoka existe dans le système mais vous n\'avez pas accès à sa fiche.');
+        setNotFoundMessage('Cet athlète existe dans le système mais vous n\'avez pas accès à sa fiche.');
         setPhase('not_found');
       } else {
         setError(err.message || 'Impossible de vérifier ce QR Code.');
@@ -384,7 +384,7 @@ export default function QrScanModal({ onClose }) {
           <div className="qr-scan-result qr-scan-result-found">
             <div className="qr-found-success-strip">
               <span className="qr-found-success-icon" aria-hidden="true">✓</span>
-              <p>Ce judoka est enregistré dans Fight Management.</p>
+              <p>Cet athlète est enregistré dans Fight Management.</p>
             </div>
             <JudokaFoundView judoka={judoka} />
             <div className="qr-scan-result-actions qr-scan-result-actions-footer">

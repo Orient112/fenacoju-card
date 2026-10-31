@@ -15,7 +15,11 @@ export default function Login({ onLogin }) {
 
     try {
       const data = await loginUser(identifier, password);
-      onLogin({ ...data.user, permissions: data.permissions });
+      onLogin({
+        ...data.user,
+        permissions: data.permissions,
+        federation_settings: data.federation_settings,
+      });
     } catch (err) {
       setError(err.message);
     } finally {

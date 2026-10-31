@@ -226,7 +226,7 @@ export async function exportCompetitionReceiptPdf({
         pdf.addPage();
         y = 20;
       }
-      const name = `${p.prenom || ''} ${p.nom || ''}`.trim() || `Judoka ${index + 1}`;
+      const name = `${p.prenom || ''} ${p.nom || ''}`.trim() || `Athlète ${index + 1}`;
       const meta = [
         p.club,
         p.categorie,

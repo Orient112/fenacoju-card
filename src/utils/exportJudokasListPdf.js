@@ -12,7 +12,7 @@ function clip(pdf, text, maxWidth) {
 }
 
 export function exportJudokasListToPdf(judokas = []) {
-  if (!judokas.length) throw new Error('Aucun judoka à exporter');
+  if (!judokas.length) throw new Error('Aucun athlète à exporter');
 
   const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   const marginX = 12;
@@ -24,7 +24,7 @@ export function exportJudokasListToPdf(judokas = []) {
   pdf.setFont('helvetica', 'bold');
   pdf.setFontSize(16);
   pdf.setTextColor(29, 67, 147);
-  pdf.text('FENACOJU · Liste des Judokas', marginX, y);
+  pdf.text('FENACOJU · Liste des Athlètes', marginX, y);
   y += 7;
   pdf.setFont('helvetica', 'normal');
   pdf.setFontSize(10);

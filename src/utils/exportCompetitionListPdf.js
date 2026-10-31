@@ -213,8 +213,8 @@ export function exportCompetitionClubsIndividuelPdf(registrations, competition =
   if (!clubs.length) {
     throw new Error(
       filterClub
-        ? 'Ce club n’a aucun judoka inscrit à exporter'
-        : 'Aucun club avec au moins un judoka inscrit à exporter',
+        ? 'Ce club n’a aucun athlète inscrit à exporter'
+        : 'Aucun club avec au moins un athlète inscrit à exporter',
     );
   }
 
@@ -337,7 +337,7 @@ export function exportCompetitionListToPdf(registrations, competition = {}) {
   }
 
   if (competition.cadre === 'Par équipe') {
-    // Clubs sans aucun judoka exclus (groupByClub requireMembers)
+    // Clubs sans aucun athlète exclus (groupByClub requireMembers)
     // Dans chaque club : tri par catégories de poids
     exportTeamListToPdf(registrations, competition);
     return;

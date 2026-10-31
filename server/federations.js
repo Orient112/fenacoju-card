@@ -154,6 +154,7 @@ export async function createFederationWithAdmin({
     nom: fedName,
     slug,
     logo_url: '',
+    settings: {},
     admin_user_id: adminId,
     created_at: new Date().toISOString(),
   };
@@ -322,6 +323,9 @@ export async function updateFederation(id, patch = {}) {
   if (patch.admin_user_id !== undefined) {
     next.admin_user_id = patch.admin_user_id || null;
   }
+  if (patch.settings !== undefined) {
+    next.settings = patch.settings && typeof patch.settings === 'object' ? patch.settings : {};
+  }
 
   if (isSupabaseEnabled()) {
     try {
@@ -331,17 +335,22 @@ export async function updateFederation(id, patch = {}) {
         logo_url: next.logo_url || '',
         admin_user_id: next.admin_user_id,
       };
+      if (patch.settings !== undefined) {
+        payload.settings = next.settings || {};
+      }
       let { data, error } = await getSupabase()
         .from('federations')
         .update(payload)
         .eq('id', id)
         .select('*')
         .maybeSingle();
-      if (error && /logo_url|column|schema cache/i.test(error.message || '')) {
-        const { logo_url: _l, ...withoutLogo } = payload;
+      if (error && /logo_url|settings|column|schema cache/i.test(error.message || '')) {
+        const retry = { ...payload };
+        if (/logo_url/i.test(error.message || '')) delete retry.logo_url;
+        if (/settings/i.test(error.message || '')) delete retry.settings;
         ({ data, error } = await getSupabase()
           .from('federations')
-          .update(withoutLogo)
+          .update(retry)
           .eq('id', id)
           .select('*')
           .maybeSingle());

@@ -16,7 +16,7 @@ function shuffle(list) {
 }
 
 function judokaLabel(r) {
-  return `${r.prenom || ''} ${r.nom || ''}`.trim() || 'Judoka';
+  return `${r.prenom || ''} ${r.nom || ''}`.trim() || 'Athlète';
 }
 
 function sexeLabel(sexe) {
@@ -139,7 +139,7 @@ export function buildWeightDraw(registrations, categories = []) {
 /**
  * Par équipe : Club X vs Club Y (aléatoire), puis Principal vs Principal
  * dans chaque catégorie de poids commune. Un club est éligible s’il a des
- * judokas (au moins un Principal) dans au moins 3 catégories de poids.
+ * athlètes (au moins un Principal) dans au moins 3 catégories de poids.
  */
 export function buildTeamDraw(registrations, { minCategories = 3 } = {}) {
   const teamRegs = (registrations || []).filter((r) => getMode(r) === 'equipe');

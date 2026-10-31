@@ -34,6 +34,13 @@ import {
   IconWhistle,
   IconFlag,
 } from './components/ActionIcons';
+import {
+  applyFederationTheme,
+  clearFederationTheme,
+  entityLabel,
+  isCardVisible,
+  mergeFederationSettings,
+} from './utils/federationConfig';
 
 const Messages = lazy(() => import('./pages/Messages'));
 const Settings = lazy(() => import('./pages/Settings'));
@@ -52,6 +59,7 @@ const JudokaFicheModal = lazy(() => import('./components/JudokaFicheModal'));
 const TransferModal = lazy(() => import('./components/TransferModal'));
 const AccountDetailModal = lazy(() => import('./components/AccountDetailModal'));
 const CompetitionSettings = lazy(() => import('./pages/CompetitionSettings'));
+const FederationSettings = lazy(() => import('./pages/FederationSettings'));
 const SuperAdminFederations = lazy(() => import('./components/SuperAdminFederations'));
 const SuperAdminDashboard = lazy(() => import('./components/SuperAdminDashboard'));
 
@@ -64,15 +72,6 @@ function PageLoader({ label = 'Chargement...' }) {
   );
 }
 
-const SECTION_TITLES = {
-  judokas: 'Liste des Judokas',
-  entraineurs: 'Liste des Entraineurs',
-  arbitres: 'Liste des Arbitres',
-  clubs: 'Liste des Clubs',
-  ententes: 'Liste des Ententes',
-  ligues: 'Liste des Ligues',
-  federation: 'Membres de la Fédération',
-};
 
 function Toast({ message, type, onClose }) {
   useEffect(() => {
@@ -158,56 +157,59 @@ function canUseQrScan(user, perms) {
   return perms.scanQr === true;
 }
 
-function getVisibleTabs(user, tabs) {
+function getVisibleTabs(user, tabs, fedSettings) {
   if (user.type === 'superadmin') {
     return [{ key: 'overview', label: 'Dashboard' }];
   }
 
+  const L = (key) => entityLabel(fedSettings, key);
+  const filterVisible = (items) => items.filter((t) => isCardVisible(fedSettings, user, t.key));
+
   if (user.type === 'admin') {
-    return [
-      { key: 'judokas', label: 'Judokas' },
-      { key: 'ligues', label: 'Ligues' },
-      { key: 'ententes', label: 'Ententes' },
-      { key: 'clubs', label: 'Clubs' },
-      { key: 'entraineurs', label: 'Entraineurs' },
-      { key: 'arbitres', label: 'Arbitres' },
-      { key: 'federation', label: 'Membres' },
-    ];
+    return filterVisible([
+      { key: 'judokas', label: L('judokas') },
+      { key: 'ligues', label: L('ligues') },
+      { key: 'ententes', label: L('ententes') },
+      { key: 'clubs', label: L('clubs') },
+      { key: 'entraineurs', label: L('entraineurs') },
+      { key: 'arbitres', label: L('arbitres') },
+      { key: 'federation', label: L('federation') },
+    ]);
   }
 
   if (user.type === 'club') {
-    return [
-      { key: 'judokas', label: 'Judokas' },
-      { key: 'entraineurs', label: 'Entraineurs' },
-    ];
+    return filterVisible([
+      { key: 'judokas', label: L('judokas') },
+      { key: 'entraineurs', label: L('entraineurs') },
+    ]);
   }
 
   if (user.type === 'ligue') {
-    return [
-      { key: 'judokas', label: 'Judokas' },
-      { key: 'ententes', label: 'Ententes' },
-      { key: 'clubs', label: 'Clubs' },
-      { key: 'entraineurs', label: 'Entraineurs' },
-    ];
+    return filterVisible([
+      { key: 'judokas', label: L('judokas') },
+      { key: 'ententes', label: L('ententes') },
+      { key: 'clubs', label: L('clubs') },
+      { key: 'entraineurs', label: L('entraineurs') },
+    ]);
   }
 
   if (user.type === 'entente') {
-    return [
-      { key: 'judokas', label: 'Judokas' },
-      { key: 'clubs', label: 'Clubs' },
-      { key: 'entraineurs', label: 'Entraineurs' },
-    ];
+    return filterVisible([
+      { key: 'judokas', label: L('judokas') },
+      { key: 'clubs', label: L('clubs') },
+      { key: 'entraineurs', label: L('entraineurs') },
+    ]);
   }
 
   const visible = [];
-  if (tabs.includes('judokas')) visible.push({ key: 'judokas', label: 'Judokas' });
-  if (tabs.includes('ligues')) visible.push({ key: 'ligues', label: 'Ligues' });
-  if (tabs.includes('ententes')) visible.push({ key: 'ententes', label: 'Ententes' });
-  if (tabs.includes('clubs')) visible.push({ key: 'clubs', label: 'Clubs' });
-  if (tabs.includes('entraineurs')) visible.push({ key: 'entraineurs', label: 'Entraineurs' });
-  if (tabs.includes('arbitres')) visible.push({ key: 'arbitres', label: 'Arbitres' });
-  if (tabs.includes('federation')) visible.push({ key: 'federation', label: 'Membres' });
-  return visible;
+  if (tabs.includes('judokas')) visible.push({ key: 'judokas', label: L('judokas') });
+  if (tabs.includes('ligues')) visible.push({ key: 'ligues', label: L('ligues') });
+  if (tabs.includes('ententes')) visible.push({ key: 'ententes', label: L('ententes') });
+  if (tabs.includes('clubs')) visible.push({ key: 'clubs', label: L('clubs') });
+  if (tabs.includes('entraineurs')) visible.push({ key: 'entraineurs', label: L('entraineurs') });
+  if (tabs.includes('arbitres')) visible.push({ key: 'arbitres', label: L('arbitres') });
+  if (tabs.includes('federation')) visible.push({ key: 'federation', label: L('federation') });
+  return filterVisible(visible);
 }
 
 function getUsersForTab(members, tab, currentUser) {
@@ -226,9 +228,12 @@ function getUsersForTab(members, tab, currentUser) {
   return members;
 }
 
-function getSectionTitle(tab, user) {
-  if (tab === 'entraineurs' && user.type === 'club') return 'Entraineurs du club';
-  return SECTION_TITLES[tab] || 'Liste';
+function getSectionTitle(tab, user, fedSettings) {
+  const name = entityLabel(fedSettings, tab);
+  if (tab === 'entraineurs' && user?.type === 'club') return `${name} du club`;
+  if (tab === 'judokas' && user?.type === 'entraineur') return `${name} du club`;
+  if (tab === 'federation') return `${name} de la Fédération`;
+  return `Liste des ${name}`;
 }
 
 function matchesSearch(value, term) {
@@ -277,9 +282,12 @@ export default function App() {
   const [competitionAccess, setCompetitionAccessState] = useState(false);
   const [competitionToggleBusy, setCompetitionToggleBusy] = useState(false);
   const [judokaStatutFilter, setJudokaStatutFilter] = useState(null);
+  const [fedSettings, setFedSettings] = useState(() => mergeFederationSettings(null));
 
   const perms = user?.permissions || {};
   const tabs = perms.dashboardTabs || ['judokas'];
+  const L = (key) => entityLabel(fedSettings, key);
+  const showCard = (key) => isCardVisible(fedSettings, user, key);
   const lockedClub = perms.clubScope || null;
   const canManageUsers = perms.manageUsers || perms.createUsers;
   const canResetPassword = perms.manageUsers === true;
@@ -302,7 +310,10 @@ export default function App() {
   const canManageCompetition = perms.canManageCompetition === true;
   const showCompetitionButton = canManageCompetition;
   const competitionButtonEnabled = canManageCompetition && competitionAccess;
-  const visibleTabs = useMemo(() => (user ? getVisibleTabs(user, tabs) : []), [user, tabs]);
+  const visibleTabs = useMemo(
+    () => (user ? getVisibleTabs(user, tabs, fedSettings) : []),
+    [user, tabs, fedSettings]
+  );
   const entraineurs = useMemo(() => members.filter((m) => m.type === 'entraineur'), [members]);
   const entraineurClub = useMemo(() => {
     if (user?.type !== 'entraineur') return null;
@@ -331,8 +342,11 @@ export default function App() {
       .then((u) => {
         if (cancelled) return;
         if (u) {
+          const settings = mergeFederationSettings(u.federation_settings);
+          setFedSettings(settings);
+          applyFederationTheme(settings.colors);
           setUser(u);
-          const first = getVisibleTabs(u, u.permissions?.dashboardTabs || ['judokas'])[0];
+          const first = getVisibleTabs(u, u.permissions?.dashboardTabs || ['judokas'], settings)[0];
           setDashboardTab(first?.key || 'judokas');
         }
       })
@@ -343,7 +357,10 @@ export default function App() {
         }
       });
 
-    const handleLogout = () => setUser(null);
+    const handleLogout = () => {
+      clearFederationTheme();
+      setUser(null);
+    };
     window.addEventListener('auth:logout', handleLogout);
     return () => {
       cancelled = true;
@@ -357,7 +374,7 @@ export default function App() {
     const silent = options.silent === true;
     if (!silent) setLoading(true);
     try {
-      // SuperAdmin : pas de chargement judokas / stats métier
+      // SuperAdmin : pas de chargement athlètes / stats métier
       if (user.type === 'superadmin') {
         setServerOnline(true);
         setJudokas([]);
@@ -388,7 +405,7 @@ export default function App() {
         if (results[idx]?.status === 'fulfilled') setArbitres(results[idx].value || []);
       }
 
-      // Hors ligne seulement si les appels essentiels (stats + judokas) échouent
+      // Hors ligne seulement si les appels essentiels (stats + athlètes) échouent
       const coreDown =
         results[0].status === 'rejected' && results[1].status === 'rejected';
       setServerOnline(!coreDown);
@@ -514,7 +531,7 @@ export default function App() {
 
   const openNewJudoka = () => {
     if (!perms.createJudokas) {
-      showToast('Vous n\'êtes pas autorisé à créer des judokas', 'error');
+      showToast(`Vous n'êtes pas autorisé à créer des ${L('judokas').toLowerCase()}`, 'error');
       return;
     }
     setEditing(null);
@@ -643,7 +660,7 @@ export default function App() {
       return;
     }
     exportToCsv(filteredJudokas);
-    showToast(`${filteredJudokas.length} judoka(s) exporté(s) en CSV`);
+    showToast(`${filteredJudokas.length} athlète(s) exporté(s) en CSV`);
   };
 
   const handleExportCardsPdf = async () => {
@@ -677,14 +694,14 @@ export default function App() {
       return;
     }
     if (filteredJudokas.length === 0) {
-      showToast('Aucun judoka à exporter', 'error');
+      showToast('Aucun athlète à exporter', 'error');
       return;
     }
     setExportingPdf(true);
     try {
       const { exportJudokasListToPdf } = await import('./utils/exportJudokasListPdf.js');
       exportJudokasListToPdf(filteredJudokas);
-      showToast(`${filteredJudokas.length} judoka(s) exporté(s) en PDF`);
+      showToast(`${filteredJudokas.length} athlète(s) exporté(s) en PDF`);
     } catch {
       showToast('Impossible de générer le PDF de la liste', 'error');
     } finally {
@@ -694,6 +711,8 @@ export default function App() {
 
   const handleLogout = () => {
     // Instantané : UI d'abord, invalidation session en arrière-plan
+    clearFederationTheme();
+    setFedSettings(mergeFederationSettings(null));
     setUser(null);
     setView('list');
     setEditing(null);
@@ -787,9 +806,12 @@ export default function App() {
     return (
       <Login
         onLogin={(u) => {
+          const settings = mergeFederationSettings(u.federation_settings);
+          setFedSettings(settings);
+          applyFederationTheme(settings.colors);
           setUser(u);
           setView('list');
-          const first = getVisibleTabs(u, u.permissions?.dashboardTabs || ['judokas'])[0];
+          const first = getVisibleTabs(u, u.permissions?.dashboardTabs || ['judokas'], settings)[0];
           setDashboardTab(first?.key || 'judokas');
         }}
       />
@@ -819,11 +841,12 @@ export default function App() {
             <div className="dashboard-topbar">
               <div className="dashboard-topbar-title">
                 {view === 'list' && (user.type === 'superadmin' && dashboardTab === 'federations' ? 'Fédérations' : 'Dashboard')}
-                {view === 'form' && (editing ? 'Modifier le judoka' : 'Nouvel enregistrement')}
+                {view === 'form' && (editing ? 'Modifier l\'athlète' : 'Nouvel athlète')}
                 {view === 'user-form' && (editingUser ? 'Modifier le compte' : 'Créer un compte')}
                 {view === 'arbitre-form' && (editingArbitre ? 'Modifier l\'arbitre' : 'Nouvel arbitre')}
                 {view === 'messages' && 'Messages'}
                 {view === 'settings' && 'Réglages'}
+                {view === 'federation-settings' && 'Paramétrage fédération'}
                 {view === 'competition' && 'Compétition'}
               </div>
               <div className="dashboard-topbar-user">
@@ -875,136 +898,160 @@ export default function App() {
               <div className="stats-grid">
                 {hasFullDashboardCards(user) ? (
                   <>
-                    <StatCard
-                      theme="blue"
-                      icon={<IconPeople />}
-                      value={stats.total}
-                      label="Judokas"
-                      active={dashboardTab === 'judokas'}
-                      onClick={() => { setDashboardTab('judokas'); setView('list'); }}
-                    />
-                    <StatCard
-                      theme="blue"
-                      icon={<IconFlag />}
-                      value={stats.ligues ?? 0}
-                      label="Ligues"
-                      active={dashboardTab === 'ligues'}
-                      onClick={() => { setDashboardTab('ligues'); setView('list'); }}
-                    />
-                    <StatCard
-                      theme="blue"
-                      icon={<IconBuilding />}
-                      value={stats.ententes ?? 0}
-                      label="Ententes"
-                      active={dashboardTab === 'ententes'}
-                      onClick={() => { setDashboardTab('ententes'); setView('list'); }}
-                    />
-                    <StatCard
-                      theme="blue"
-                      icon={<IconBuilding />}
-                      value={stats.clubs}
-                      label="Clubs"
-                      active={dashboardTab === 'clubs'}
-                      onClick={() => { setDashboardTab('clubs'); setView('list'); }}
-                    />
-                    <StatCard
-                      theme="blue"
-                      icon={<IconPerson />}
-                      value={stats.entraineurs}
-                      label="Entraineurs"
-                      active={dashboardTab === 'entraineurs'}
-                      onClick={() => { setDashboardTab('entraineurs'); setView('list'); }}
-                    />
-                    <StatCard
-                      theme="blue"
-                      icon={<IconWhistle />}
-                      value={stats.arbitres ?? 0}
-                      label="Arbitres"
-                      active={dashboardTab === 'arbitres'}
-                      onClick={() => { setDashboardTab('arbitres'); setView('list'); }}
-                    />
-                    <StatCard
-                      theme="blue"
-                      icon={<IconCheck />}
-                      value={stats.federationMembers ?? 0}
-                      label="Membres"
-                      active={dashboardTab === 'federation'}
-                      onClick={() => { setDashboardTab('federation'); setView('list'); }}
-                    />
+                    {showCard('judokas') && (
+                      <StatCard
+                        theme="blue"
+                        icon={<IconPeople />}
+                        value={stats.total}
+                        label={L('judokas')}
+                        active={dashboardTab === 'judokas'}
+                        onClick={() => { setDashboardTab('judokas'); setView('list'); }}
+                      />
+                    )}
+                    {showCard('ligues') && (
+                      <StatCard
+                        theme="blue"
+                        icon={<IconFlag />}
+                        value={stats.ligues ?? 0}
+                        label={L('ligues')}
+                        active={dashboardTab === 'ligues'}
+                        onClick={() => { setDashboardTab('ligues'); setView('list'); }}
+                      />
+                    )}
+                    {showCard('ententes') && (
+                      <StatCard
+                        theme="blue"
+                        icon={<IconBuilding />}
+                        value={stats.ententes ?? 0}
+                        label={L('ententes')}
+                        active={dashboardTab === 'ententes'}
+                        onClick={() => { setDashboardTab('ententes'); setView('list'); }}
+                      />
+                    )}
+                    {showCard('clubs') && (
+                      <StatCard
+                        theme="blue"
+                        icon={<IconBuilding />}
+                        value={stats.clubs}
+                        label={L('clubs')}
+                        active={dashboardTab === 'clubs'}
+                        onClick={() => { setDashboardTab('clubs'); setView('list'); }}
+                      />
+                    )}
+                    {showCard('entraineurs') && (
+                      <StatCard
+                        theme="blue"
+                        icon={<IconPerson />}
+                        value={stats.entraineurs}
+                        label={L('entraineurs')}
+                        active={dashboardTab === 'entraineurs'}
+                        onClick={() => { setDashboardTab('entraineurs'); setView('list'); }}
+                      />
+                    )}
+                    {showCard('arbitres') && (
+                      <StatCard
+                        theme="blue"
+                        icon={<IconWhistle />}
+                        value={stats.arbitres ?? 0}
+                        label={L('arbitres')}
+                        active={dashboardTab === 'arbitres'}
+                        onClick={() => { setDashboardTab('arbitres'); setView('list'); }}
+                      />
+                    )}
+                    {showCard('federation') && (
+                      <StatCard
+                        theme="blue"
+                        icon={<IconCheck />}
+                        value={stats.federationMembers ?? 0}
+                        label={L('federation')}
+                        active={dashboardTab === 'federation'}
+                        onClick={() => { setDashboardTab('federation'); setView('list'); }}
+                      />
+                    )}
                   </>
                 ) : isResponsableGrade(user) ? (
                   <>
-                    <StatCard
-                      theme="blue"
-                      icon={<IconPeople />}
-                      value={stats.total}
-                      label="Judokas enregistrés"
-                      active={dashboardTab === 'judokas' && !judokaStatutFilter}
-                      onClick={() => { setJudokaStatutFilter(null); setDashboardTab('judokas'); setView('list'); }}
-                    />
-                    <StatCard
-                      theme="blue"
-                      icon={<IconCheck />}
-                      value={stats.actifs}
-                      label="Actifs"
-                      active={dashboardTab === 'judokas' && judokaStatutFilter === 'actif'}
-                      onClick={() => { setJudokaStatutFilter('actif'); setDashboardTab('judokas'); setView('list'); }}
-                    />
-                    <StatCard
-                      theme="blue"
-                      icon={<IconAlert />}
-                      value={Math.max(0, (stats.total || 0) - (stats.actifs || 0))}
-                      label="Inactifs"
-                      active={dashboardTab === 'judokas' && judokaStatutFilter === 'inactif'}
-                      onClick={() => { setJudokaStatutFilter('inactif'); setDashboardTab('judokas'); setView('list'); }}
-                    />
-                    <StatCard
-                      theme="blue"
-                      icon={<IconPerson />}
-                      value={stats.entraineurs}
-                      label="Entraineurs"
-                      active={dashboardTab === 'entraineurs'}
-                      onClick={() => { setJudokaStatutFilter(null); setDashboardTab('entraineurs'); setView('list'); }}
-                    />
-                    <StatCard
-                      theme="blue"
-                      icon={<IconBuilding />}
-                      value={stats.clubs}
-                      label="Clubs"
-                      active={dashboardTab === 'clubs'}
-                      onClick={() => { setJudokaStatutFilter(null); setDashboardTab('clubs'); setView('list'); }}
-                    />
+                    {showCard('judokas') && (
+                      <StatCard
+                        theme="blue"
+                        icon={<IconPeople />}
+                        value={stats.total}
+                        label={`${L('judokas')} enregistrés`}
+                        active={dashboardTab === 'judokas' && !judokaStatutFilter}
+                        onClick={() => { setJudokaStatutFilter(null); setDashboardTab('judokas'); setView('list'); }}
+                      />
+                    )}
+                    {showCard('judokas') && (
+                      <StatCard
+                        theme="blue"
+                        icon={<IconCheck />}
+                        value={stats.actifs}
+                        label="Actifs"
+                        active={dashboardTab === 'judokas' && judokaStatutFilter === 'actif'}
+                        onClick={() => { setJudokaStatutFilter('actif'); setDashboardTab('judokas'); setView('list'); }}
+                      />
+                    )}
+                    {showCard('judokas') && (
+                      <StatCard
+                        theme="blue"
+                        icon={<IconAlert />}
+                        value={Math.max(0, (stats.total || 0) - (stats.actifs || 0))}
+                        label="Inactifs"
+                        active={dashboardTab === 'judokas' && judokaStatutFilter === 'inactif'}
+                        onClick={() => { setJudokaStatutFilter('inactif'); setDashboardTab('judokas'); setView('list'); }}
+                      />
+                    )}
+                    {showCard('entraineurs') && (
+                      <StatCard
+                        theme="blue"
+                        icon={<IconPerson />}
+                        value={stats.entraineurs}
+                        label={L('entraineurs')}
+                        active={dashboardTab === 'entraineurs'}
+                        onClick={() => { setJudokaStatutFilter(null); setDashboardTab('entraineurs'); setView('list'); }}
+                      />
+                    )}
+                    {showCard('clubs') && (
+                      <StatCard
+                        theme="blue"
+                        icon={<IconBuilding />}
+                        value={stats.clubs}
+                        label={L('clubs')}
+                        active={dashboardTab === 'clubs'}
+                        onClick={() => { setJudokaStatutFilter(null); setDashboardTab('clubs'); setView('list'); }}
+                      />
+                    )}
                   </>
                 ) : (
                   <>
-                    {showStatsJudokas && (
+                    {showStatsJudokas && showCard('judokas') && (
                       <>
-                        <StatCard theme="blue" icon={<IconPeople />} value={stats.total} label="Judokas enregistrés" />
+                        <StatCard theme="blue" icon={<IconPeople />} value={stats.total} label={`${L('judokas')} enregistrés`} />
                         <StatCard theme="blue" icon={<IconCheck />} value={stats.actifs} label="Actifs" />
                         <StatCard
                           theme="blue"
                           icon={user.type === 'ligue' ? <IconBuilding /> : <IconAlert />}
                           value={user.type === 'ligue' ? (stats.ententes ?? 0) : (stats.arbitres ?? 0)}
-                          label={user.type === 'ligue' ? 'Ententes' : 'Inactifs'}
+                          label={user.type === 'ligue' ? L('ententes') : 'Inactifs'}
                         />
                       </>
                     )}
-                    {showStatsEntraineurs && (
+                    {showStatsEntraineurs && showCard('entraineurs') && (
                       <StatCard
                         theme="blue"
                         icon={<IconPerson />}
                         value={stats.entraineurs}
-                        label="Entraineurs"
+                        label={L('entraineurs')}
                         active={dashboardTab === 'entraineurs'}
                         onClick={tabs.includes('entraineurs') ? () => { setDashboardTab('entraineurs'); setView('list'); } : undefined}
                       />
                     )}
-                    {user.type !== 'club' && user.type !== 'entraineur' && (
+                    {user.type !== 'club' && user.type !== 'entraineur' && showCard('clubs') && (
                       <StatCard
                         theme="blue"
                         icon={<IconBuilding />}
                         value={stats.clubs}
-                        label="Clubs"
+                        label={L('clubs')}
                         active={dashboardTab === 'clubs'}
                         onClick={tabs.includes('clubs') ? () => { setDashboardTab('clubs'); setView('list'); } : undefined}
                       />
@@ -1084,14 +1131,14 @@ export default function App() {
                   )}
                   {perms.createJudokas && (
                     <button className="btn btn-accent" onClick={openNewJudoka}>
-                      Nouveau judoka
+                      Nouvel athlète
                     </button>
                   )}
                 </div>
 
                 <div className="table-card">
                   <div className="table-header">
-                    <h2>{user.type === 'entraineur' ? 'Judokas du club' : getSectionTitle('judokas', user)}</h2>
+                    <h2>{getSectionTitle('judokas', user, fedSettings)}</h2>
                     <div className="table-header-actions">
                       {canScanQr && (
                         <button
@@ -1169,7 +1216,7 @@ export default function App() {
 
                 <div className="table-card">
                   <div className="table-header">
-                    <h2>{getSectionTitle(dashboardTab, user)}</h2>
+                    <h2>{getSectionTitle(dashboardTab, user, fedSettings)}</h2>
                   </div>
                   {loading && members.length === 0 ? (
                     <div className="table-skeleton">
@@ -1231,7 +1278,7 @@ export default function App() {
                 </div>
                 <div className="table-card">
                   <div className="table-header">
-                    <h2>{getSectionTitle('arbitres', user)}</h2>
+                    <h2>{getSectionTitle('arbitres', user, fedSettings)}</h2>
                   </div>
                   <Suspense fallback={<PageLoader label="Chargement des arbitres..." />}>
                     <ArbitreList
@@ -1254,7 +1301,7 @@ export default function App() {
             {!showJudokasTab && dashboardTab === 'judokas' && (
               <div className="empty-state">
                 <h3>Accès limité à votre rôle</h3>
-                <p>Votre fonction ({getRoleLabel(user)}) ne donne pas accès à la liste des judokas.</p>
+                <p>Votre fonction ({getRoleLabel(user)}) ne donne pas accès à la liste des {L('judokas').toLowerCase()}.</p>
               </div>
             )}
           </div>
@@ -1274,6 +1321,21 @@ export default function App() {
             <Settings
               user={user}
               onUserUpdated={(next) => setUser((prev) => ({ ...prev, ...next }))}
+            />
+          </Suspense>
+        )}
+
+        {view === 'federation-settings' && user.type === 'admin' && (
+          <Suspense fallback={<PageLoader label="Chargement du paramétrage..." />}>
+            <FederationSettings
+              onBack={() => setView('list')}
+              onToast={showToast}
+              onSettingsSaved={(saved) => {
+                const merged = mergeFederationSettings(saved);
+                setFedSettings(merged);
+                applyFederationTheme(merged.colors);
+                setUser((prev) => (prev ? { ...prev, federation_settings: merged } : prev));
+              }}
             />
           </Suspense>
         )}
@@ -1466,6 +1528,15 @@ export default function App() {
                 title={isAdminOrCoordon(user) ? `Exporter en PDF l’onglet ${dashboardTab}` : 'Exporter'}
               >
                 {exportingPdf && isAdminOrCoordon(user) ? 'Export...' : 'Exporter'}
+              </button>
+            )}
+            {user.type === 'admin' && (
+              <button
+                className={`nav-btn ${view === 'federation-settings' ? 'active' : ''}`}
+                type="button"
+                onClick={() => { setView('federation-settings'); setEditing(null); setEditingUser(null); setCreateType(null); }}
+              >
+                Paramétrage
               </button>
             )}
             <button

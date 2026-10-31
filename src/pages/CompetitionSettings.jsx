@@ -328,7 +328,7 @@ function TeamClubsTable({ clubs, onEdit, onDelete, onCharge, onShowReceipt, page
           <thead>
             <tr>
               <th>Club</th>
-              <th>Judokas</th>
+              <th>Athlètes</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -336,7 +336,7 @@ function TeamClubsTable({ clubs, onEdit, onDelete, onCharge, onShowReceipt, page
             {pageRows.map((team) => (
               <tr key={team.club}>
                 <td data-label="Club">{team.club}</td>
-                <td data-label="Judokas">{team.members?.length || team.ids.length}</td>
+                <td data-label="Athlètes">{team.members?.length || team.ids.length}</td>
                 <td data-label="Actions">
                   <div className="actions-cell">
                     <button
@@ -351,7 +351,7 @@ function TeamClubsTable({ clubs, onEdit, onDelete, onCharge, onShowReceipt, page
                       <button
                         type="button"
                         className="btn btn-icon btn-icon-key"
-                        title="Charger des judokas individuels"
+                        title="Charger des athlètes individuels"
                         onClick={() => onCharge(team)}
                       >
                         <IconCharge />
@@ -599,7 +599,7 @@ function ParamsFormFields({
           <label htmlFor="comp-desc">Description</label>
         </div>
         <p className="form-hint competition-description-hint">
-          Texte affiché aux judokas sur la page d&apos;inscription publique.
+          Texte affiché aux athlètes sur la page d&apos;inscription publique.
         </p>
         <textarea
           id="comp-desc"
@@ -634,7 +634,7 @@ function ParamsFormFields({
         </div>
         <div className="competition-fees-grid competition-fees-grid-dual">
           <div className="competition-fees-category">
-            <h5>Individuel (par judoka)</h5>
+            <h5>Individuel (par athlète)</h5>
             <div className="form-group">
               <label htmlFor="frais-individuel-cdf">Prix en Franc Congolais</label>
               <input
@@ -1002,7 +1002,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
         role_equipe: row.role_equipe === 'remplacant' ? 'remplacant' : 'principal',
       }));
     if (!members.length) {
-      onToast?.('Sélectionnez au moins un judoka', 'error');
+      onToast?.('Sélectionnez au moins un athlète', 'error');
       return;
     }
     setSaving(true);
@@ -1062,7 +1062,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
       });
       setChargeTeamTarget(null);
       setChargeSelections({});
-      onToast?.(`${result.count || members.length} judoka(s) chargé(s) dans ${clubName}`);
+      onToast?.(`${result.count || members.length} athlète(s) chargé(s) dans ${clubName}`);
     } catch (err) {
       setError(err.message);
       onToast?.(err.message, 'error');
@@ -1160,7 +1160,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
     if (!list.length) {
       onToast?.(
         mode === 'equipe'
-          ? 'Aucun club Par équipe avec au moins un judoka inscrit à exporter'
+          ? 'Aucun club Par équipe avec au moins un athlète inscrit à exporter'
           : 'Aucun inscrit individuel à exporter',
         'error'
       );
@@ -1205,7 +1205,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
     }
     const closed = Boolean(settings?.configured) && !settings?.public_enabled;
     if (registrations.length === 0) {
-      onToast?.('Aucun judoka inscrit pour le tirage', 'error');
+      onToast?.('Aucun athlète inscrit pour le tirage', 'error');
       return;
     }
     if (!closed) {
@@ -1293,7 +1293,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
       return;
     }
     if (addIndividuelBasket.some((item) => item._key === entry._key)) {
-      onToast?.('Ce judoka est déjà dans la liste', 'error');
+      onToast?.('Cet athlète est déjà dans la liste', 'error');
       return;
     }
     setAddIndividuelBasket((prev) => [...prev, entry]);
@@ -1322,7 +1322,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
       }
     }
     if (!list.length) {
-      onToast?.('Ajoutez au moins un judoka à la liste', 'error');
+      onToast?.('Ajoutez au moins un athlète à la liste', 'error');
       return;
     }
     for (const item of list) {
@@ -1344,7 +1344,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
       const n = createdRows.length;
       onToast?.(n === 1
         ? `${createdRows[0].prenom} ${createdRows[0].nom} ajouté(e) en Individuel`
-        : `${n} judokas ajoutés en Individuel`);
+        : `${n} athlètes ajoutés en Individuel`);
     } catch (err) {
       setError(err.message || 'Ajout impossible');
       onToast?.(err.message || 'Ajout impossible', 'error');
@@ -1405,11 +1405,11 @@ export default function CompetitionSettings({ onBack, onToast }) {
     });
     const clubsToDelete = (settings?.competition_clubs || []).filter((c) => c.cadre === cadre);
     if (!regsToDelete.length && !clubsToDelete.length) {
-      onToast?.(`Aucun club ni judoka à supprimer pour ${label}`, 'error');
+      onToast?.(`Aucun club ni athlète à supprimer pour ${label}`, 'error');
       return;
     }
     const confirmed = window.confirm(
-      `Supprimer tous les clubs et judokas enregistrés en ${label} ? Cette action est irréversible.`
+      `Supprimer tous les clubs et athlètes enregistrés en ${label} ? Cette action est irréversible.`
     );
     if (!confirmed) return;
 
@@ -1429,7 +1429,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
       setEditingClub(null);
       setClubDraft('');
       setLigueDraft('');
-      onToast?.(`Tous les clubs et judokas ${label} ont été supprimés`);
+      onToast?.(`Tous les clubs et athlètes ${label} ont été supprimés`);
     } catch (err) {
       setError(err.message || 'Suppression impossible');
       onToast?.(err.message || 'Suppression impossible', 'error');
@@ -1548,7 +1548,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
     if (!result.groups.length) {
       onToast?.(
         mode === 'equipe'
-          ? 'Aucun combat par équipe : chaque club doit avoir des judokas dans au moins 3 catégories du même sexe'
+          ? 'Aucun combat par équipe : chaque club doit avoir des athlètes dans au moins 3 catégories du même sexe'
           : 'Aucun combat individuel possible (vérifiez les pesées)',
         'error'
       );
@@ -1592,7 +1592,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
   const handleGenerateLicences = async () => {
     const ids = [...licenceSelected];
     if (!ids.length) {
-      onToast?.('Sélectionnez au moins un judoka', 'error');
+      onToast?.('Sélectionnez au moins un athlète', 'error');
       return;
     }
     setLicenceBusy(true);
@@ -1601,7 +1601,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
       const created = result.judokas || [];
       if (!created.length) {
         onToast?.(result.skipped?.length
-          ? 'Aucun judoka éligible pour une licence'
+          ? 'Aucun athlète éligible pour une licence'
           : 'Aucune carte générée', 'error');
         return;
       }
@@ -1770,7 +1770,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
       return;
     }
     if (!poids) {
-      onToast?.('Indiquez le poids du judoka', 'error');
+      onToast?.("Indiquez le poids de l'athlète", 'error');
       return;
     }
     setAddingTeamJudoka(true);
@@ -1818,7 +1818,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
       onToast?.(`${prenom} ${nom} ajouté(e) à l'équipe`);
     } catch (err) {
       setError(err.message);
-      onToast?.(err.message || 'Impossible d\'ajouter le judoka', 'error');
+      onToast?.(err.message || "Impossible d'ajouter l'athlète", 'error');
     } finally {
       setAddingTeamJudoka(false);
     }
@@ -1826,7 +1826,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
 
   const handleRemoveEditTeamMember = async (member) => {
     if (!member?.id || !editTeamTarget) return;
-    const label = `${member.prenom || ''} ${member.nom || ''}`.trim() || 'ce judoka';
+    const label = `${member.prenom || ''} ${member.nom || ''}`.trim() || 'cet athlète';
     const confirmed = window.confirm(
       `Supprimer ${label} de l'équipe ${editTeamClub.trim() || editTeamTarget.club} ?`
     );
@@ -2008,7 +2008,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
       await deleteCompetitionRegistration(deleteRegTarget.id);
       setRegistrations((prev) => prev.filter((r) => r.id !== deleteRegTarget.id));
       setDeleteRegTarget(null);
-      onToast?.('Judoka retiré de la compétition');
+      onToast?.('Athlète retiré de la compétition');
     } catch (err) {
       setError(err.message);
       onToast?.(err.message, 'error');
@@ -2103,7 +2103,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
             <p className="competition-kicker">FENACOJU · Directeur Compétition</p>
             <h2>Compétition</h2>
             <p className="subtitle">
-              Paramétrez l&apos;événement, publiez l&apos;inscription et suivez les judokas en direct.
+              Paramétrez l&apos;événement, publiez l&apos;inscription et suivez les athlètes en direct.
             </p>
           </div>
           <div className="competition-hero-actions">
@@ -2125,7 +2125,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
           <div className="competition-stats-strip">
             <div className="competition-stat competition-stat-emphasis">
               <strong>{registrations.length}</strong>
-              <span>Judokas inscrits</span>
+              <span>Athlètes inscrits</span>
               <div className="competition-stat-split" aria-label="Répartition Individuel et Par équipe">
                 <span className="competition-stat-chip competition-stat-chip-indiv">
                   Individuel <b>{individualCount}</b>
@@ -2300,7 +2300,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
               <div>
                 <h3>Inscriptions</h3>
                 <p className="form-hint">
-                  Liste actualisée en direct · {registrations.length} judoka{registrations.length > 1 ? 's' : ''}
+                  Liste actualisée en direct · {registrations.length} athlète{registrations.length > 1 ? 's' : ''}
                 </p>
               </div>
               <div className="competition-inscriptions-actions">
@@ -2419,7 +2419,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
           <div className="confirm-dialog" onClick={(e) => e.stopPropagation()}>
             <h3>Supprimer le lien ?</h3>
             <p>
-              Cette action rend le lien définitivement inaccessible, efface tous les judokas inscrits
+              Cette action rend le lien définitivement inaccessible, efface tous les athlètes inscrits
               et désactive la pesée. Continuer ?
             </p>
             <div className="confirm-actions">
@@ -2461,7 +2461,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
             <h3>Supprimer l&apos;équipe ?</h3>
             <p>
               {(deleteClubTarget.ids?.length || 0) > 0
-                ? <>Retirer le club <strong>{deleteClubTarget.club}</strong> et tous ses judokas d&apos;équipe ?</>
+                ? <>Retirer le club <strong>{deleteClubTarget.club}</strong> et tous ses athlètes d&apos;équipe ?</>
                 : <>Retirer le club <strong>{deleteClubTarget.club}</strong> de la liste Par équipe ?</>}
             </p>
             <div className="confirm-actions">
@@ -2481,9 +2481,9 @@ export default function CompetitionSettings({ onBack, onToast }) {
           <div className="competition-charge-modal" onClick={(e) => e.stopPropagation()}>
             <div className="competition-params-modal-head">
               <div>
-                <h3>Charger des judokas</h3>
+                <h3>Charger des athlètes</h3>
                 <p className="form-hint">
-                  Sélectionnez des judokas inscrits en Individuel (tous clubs) pour l&apos;équipe{' '}
+                  Sélectionnez des athlètes inscrits en Individuel (tous clubs) pour l&apos;équipe{' '}
                   <strong>{chargeTeamTarget.club}</strong>. Leur inscription Individuel reste inchangée.
                 </p>
               </div>
@@ -2492,7 +2492,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
               </button>
             </div>
             {chargeableIndividuelRegistrations(registrations).length === 0 ? (
-              <p className="form-hint">Aucun judoka Individuel disponible à charger (déjà en équipe ou non inscrit).</p>
+              <p className="form-hint">Aucun athlète Individuel disponible à charger (déjà en équipe ou non inscrit).</p>
             ) : (
               <div className="competition-charge-list">
                 {chargeableIndividuelRegistrations(registrations).map((r) => {
@@ -2562,9 +2562,9 @@ export default function CompetitionSettings({ onBack, onToast }) {
             className="confirm-dialog competition-edit-reg-modal competition-add-indiv-modal"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3>Ajouter des judokas · Individuel</h3>
+            <h3>Ajouter des athlètes · Individuel</h3>
             <p className="form-hint">
-              Ajoutez plusieurs judokas à la liste ; chaque ligne peut avoir un club différent.
+              Ajoutez plusieurs athlètes à la liste ; chaque ligne peut avoir un club différent.
             </p>
             {addIndividuelBasket.length > 0 && (
               <div className="competition-basket">
@@ -2719,7 +2719,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
               <p className="competition-edit-inscription-kicker">Inscription Individuel</p>
               <h3>Modifier l&apos;inscription</h3>
               <p className="competition-edit-inscription-sub">
-                Mettez à jour l&apos;identité, le club et la catégorie du judoka.
+                Mettez à jour l&apos;identité, le club et la catégorie de l'athlète.
               </p>
             </header>
             <form onSubmit={handleSaveRegistration}>
@@ -2847,7 +2847,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
               </div>
               <div className="competition-team-edit-list">
                 {editTeamMembers.length === 0 && (
-                  <p className="form-hint">Aucun judoka n&apos;est encore rattaché à ce club.</p>
+                  <p className="form-hint">Aucun athlète n&apos;est encore rattaché à ce club.</p>
                 )}
                 {groupEditMembersByCategory(editTeamMembers).map((bucket) => (
                   <section key={bucket.key} className="competition-team-edit-cat">
@@ -2939,7 +2939,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
                             <button
                               type="button"
                               className="btn btn-icon btn-icon-delete"
-                              title="Supprimer le judoka"
+                              title="Supprimer l'athlète"
                               disabled={saving || addingTeamJudoka}
                               onClick={() => handleRemoveEditTeamMember(member)}
                             >
@@ -2965,9 +2965,9 @@ export default function CompetitionSettings({ onBack, onToast }) {
             <div className="competition-team-add-block">
               <div className="competition-cat-block-head">
                 <span className="competition-cat-block-kicker">Nouveau</span>
-                <h4>Ajouter un judoka</h4>
+                <h4>Ajouter un athlète</h4>
               </div>
-              <p className="form-hint">Ajoute un judoka à cette équipe sans passer par les modifications ci-dessus.</p>
+              <p className="form-hint">Ajoute un athlète à cette équipe sans passer par les modifications ci-dessus.</p>
               <form onSubmit={handleAddEditTeamJudoka}>
                 <div className="competition-team-edit-inline-fields competition-team-add-fields">
                   <div className="form-group">
@@ -3029,7 +3029,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
                     className="btn btn-primary"
                     disabled={addingTeamJudoka || saving}
                   >
-                    {addingTeamJudoka ? 'Ajout...' : 'Ajouter le judoka'}
+                    {addingTeamJudoka ? 'Ajout...' : "Ajouter l'athlète"}
                   </button>
                 </div>
               </form>
@@ -3224,7 +3224,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
                             title={
                               countIndividuelJudokasForClub(club.nom) > 0
                                 ? 'Exporter ce club en PDF'
-                                : 'Aucun judoka inscrit pour ce club'
+                                : 'Aucun athlète inscrit pour ce club'
                             }
                             disabled={saving || countIndividuelJudokasForClub(club.nom) < 1}
                             onClick={() => handleExportClubsIndividuelPdf(club.nom)}
@@ -3260,7 +3260,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
                   className="btn btn-outline"
                   disabled={saving || !registrations.some((r) => !isTeamRegistration(r))}
                   onClick={() => handleExportClubsIndividuelPdf()}
-                  title="Exporter les clubs ayant au moins un judoka inscrit"
+                  title="Exporter les clubs ayant au moins un athlète inscrit"
                 >
                   Export
                 </button>
@@ -3351,7 +3351,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
               <div>
                 <h3>Tirage au sort · {drawResult.modeLabel}</h3>
                 <p className="form-hint">
-                  {drawResult.totalFights} combat{drawResult.totalFights > 1 ? 's' : ''} · {drawResult.totalJudokas} judoka{drawResult.totalJudokas > 1 ? 's' : ''}
+                  {drawResult.totalFights} combat{drawResult.totalFights > 1 ? 's' : ''} · {drawResult.totalJudokas} athlète{drawResult.totalJudokas > 1 ? 's' : ''}
                   {drawResult.mode === 'individuel' ? ' · par poids (Garçons / Filles)' : ' · clubs puis catégories de poids'}
                 </p>
               </div>
@@ -3373,7 +3373,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
                 <section key={group.key} className="competition-draw-group">
                   <header>
                     <h4>{group.title}</h4>
-                    <span>{group.count} judoka{group.count > 1 ? 's' : ''}</span>
+                    <span>{group.count} athlète{group.count > 1 ? 's' : ''}</span>
                   </header>
                   {group.mode === 'equipe' ? (
                     <>
@@ -3449,7 +3449,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
               <div>
                 <h3>Licence</h3>
                 <p className="form-hint">
-                  Sélectionnez un ou plusieurs judokas (Individuel et Par équipe) pour générer leur carte.
+                  Sélectionnez un ou plusieurs athlètes (Individuel et Par équipe) pour générer leur carte.
                   Le club sera enregistré automatiquement s&apos;il n&apos;existe pas encore.
                 </p>
               </div>
@@ -3489,7 +3489,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
                   );
                 });
               if (!list.length) {
-                return <p className="form-hint">Aucun judoka trouvé.</p>;
+                return <p className="form-hint">Aucun athlète trouvé.</p>;
               }
               return (
                 <div className="competition-charge-list">

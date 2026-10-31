@@ -239,7 +239,7 @@ export async function fetchJudokas(search = '') {
   const res = await apiFetch(`/api/judokas?search=${encodeURIComponent(search)}`);
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || 'Impossible de charger les judokas');
+    throw new Error(err.error || 'Impossible de charger les athlètes');
   }
   return res.json();
 }
@@ -289,7 +289,7 @@ export async function deleteArbitre(id) {
 
 export async function fetchJudoka(id) {
   const res = await apiFetch(`/api/judokas/${id}`);
-  if (!res.ok) throw new Error('Judoka introuvable');
+  if (!res.ok) throw new Error('Athlète introuvable');
   return res.json();
 }
 
@@ -305,7 +305,7 @@ export async function resolveJudokaFromQrPayload(payload) {
   const res = await apiFetch(`/api/judokas/resolve/qr?${params.toString()}`);
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    const message = err.error || (res.status === 404 ? 'Judoka introuvable dans le système' : 'Impossible de vérifier le QR Code');
+    const message = err.error || (res.status === 404 ? 'Athlète introuvable dans le système' : 'Impossible de vérifier le QR Code');
     const error = new Error(message);
     error.status = res.status;
     throw error;
@@ -417,7 +417,7 @@ export async function fetchPublicClubJudokas(token, club) {
   );
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || 'Impossible de charger les judokas du club');
+    throw new Error(err.error || 'Impossible de charger les athlètes du club');
   }
   return res.json();
 }
@@ -675,7 +675,7 @@ export async function createCompetitionRegistration(data) {
 /** Ajoute plusieurs inscriptions Individuel en une seule requête. */
 export async function createCompetitionRegistrationsBatch(items) {
   const batch = (Array.isArray(items) ? items : []).map(({ _key, ...rest }) => rest);
-  if (!batch.length) throw new Error('Aucun judoka à enregistrer');
+  if (!batch.length) throw new Error('Aucun athlète à enregistrer');
   if (batch.length === 1) {
     const one = await createCompetitionRegistration(batch[0]);
     return { count: 1, registrations: [one] };
@@ -734,7 +734,7 @@ export async function chargeCompetitionTeamFromIndividuel(data) {
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || 'Erreur lors du chargement des judokas');
+    throw new Error(err.error || 'Erreur lors du chargement des athlètes');
   }
   return res.json();
 }
@@ -754,7 +754,7 @@ export async function lookupPublicCompetitionJudoka(token, cardId) {
   );
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || 'Judoka introuvable');
+    throw new Error(err.error || 'Athlète introuvable');
   }
   return res.json();
 }
@@ -1029,6 +1029,27 @@ export async function deleteFederationLogo(id) {
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || 'Impossible de retirer le logo');
+  }
+  return res.json();
+}
+
+export async function fetchFederationSettings() {
+  const res = await apiFetch('/api/federation/settings');
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Impossible de charger le paramétrage');
+  }
+  return res.json();
+}
+
+export async function updateFederationSettings(data) {
+  const res = await apiFetch('/api/federation/settings', {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Enregistrement impossible');
   }
   return res.json();
 }

@@ -1,7 +1,7 @@
 import { jsPDF } from 'jspdf';
 
 function fullName(r) {
-  return `${r.prenom || ''} ${r.nom || ''}`.trim() || 'Judoka';
+  return `${r.prenom || ''} ${r.nom || ''}`.trim() || 'Athlète';
 }
 
 function clip(pdf, text, maxWidth) {
@@ -22,7 +22,7 @@ function roleLabel(r) {
 
 export function exportCompetitionBadgesToPdf(registrations, competition = {}, cadre = 'individuel') {
   if (!registrations?.length) {
-    throw new Error('Aucun judoka à imprimer');
+    throw new Error('Aucun athlète à imprimer');
   }
 
   const isTeam = cadre === 'equipe';

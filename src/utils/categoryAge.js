@@ -55,7 +55,7 @@ export function validateCategoryAge(categorie, dateNaissance) {
   const age = calcAgeFromDate(dateNaissance);
   if (!Number.isFinite(age) || age < 0) return 'Date de naissance invalide';
   if (age < rule.min || age > rule.max) {
-    return `La catégorie ${rule.label} accepte uniquement les judokas de ${rule.min} à ${rule.max} ans (âge actuel : ${age} ans)`;
+    return `La catégorie ${rule.label} accepte uniquement les athlètes de ${rule.min} à ${rule.max} ans (âge actuel : ${age} ans)`;
   }
   return null;
 }

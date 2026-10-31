@@ -55,7 +55,7 @@ export default function GradePassationModal({
       if (instructeurNom) formData.append('instructeur_nom', instructeurNom);
       if (points !== '') formData.append('points', points);
       if (note.trim()) formData.append('note', note.trim());
-      const updated = await updateJudoka(judoka.id, formData);
+      const updated = await updateJudoka(athlète.id, formData);
       await onSuccess(updated);
     } catch (err) {
       setError(err.message);
@@ -69,11 +69,11 @@ export default function GradePassationModal({
       <div className="grade-passation-modal" onClick={(e) => e.stopPropagation()}>
         <h3>Passation de grade</h3>
         <p>
-          Valider le nouveau grade de <strong>{judoka.prenom} {judoka.nom}</strong>
-          {judoka.club ? <> · {judoka.club}</> : null}.
+          Valider le nouveau grade de <strong>{athlète.prenom} {athlète.nom}</strong>
+          {athlète.club ? <> · {athlète.club}</> : null}.
         </p>
         <p className="grade-passation-current">
-          Grade actuel <span>{judoka.grade || '—'}</span>
+          Grade actuel <span>{athlète.grade || '—'}</span>
         </p>
         {mode === 'club' && (
           <p className="form-hint">Passation Club : ceintures Blanche à Marron uniquement.</p>

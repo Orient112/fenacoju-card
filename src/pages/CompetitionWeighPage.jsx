@@ -21,7 +21,7 @@ function teamCategoryLabel(r) {
 }
 
 function teamJudokaName(r) {
-  return `${r.prenom || ''} ${r.nom || ''}`.trim() || 'Judoka';
+  return `${r.prenom || ''} ${r.nom || ''}`.trim() || 'Athlète';
 }
 
 function teamRoleLabel(r) {
@@ -291,7 +291,7 @@ export default function CompetitionWeighPage({ token }) {
             <p>
               {competition.lieu}
               {isTeamMode
-                ? ` · ${teamClubsCount} club${teamClubsCount > 1 ? 's' : ''} · ${filtered.length} judoka${filtered.length > 1 ? 's' : ''}`
+                ? ` · ${teamClubsCount} club${teamClubsCount > 1 ? 's' : ''} · ${filtered.length} athlète${filtered.length > 1 ? 's' : ''}`
                 : ` · ${filtered.length} inscrit${filtered.length > 1 ? 's' : ''}`}
             </p>
           </div>
@@ -304,7 +304,7 @@ export default function CompetitionWeighPage({ token }) {
         {weighComplete && !isTeamMode && (
           <div className="competition-weigh-closed">
             <strong>Pesé Clôturée</strong>
-            <p>Tous les judokas inscrits ont été pesés. Le tirage au sort est disponible sur la page Compétition.</p>
+            <p>Tous les athlètes inscrits ont été pesés. Le tirage au sort est disponible sur la page Compétition.</p>
           </div>
         )}
 
@@ -349,8 +349,8 @@ export default function CompetitionWeighPage({ token }) {
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder={isTeamMode ? 'Rechercher un club, une catégorie ou un judoka...' : 'Rechercher par nom...'}
-            aria-label={isTeamMode ? 'Rechercher un club' : 'Rechercher un judoka par nom'}
+            placeholder={isTeamMode ? 'Rechercher un club, une catégorie ou un athlète...' : 'Rechercher par nom...'}
+            aria-label={isTeamMode ? 'Rechercher un club' : 'Rechercher un athlète par nom'}
           />
         </div>
 
@@ -362,13 +362,13 @@ export default function CompetitionWeighPage({ token }) {
             <p>
               {isTeamMode
                 ? 'Les clubs inscrits en Par équipe apparaîtront ici avec leurs catégories de poids.'
-                : 'Les judokas apparaîtront ici dès qu\'ils s\'inscrivent.'}
+                : 'Les athlètes apparaîtront ici dès qu\'ils s\'inscrivent.'}
             </p>
           </div>
         ) : filtered.length === 0 ? (
           <div className="empty-state">
             <h3>Aucun résultat</h3>
-            <p>{isTeamMode ? 'Aucun club ne correspond aux filtres / recherche.' : 'Aucun judoka ne correspond aux filtres / recherche.'}</p>
+            <p>{isTeamMode ? 'Aucun club ne correspond aux filtres / recherche.' : 'Aucun athlète ne correspond aux filtres / recherche.'}</p>
           </div>
         ) : isTeamMode ? (
           <div className="competition-weigh-list competition-weigh-list-equipe">

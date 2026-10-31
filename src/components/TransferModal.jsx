@@ -94,7 +94,7 @@ export default function TransferModal({
       <div className="transfer-modal" onClick={(e) => e.stopPropagation()}>
         <header className="competition-params-modal-head">
           <div>
-            <h3>{mode === 'inbox' ? 'Transferts judokas' : 'Demande de transfert'}</h3>
+            <h3>{mode === 'inbox' ? 'Transferts athlètes' : 'Demande de transfert'}</h3>
             {mode === 'request' && judoka && (
               <p className="form-hint">
                 {judoka.prenom} {judoka.nom} · Club actuel : <strong>{judoka.club || '—'}</strong>

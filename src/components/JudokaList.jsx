@@ -17,11 +17,11 @@ export default function JudokaList({
     return (
       <div className="empty-state">
         <div className="icon">🥋</div>
-        <h3>Aucun judoka trouvé</h3>
-        <p>Aucun judoka dans votre périmètre d&apos;accès.</p>
+        <h3>Aucun athlète trouvé</h3>
+        <p>Aucun athlète dans votre périmètre d&apos;accès.</p>
         {onAddNew && (
           <button className="btn btn-primary" style={{ marginTop: '1rem' }} onClick={onAddNew}>
-            Enregistrer un judoka
+            Enregistrer un athlète
           </button>
         )}
       </div>

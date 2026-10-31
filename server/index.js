@@ -86,6 +86,10 @@ import {
   getSuperAdminStats,
 } from './federations.js';
 import {
+  getFederationSettingsForUser,
+  saveFederationSettings,
+} from './federationSettings.js';
+import {
   getAllArbitres,
   getArbitreById,
   createArbitre,
@@ -240,8 +244,9 @@ app.post('/api/auth/login', async (req, res) => {
     await ensureAdminExists();
     const result = await login(loginId, password);
     if (!result) return res.status(401).json({ error: 'Identifiant ou mot de passe incorrect' });
+    const federation_settings = await getFederationSettingsForUser(result.user);
 
-    res.json({ ...result, permissions: getPermissions(result.user) });
+    res.json({ ...result, permissions: getPermissions(result.user), federation_settings });
   } catch (err) {
     if (err.code === 'PENDING_ACCOUNT' || err.code === 'REJECTED_ACCOUNT' || err.code === 'NO_LOGIN') {
       return res.status(403).json({ error: err.message, code: err.code });
@@ -263,7 +268,8 @@ app.get('/api/auth/me', async (req, res) => {
     const token = header?.startsWith('Bearer ') ? header.slice(7) : null;
     const user = await getSessionUser(token);
     if (!user) return res.status(401).json({ error: 'Non authentifié' });
-    res.json({ ...user, permissions: getPermissions(user) });
+    const federation_settings = await getFederationSettingsForUser(user);
+    res.json({ ...user, permissions: getPermissions(user), federation_settings });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -796,6 +802,29 @@ app.post('/api/public/competition/:token/register', async (req, res) => {
 });
 
 app.use('/api', authMiddleware);
+
+app.get('/api/federation/settings', async (req, res) => {
+  try {
+    if (req.user.type === 'superadmin') {
+      return res.status(403).json({ error: 'Non applicable au SuperAdmin' });
+    }
+    res.json(await getFederationSettingsForUser(req.user));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/federation/settings', async (req, res) => {
+  try {
+    if (req.user.type !== 'admin') {
+      return res.status(403).json({ error: 'Réservé au compte Admin de la fédération' });
+    }
+    const settings = await saveFederationSettings(req.user, req.body || {});
+    res.json(settings);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
 
 app.get('/api/clubs', async (_req, res) => {
   try {

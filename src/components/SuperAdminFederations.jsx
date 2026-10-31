@@ -252,58 +252,67 @@ export default function SuperAdminFederations({ onToast }) {
       )}
 
       {showForm && (
-        <div className="confirm-overlay" onClick={() => !busy && setShowForm(false)}>
-          <div className="transfer-modal" onClick={(e) => e.stopPropagation()}>
-            <header className="competition-params-modal-head">
+        <div className="confirm-overlay sa-fed-overlay" onClick={() => !busy && setShowForm(false)}>
+          <div className="sa-fed-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-labelledby="sa-fed-modal-title">
+            <div className="sa-fed-modal-banner">
               <div>
-                <h3>Nouvelle fédération</h3>
-                <p className="form-hint">Crée le compte Admin et un espace dédié.</p>
+                <p className="sa-kicker">Nouveau tenant</p>
+                <h3 id="sa-fed-modal-title">Nouvelle fédération</h3>
+                <p>Définissez l&apos;espace et le compte Admin qui en assurera le paramétrage.</p>
               </div>
-              <button type="button" className="btn btn-outline btn-sm" onClick={() => setShowForm(false)} disabled={busy}>
-                Fermer
+              <button type="button" className="sa-fed-modal-close" onClick={() => setShowForm(false)} disabled={busy} aria-label="Fermer">
+                ×
               </button>
-            </header>
-            <form onSubmit={handleSubmit}>
-              <div className="form-group">
-                <label>Nom de la fédération *</label>
-                <input
-                  value={form.nom_federation}
-                  onChange={(e) => setForm((p) => ({ ...p, nom_federation: e.target.value }))}
-                  required
-                  placeholder="Ex. Fédération de Karaté"
-                />
-              </div>
-              <div className="form-grid">
+            </div>
+            <form onSubmit={handleSubmit} className="sa-fed-modal-body">
+              <fieldset className="sa-fed-fieldset">
+                <legend>Fédération</legend>
                 <div className="form-group">
-                  <label>Nom Admin</label>
-                  <input value={form.nom} onChange={(e) => setForm((p) => ({ ...p, nom: e.target.value }))} />
+                  <label>Nom de la fédération *</label>
+                  <input
+                    value={form.nom_federation}
+                    onChange={(e) => setForm((p) => ({ ...p, nom_federation: e.target.value }))}
+                    required
+                    placeholder="Ex. Fédération de Karaté"
+                    autoFocus
+                  />
+                </div>
+              </fieldset>
+              <fieldset className="sa-fed-fieldset">
+                <legend>Compte Admin</legend>
+                <div className="form-grid">
+                  <div className="form-group">
+                    <label>Nom</label>
+                    <input value={form.nom} onChange={(e) => setForm((p) => ({ ...p, nom: e.target.value }))} />
+                  </div>
+                  <div className="form-group">
+                    <label>Prénom</label>
+                    <input value={form.prenom} onChange={(e) => setForm((p) => ({ ...p, prenom: e.target.value }))} />
+                  </div>
                 </div>
                 <div className="form-group">
-                  <label>Prénom Admin</label>
-                  <input value={form.prenom} onChange={(e) => setForm((p) => ({ ...p, prenom: e.target.value }))} />
+                  <label>Identifiant / Email *</label>
+                  <input
+                    type="email"
+                    value={form.email}
+                    onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
+                    required
+                    placeholder="admin@exemple.com"
+                  />
                 </div>
-              </div>
-              <div className="form-group">
-                <label>Identifiant / Email Admin *</label>
-                <input
-                  type="email"
-                  value={form.email}
-                  onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
-                  required
-                  placeholder="admin@exemple.com"
-                />
-              </div>
-              <div className="form-group">
-                <label>Mot de passe Admin *</label>
-                <input
-                  type="password"
-                  value={form.password}
-                  onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
-                  required
-                  minLength={6}
-                />
-              </div>
-              <div className="confirm-actions">
+                <div className="form-group">
+                  <label>Mot de passe *</label>
+                  <input
+                    type="password"
+                    value={form.password}
+                    onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
+                    required
+                    minLength={6}
+                    placeholder="Minimum 6 caractères"
+                  />
+                </div>
+              </fieldset>
+              <div className="sa-fed-modal-actions">
                 <button type="button" className="btn btn-outline" onClick={() => setShowForm(false)} disabled={busy}>
                   Annuler
                 </button>

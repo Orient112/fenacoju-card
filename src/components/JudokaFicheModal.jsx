@@ -73,7 +73,7 @@ export default function JudokaFicheModal({ judoka, onClose, onRequestTransfer })
             <section className="judoka-fiche-history">
               <h4>Historique des mouvements</h4>
               {events.length === 0 ? (
-                <p className="form-hint">Aucun mouvement enregistré pour ce judoka.</p>
+                <p className="form-hint">Aucun mouvement enregistré pour cet athlète.</p>
               ) : (
                 <ul className="judoka-fiche-timeline">
                   {events.map((ev) => (

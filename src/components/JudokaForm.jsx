@@ -260,7 +260,7 @@ export default function JudokaForm({ judoka, lockedClub, registeredClubs = [], e
 
     <div className="form-card form-card-full">
 
-      <h2>{judoka ? 'Modifier le judoka' : 'Nouvel enregistrement'}</h2>
+      <h2>{judoka ? 'Modifier l\'athlète' : 'Nouvel enregistrement'}</h2>
 
       <p className="subtitle">
 
@@ -268,7 +268,7 @@ export default function JudokaForm({ judoka, lockedClub, registeredClubs = [], e
 
           ? `Modification de ${judoka.prenom} ${judoka.nom} — Carte ${judoka.numero_carte}`
 
-          : 'Remplissez le formulaire pour enregistrer un nouveau judoka et générer sa carte'}
+          : 'Remplissez le formulaire pour enregistrer un nouvel athlète et générer sa carte'}
 
       </p>
 
@@ -285,7 +285,7 @@ export default function JudokaForm({ judoka, lockedClub, registeredClubs = [], e
           {allowPhoto && (
           <div className="form-group full-width">
 
-            <label>Photo du judoka</label>
+            <label>Photo de l'athlète</label>
 
 
 

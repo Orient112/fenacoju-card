@@ -3783,6 +3783,359 @@ tbody tr:last-child td {
   height: 14px;
 }
 
+/* SuperAdmin Dashboard */
+.sa-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  animation: fenacoju-rise 0.35s ease both;
+}
+
+.sa-dashboard-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 1.35rem 1.5rem;
+  border-radius: 18px;
+  background:
+    linear-gradient(135deg, rgba(29, 67, 147, 0.94), rgba(18, 45, 102, 0.88)),
+    radial-gradient(circle at 88% 12%, rgba(245, 197, 24, 0.28), transparent 42%);
+  color: #fff;
+  box-shadow: var(--shadow-lg);
+}
+
+.sa-dashboard-hero-copy h2 {
+  margin: 0.15rem 0 0.35rem;
+  font-size: clamp(1.45rem, 2.4vw, 1.9rem);
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+.sa-dashboard-hero-copy p {
+  margin: 0;
+  opacity: 0.88;
+  max-width: 38rem;
+}
+
+.sa-kicker {
+  margin: 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.75;
+  font-weight: 600;
+}
+
+.sa-metric-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.sa-metric {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1.1rem 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  box-shadow: var(--shadow);
+}
+
+.sa-metric-label {
+  color: var(--text-muted);
+  font-size: 0.86rem;
+  font-weight: 500;
+}
+
+.sa-metric-value {
+  font-size: clamp(1.8rem, 3vw, 2.35rem);
+  line-height: 1.1;
+  color: var(--primary);
+  font-family: var(--font-display);
+  letter-spacing: -0.03em;
+}
+
+.sa-metric-federations { border-top: 3px solid var(--primary); }
+.sa-metric-athletes { border-top: 3px solid var(--accent); }
+.sa-metric-clubs { border-top: 3px solid #0f766e; }
+
+.sa-fed-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1rem 1.15rem 1.15rem;
+}
+
+.sa-fed-section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 0.85rem;
+}
+
+.sa-fed-section-head h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.sa-fed-section-head span {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.sa-fed-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.sa-fed-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.75rem 0.85rem;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid #e8eef6;
+}
+
+.sa-fed-row-main {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.sa-fed-avatar {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid var(--border);
+  padding: 4px;
+}
+
+.sa-fed-row-stats {
+  display: flex;
+  gap: 1rem;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+.sa-fed-row-stats b {
+  color: var(--text);
+}
+
+/* Nouvelle fédération modal */
+.sa-fed-overlay {
+  backdrop-filter: blur(4px);
+}
+
+.sa-fed-modal {
+  width: min(560px, calc(100vw - 1.5rem));
+  background: var(--surface);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28);
+  animation: fenacoju-rise 0.28s ease both;
+}
+
+.sa-fed-modal-banner {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem 1.35rem;
+  background:
+    linear-gradient(125deg, #122d66 0%, #1d4393 55%, #274fad 100%);
+  color: #fff;
+}
+
+.sa-fed-modal-banner h3 {
+  margin: 0.2rem 0 0.35rem;
+  font-size: 1.35rem;
+}
+
+.sa-fed-modal-banner p {
+  margin: 0;
+  opacity: 0.88;
+  font-size: 0.92rem;
+}
+
+.sa-fed-modal-close {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.sa-fed-modal-close:hover {
+  background: rgba(255, 255, 255, 0.24);
+}
+
+.sa-fed-modal-body {
+  padding: 1.15rem 1.35rem 1.35rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.95rem;
+}
+
+.sa-fed-fieldset {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 0.85rem 1rem 1rem;
+  margin: 0;
+}
+
+.sa-fed-fieldset legend {
+  padding: 0 0.4rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+
+.sa-fed-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+/* Paramétrage fédération Admin */
+.federation-settings-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.federation-settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.fed-settings-block {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1rem 1.15rem;
+}
+
+.fed-settings-block h3 {
+  margin: 0 0 0.65rem;
+  font-size: 1.02rem;
+  color: var(--primary);
+}
+
+.fed-color-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+
+.fed-color-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.86rem;
+  color: var(--text-muted);
+}
+
+.fed-color-row {
+  display: flex;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.fed-color-row input[type="color"] {
+  width: 42px;
+  height: 38px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.fed-color-row input[type="text"] {
+  flex: 1;
+  min-width: 0;
+}
+
+.fed-color-preview {
+  margin-top: 0.85rem;
+  display: flex;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+  padding: 0.85rem;
+  border-radius: 12px;
+  background: var(--preview-bg, #eef3fa);
+  border: 1px dashed var(--border);
+}
+
+.fed-preview-chip {
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.fed-preview-chip.primary { background: var(--preview-primary, #1D4393); }
+.fed-preview-chip.accent { background: var(--preview-accent, #e30613); }
+.fed-preview-chip.bg {
+  background: #fff;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.fed-role-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-bottom: 0.85rem;
+}
+
+.fed-visibility-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.55rem;
+}
+
+.fed-visibility-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 768px) {
+  .sa-metric-row {
+    grid-template-columns: 1fr;
+  }
+
+  .sa-dashboard-hero {
+    align-items: flex-start;
+  }
+}
+
 .judoka-fiche-head,
 .judoka-fiche-head-actions {
   display: flex;

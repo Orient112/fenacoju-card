@@ -22,7 +22,7 @@ export default function JudokaCard({ judoka }) {
           <img src="/fenacoju-icon.png" alt="FENACOJU" className="card-brand-logo" crossOrigin="anonymous" />
           <div className="card-header-text">
             <span className="card-org">Fédération Nationale Congolaise de Judo</span>
-            <span className="card-year">Carte Judoka {new Date().getFullYear()}</span>
+            <span className="card-year">Carte Athlète {new Date().getFullYear()}</span>
           </div>
         </div>
 

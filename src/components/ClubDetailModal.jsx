@@ -43,7 +43,7 @@ export default function ClubDetailModal({ club, judokas = [], entraineurs = [], 
           <div className="club-sheet-metrics">
             <div className="club-sheet-metric">
               <strong>{judokas.length}</strong>
-              <span>Judokas</span>
+              <span>Athlètes</span>
             </div>
             <div className="club-sheet-metric">
               <strong>{entraineurs.length}</strong>
@@ -132,9 +132,9 @@ export default function ClubDetailModal({ club, judokas = [], entraineurs = [], 
           </section>
 
           <section className="club-sheet-section">
-            <h3>Judokas</h3>
+            <h3>Athlètes</h3>
             {judokas.length === 0 ? (
-              <p className="club-sheet-empty">Aucun judoka enregistré pour ce club</p>
+              <p className="club-sheet-empty">Aucun athlète enregistré pour ce club</p>
             ) : (
               <div className="club-sheet-table-wrap">
                 <table className="club-sheet-table">
