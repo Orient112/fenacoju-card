@@ -2667,10 +2667,52 @@ tbody tr:last-child td {
   gap: 0.75rem;
   padding: 2.5rem 1rem;
   color: var(--text-muted);
+  min-height: 220px;
 }
 
 .page-loader p {
   font-size: 0.9rem;
+}
+
+.brand-loader {
+  position: relative;
+  width: 88px;
+  height: 88px;
+  display: grid;
+  place-items: center;
+}
+
+.brand-loader-logo {
+  width: 54px;
+  height: 54px;
+  object-fit: contain;
+  border-radius: 14px;
+  z-index: 1;
+  background: #fff;
+  padding: 4px;
+}
+
+.brand-loader-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  border-top-color: var(--primary);
+  border-right-color: rgba(29, 67, 147, 0.25);
+  animation: brand-loader-spin 0.9s linear infinite;
+}
+
+@keyframes brand-loader-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-loader-ring {
+    animation: none;
+    border-top-color: var(--primary);
+    border-right-color: var(--primary);
+    opacity: 0.55;
+  }
 }
 
 .table-skeleton {

@@ -84,6 +84,8 @@ import {
   updateFederation,
   deleteFederation,
   getSuperAdminStats,
+  resetFederationAdminPassword,
+  getFederationBrandingForUser,
 } from './federations.js';
 import {
   getFederationSettingsForUser,
@@ -244,9 +246,17 @@ app.post('/api/auth/login', async (req, res) => {
     await ensureAdminExists();
     const result = await login(loginId, password);
     if (!result) return res.status(401).json({ error: 'Identifiant ou mot de passe incorrect' });
-    const federation_settings = await getFederationSettingsForUser(result.user);
+    const [federation_settings, federation_branding] = await Promise.all([
+      getFederationSettingsForUser(result.user),
+      getFederationBrandingForUser(result.user),
+    ]);
 
-    res.json({ ...result, permissions: getPermissions(result.user), federation_settings });
+    res.json({
+      ...result,
+      permissions: getPermissions(result.user),
+      federation_settings,
+      federation_branding,
+    });
   } catch (err) {
     if (err.code === 'PENDING_ACCOUNT' || err.code === 'REJECTED_ACCOUNT' || err.code === 'NO_LOGIN') {
       return res.status(403).json({ error: err.message, code: err.code });
@@ -268,8 +278,16 @@ app.get('/api/auth/me', async (req, res) => {
     const token = header?.startsWith('Bearer ') ? header.slice(7) : null;
     const user = await getSessionUser(token);
     if (!user) return res.status(401).json({ error: 'Non authentifié' });
-    const federation_settings = await getFederationSettingsForUser(user);
-    res.json({ ...user, permissions: getPermissions(user), federation_settings });
+    const [federation_settings, federation_branding] = await Promise.all([
+      getFederationSettingsForUser(user),
+      getFederationBrandingForUser(user),
+    ]);
+    res.json({
+      ...user,
+      permissions: getPermissions(user),
+      federation_settings,
+      federation_branding,
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -964,6 +982,18 @@ app.delete('/api/federations/:id/logo', async (req, res) => {
     res.json(updated);
   } catch (err) {
     res.status(400).json({ error: err.message || 'Impossible de retirer le logo' });
+  }
+});
+
+app.post('/api/federations/:id/reset-admin-password', async (req, res) => {
+  try {
+    if (req.user.type !== 'superadmin') {
+      return res.status(403).json({ error: 'Réservé au SuperAdmin' });
+    }
+    const result = await resetFederationAdminPassword(req.params.id, req.body?.password);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
 });
 

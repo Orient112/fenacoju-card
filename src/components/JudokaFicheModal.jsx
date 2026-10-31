@@ -56,7 +56,13 @@ export default function JudokaFicheModal({ judoka, onClose, onRequestTransfer })
         </header>
 
         {loading ? (
-          <div className="page-loader"><div className="spinner" /><p>Chargement…</p></div>
+          <div className="page-loader">
+          <div className="brand-loader" aria-hidden="true">
+            <span className="brand-loader-ring" />
+            <img src="/fenacoju-logo.png" alt="" className="brand-loader-logo" />
+          </div>
+          <p>Chargement…</p>
+        </div>
         ) : error ? (
           <div className="form-error">{error}</div>
         ) : (

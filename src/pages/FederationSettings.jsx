@@ -51,7 +51,10 @@ export default function FederationSettings({ onBack, onToast, onSettingsSaved })
   if (loading) {
     return (
       <div className="page-loader">
-        <div className="spinner" />
+        <div className="brand-loader" aria-hidden="true">
+          <span className="brand-loader-ring" />
+          <img src="/fenacoju-logo.png" alt="" className="brand-loader-logo" />
+        </div>
         <p>Chargement du paramétrage…</p>
       </div>
     );

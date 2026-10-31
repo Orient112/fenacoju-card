@@ -134,7 +134,13 @@ export default function TransferModal({
             </div>
           </form>
         ) : loading ? (
-          <div className="page-loader"><div className="spinner" /><p>Chargement…</p></div>
+          <div className="page-loader">
+          <div className="brand-loader" aria-hidden="true">
+            <span className="brand-loader-ring" />
+            <img src="/fenacoju-logo.png" alt="" className="brand-loader-logo" />
+          </div>
+          <p>Chargement…</p>
+        </div>
         ) : list.length === 0 ? (
           <p className="form-hint">Aucun transfert.</p>
         ) : (

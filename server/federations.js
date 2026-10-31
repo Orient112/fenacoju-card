@@ -85,6 +85,7 @@ export async function ensureDefaultJudoFederation() {
     id: DEFAULT_JUDO_FEDERATION_ID,
     nom: 'Fédération Nationale Congolaise de Judo',
     slug: 'fenacoju-judo',
+    nom_profil: 'Fight Management',
     logo_url: '',
     admin_user_id: null,
     created_at: new Date().toISOString(),
@@ -113,9 +114,10 @@ export async function ensureDefaultJudoFederation() {
  */
 export async function createFederationWithAdmin({
   nom_federation,
+  nom_profil = '',
   email,
   password,
-  nom = 'Administrateur',
+  nom = '',
   prenom = '',
 }, creator) {
   if (creator?.type !== 'superadmin') {
@@ -123,6 +125,7 @@ export async function createFederationWithAdmin({
   }
   const fedName = String(nom_federation || '').trim();
   if (!fedName) throw new Error('Le nom de la fédération est obligatoire');
+  const profilName = String(nom_profil || '').trim() || fedName;
   const login = String(email || '').trim().toLowerCase();
   if (!login) throw new Error('Identifiant / email Admin obligatoire');
   if (!password || String(password).length < 6) {
@@ -152,6 +155,7 @@ export async function createFederationWithAdmin({
   const federation = {
     id: federationId,
     nom: fedName,
+    nom_profil: profilName,
     slug,
     logo_url: '',
     settings: {},
@@ -165,7 +169,7 @@ export async function createFederationWithAdmin({
     username: login,
     email: login,
     password: hashPassword(password),
-    nom: String(nom || 'Administrateur').trim(),
+    nom: String(nom || '').trim(),
     prenom: String(prenom || '').trim(),
     federation_id: federationId,
     statut: 'actif',
@@ -175,7 +179,11 @@ export async function createFederationWithAdmin({
 
   if (isSupabaseEnabled()) {
     try {
-      const { error: fedErr } = await getSupabase().from('federations').insert(federation);
+      let { error: fedErr } = await getSupabase().from('federations').insert(federation);
+      if (fedErr && /nom_profil|column|schema cache/i.test(fedErr.message || '')) {
+        const { nom_profil: _np, ...withoutProfil } = federation;
+        ({ error: fedErr } = await getSupabase().from('federations').insert(withoutProfil));
+      }
       if (fedErr) throw fedErr;
       const { error: userErr } = await getSupabase().from('users').insert(admin);
       if (userErr) {
@@ -314,6 +322,9 @@ export async function updateFederation(id, patch = {}) {
     if (!nom) throw new Error('Le nom de la fédération est obligatoire');
     next.nom = nom;
   }
+  if (patch.nom_profil !== undefined) {
+    next.nom_profil = String(patch.nom_profil || '').trim();
+  }
   if (patch.slug !== undefined) {
     next.slug = slugify(patch.slug) || next.slug;
   }
@@ -331,6 +342,7 @@ export async function updateFederation(id, patch = {}) {
     try {
       const payload = {
         nom: next.nom,
+        nom_profil: next.nom_profil || '',
         slug: next.slug,
         logo_url: next.logo_url || '',
         admin_user_id: next.admin_user_id,
@@ -344,10 +356,11 @@ export async function updateFederation(id, patch = {}) {
         .eq('id', id)
         .select('*')
         .maybeSingle();
-      if (error && /logo_url|settings|column|schema cache/i.test(error.message || '')) {
+      if (error && /logo_url|settings|nom_profil|column|schema cache/i.test(error.message || '')) {
         const retry = { ...payload };
         if (/logo_url/i.test(error.message || '')) delete retry.logo_url;
         if (/settings/i.test(error.message || '')) delete retry.settings;
+        if (/nom_profil/i.test(error.message || '')) delete retry.nom_profil;
         ({ data, error } = await getSupabase()
           .from('federations')
           .update(retry)
@@ -375,6 +388,33 @@ export async function updateFederation(id, patch = {}) {
     await updateFederationAdminPassword(next, patch.admin_password);
   }
   return next;
+}
+
+export async function resetFederationAdminPassword(id, password) {
+  const federation = await getFederationById(id);
+  if (!federation) throw new Error('Fédération introuvable');
+  await updateFederationAdminPassword(federation, password);
+  return { success: true, id };
+}
+
+export async function getFederationBrandingForUser(user) {
+  if (!user || user.type === 'superadmin') {
+    return {
+      nom: '',
+      nom_profil: 'Fight Management',
+      logo_url: '',
+    };
+  }
+  const fedId = getUserFederationId(user);
+  const fed = await getFederationById(fedId);
+  const nom = fed?.nom || '';
+  const nom_profil = String(fed?.nom_profil || '').trim() || nom || 'Fight Management';
+  return {
+    id: fed?.id || fedId,
+    nom,
+    nom_profil,
+    logo_url: fed?.logo_url || '',
+  };
 }
 
 async function updateFederationAdminPassword(federation, password) {

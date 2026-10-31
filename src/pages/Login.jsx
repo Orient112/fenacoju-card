@@ -19,6 +19,7 @@ export default function Login({ onLogin }) {
         ...data.user,
         permissions: data.permissions,
         federation_settings: data.federation_settings,
+        federation_branding: data.federation_branding,
       });
     } catch (err) {
       setError(err.message);

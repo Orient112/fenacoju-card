@@ -4,19 +4,59 @@ import {
   deleteFederation,
   deleteFederationLogo,
   fetchFederations,
+  resetFederationAdminPassword,
   resolveMediaUrl,
   updateFederation,
   uploadFederationLogo,
 } from '../api';
-import { IconEdit, IconTrash } from './ActionIcons';
+import { IconEdit, IconKey, IconTrash } from './ActionIcons';
 
 const EMPTY_FORM = {
   nom_federation: '',
+  nom_profil: '',
   email: '',
   password: '',
-  nom: 'Administrateur',
+  nom: '',
   prenom: '',
 };
+
+function PasswordField({ id, value, onChange, required = false, placeholder = '', minLength }) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="password-field">
+      <input
+        id={id}
+        type={show ? 'text' : 'password'}
+        value={value}
+        onChange={onChange}
+        required={required}
+        minLength={minLength}
+        placeholder={placeholder}
+        autoComplete="new-password"
+      />
+      <button
+        type="button"
+        className="password-toggle"
+        onClick={() => setShow((v) => !v)}
+        title={show ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+        aria-label={show ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+      >
+        {show ? (
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+            <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+            <line x1="1" y1="1" x2="23" y2="23" />
+          </svg>
+        ) : (
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+            <circle cx="12" cy="12" r="3" />
+          </svg>
+        )}
+      </button>
+    </div>
+  );
+}
 
 export default function SuperAdminFederations({ onToast }) {
   const [loading, setLoading] = useState(true);
@@ -25,10 +65,15 @@ export default function SuperAdminFederations({ onToast }) {
   const [showForm, setShowForm] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [resetTarget, setResetTarget] = useState(null);
+  const [resetPassword, setResetPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
-  const [editForm, setEditForm] = useState({ nom: '', admin_password: '' });
+  const [editForm, setEditForm] = useState({ nom: '', nom_profil: '' });
+  const [createLogoFile, setCreateLogoFile] = useState(null);
+  const [createLogoPreview, setCreateLogoPreview] = useState('');
   const logoInputRef = useRef(null);
+  const createLogoRef = useRef(null);
   const [logoTargetId, setLogoTargetId] = useState(null);
 
   const load = async () => {
@@ -48,15 +93,30 @@ export default function SuperAdminFederations({ onToast }) {
     load();
   }, []);
 
+  useEffect(() => () => {
+    if (createLogoPreview) URL.revokeObjectURL(createLogoPreview);
+  }, [createLogoPreview]);
+
+  const closeCreateForm = () => {
+    setShowForm(false);
+    setForm(EMPTY_FORM);
+    setCreateLogoFile(null);
+    if (createLogoPreview) URL.revokeObjectURL(createLogoPreview);
+    setCreateLogoPreview('');
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setBusy(true);
     setError('');
     try {
       const result = await createFederation(form);
-      onToast?.(`Fédération créée : ${result.federation?.nom}`);
-      setShowForm(false);
-      setForm(EMPTY_FORM);
+      let federation = result.federation;
+      if (createLogoFile && federation?.id) {
+        federation = await uploadFederationLogo(federation.id, createLogoFile);
+      }
+      onToast?.(`Fédération créée : ${federation?.nom || result.federation?.nom}`);
+      closeCreateForm();
       await load();
     } catch (err) {
       setError(err.message);
@@ -67,7 +127,7 @@ export default function SuperAdminFederations({ onToast }) {
 
   const openEdit = (f) => {
     setEditTarget(f);
-    setEditForm({ nom: f.nom || '', admin_password: '' });
+    setEditForm({ nom: f.nom || '', nom_profil: f.nom_profil || '' });
     setError('');
   };
 
@@ -77,9 +137,10 @@ export default function SuperAdminFederations({ onToast }) {
     setBusy(true);
     setError('');
     try {
-      const payload = { nom: editForm.nom };
-      if (editForm.admin_password) payload.admin_password = editForm.admin_password;
-      await updateFederation(editTarget.id, payload);
+      await updateFederation(editTarget.id, {
+        nom: editForm.nom,
+        nom_profil: editForm.nom_profil,
+      });
       onToast?.('Fédération mise à jour');
       setEditTarget(null);
       await load();
@@ -99,6 +160,23 @@ export default function SuperAdminFederations({ onToast }) {
       onToast?.(`Fédération supprimée : ${deleteTarget.nom}`);
       setDeleteTarget(null);
       await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    if (!resetTarget) return;
+    setBusy(true);
+    setError('');
+    try {
+      await resetFederationAdminPassword(resetTarget.id, resetPassword);
+      onToast?.(`Mot de passe Admin réinitialisé pour ${resetTarget.nom}`);
+      setResetTarget(null);
+      setResetPassword('');
     } catch (err) {
       setError(err.message);
     } finally {
@@ -151,6 +229,15 @@ export default function SuperAdminFederations({ onToast }) {
     }
   };
 
+  const onCreateLogoSelected = (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (createLogoPreview) URL.revokeObjectURL(createLogoPreview);
+    setCreateLogoFile(file);
+    setCreateLogoPreview(URL.createObjectURL(file));
+  };
+
   return (
     <div className="superadmin-panel">
       <input
@@ -159,6 +246,13 @@ export default function SuperAdminFederations({ onToast }) {
         accept="image/jpeg,image/png,image/webp"
         hidden
         onChange={onLogoSelected}
+      />
+      <input
+        ref={createLogoRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        hidden
+        onChange={onCreateLogoSelected}
       />
 
       <div className="list-toolbar">
@@ -173,7 +267,13 @@ export default function SuperAdminFederations({ onToast }) {
       {error && <div className="form-error">{error}</div>}
 
       {loading ? (
-        <div className="page-loader"><div className="spinner" /><p>Chargement…</p></div>
+        <div className="page-loader">
+          <div className="brand-loader" aria-hidden="true">
+            <span className="brand-loader-ring" />
+            <img src="/fenacoju-logo.png" alt="" className="brand-loader-logo" />
+          </div>
+          <p>Chargement…</p>
+        </div>
       ) : list.length === 0 ? (
         <div className="empty-state">
           <h3>Aucune fédération</h3>
@@ -210,6 +310,7 @@ export default function SuperAdminFederations({ onToast }) {
                 </td>
                 <td data-label="Fédération">
                   <strong>{f.nom}</strong>
+                  {f.nom_profil ? <div className="judoka-club">{f.nom_profil}</div> : null}
                   {f.slug ? <div className="judoka-club">{f.slug}</div> : null}
                 </td>
                 <td data-label="Admin">
@@ -236,6 +337,20 @@ export default function SuperAdminFederations({ onToast }) {
                     <button
                       type="button"
                       className="btn btn-outline btn-sm"
+                      onClick={() => {
+                        setResetTarget(f);
+                        setResetPassword('');
+                        setError('');
+                      }}
+                      title="Réinitialiser le mot de passe Admin"
+                      disabled={busy}
+                    >
+                      <IconKey />
+                      <span>Réinitialiser</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm"
                       onClick={() => setDeleteTarget(f)}
                       title="Supprimer"
                       disabled={busy}
@@ -252,7 +367,7 @@ export default function SuperAdminFederations({ onToast }) {
       )}
 
       {showForm && (
-        <div className="confirm-overlay sa-fed-overlay" onClick={() => !busy && setShowForm(false)}>
+        <div className="confirm-overlay sa-fed-overlay" onClick={() => !busy && closeCreateForm()}>
           <div className="sa-fed-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-labelledby="sa-fed-modal-title">
             <div className="sa-fed-modal-banner">
               <div>
@@ -260,7 +375,7 @@ export default function SuperAdminFederations({ onToast }) {
                 <h3 id="sa-fed-modal-title">Nouvelle fédération</h3>
                 <p>Définissez l&apos;espace et le compte Admin qui en assurera le paramétrage.</p>
               </div>
-              <button type="button" className="sa-fed-modal-close" onClick={() => setShowForm(false)} disabled={busy} aria-label="Fermer">
+              <button type="button" className="sa-fed-modal-close" onClick={closeCreateForm} disabled={busy} aria-label="Fermer">
                 ×
               </button>
             </div>
@@ -276,6 +391,44 @@ export default function SuperAdminFederations({ onToast }) {
                     placeholder="Ex. Fédération de Karaté"
                     autoFocus
                   />
+                </div>
+                <div className="form-group">
+                  <label>Nom Profil *</label>
+                  <input
+                    value={form.nom_profil}
+                    onChange={(e) => setForm((p) => ({ ...p, nom_profil: e.target.value }))}
+                    required
+                    placeholder="Affiché dans la bande des menus"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Logo</label>
+                  <div className="superadmin-logo-edit">
+                    <img
+                      src={createLogoPreview || '/fenacoju-logo.png'}
+                      alt=""
+                      className="superadmin-fed-logo lg"
+                    />
+                    <div className="confirm-actions" style={{ margin: 0 }}>
+                      <button type="button" className="btn btn-outline btn-sm" onClick={() => createLogoRef.current?.click()} disabled={busy}>
+                        Charger un logo
+                      </button>
+                      {createLogoFile ? (
+                        <button
+                          type="button"
+                          className="btn btn-outline btn-sm"
+                          onClick={() => {
+                            if (createLogoPreview) URL.revokeObjectURL(createLogoPreview);
+                            setCreateLogoFile(null);
+                            setCreateLogoPreview('');
+                          }}
+                          disabled={busy}
+                        >
+                          Retirer
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
                 </div>
               </fieldset>
               <fieldset className="sa-fed-fieldset">
@@ -301,9 +454,9 @@ export default function SuperAdminFederations({ onToast }) {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Mot de passe *</label>
-                  <input
-                    type="password"
+                  <label htmlFor="sa-fed-password">Mot de passe *</label>
+                  <PasswordField
+                    id="sa-fed-password"
                     value={form.password}
                     onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
                     required
@@ -313,7 +466,7 @@ export default function SuperAdminFederations({ onToast }) {
                 </div>
               </fieldset>
               <div className="sa-fed-modal-actions">
-                <button type="button" className="btn btn-outline" onClick={() => setShowForm(false)} disabled={busy}>
+                <button type="button" className="btn btn-outline" onClick={closeCreateForm} disabled={busy}>
                   Annuler
                 </button>
                 <button type="submit" className="btn btn-primary" disabled={busy}>
@@ -367,13 +520,12 @@ export default function SuperAdminFederations({ onToast }) {
                 />
               </div>
               <div className="form-group">
-                <label>Nouvel mot de passe Admin (optionnel)</label>
+                <label>Nom Profil *</label>
                 <input
-                  type="password"
-                  value={editForm.admin_password}
-                  onChange={(e) => setEditForm((p) => ({ ...p, admin_password: e.target.value }))}
-                  minLength={6}
-                  placeholder="Laisser vide pour ne pas changer"
+                  value={editForm.nom_profil}
+                  onChange={(e) => setEditForm((p) => ({ ...p, nom_profil: e.target.value }))}
+                  required
+                  placeholder="Affiché dans la bande des menus"
                 />
               </div>
               <div className="confirm-actions">
@@ -382,6 +534,45 @@ export default function SuperAdminFederations({ onToast }) {
                 </button>
                 <button type="submit" className="btn btn-primary" disabled={busy}>
                   {busy ? 'Enregistrement…' : 'Enregistrer'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {resetTarget && (
+        <div className="confirm-overlay" onClick={() => !busy && setResetTarget(null)}>
+          <div className="transfer-modal" onClick={(e) => e.stopPropagation()}>
+            <header className="competition-params-modal-head">
+              <div>
+                <h3>Réinitialiser le mot de passe</h3>
+                <p className="form-hint">
+                  Définissez un nouveau mot de passe pour l&apos;Admin de « {resetTarget.nom} » sans connaître l&apos;ancien.
+                </p>
+              </div>
+              <button type="button" className="btn btn-outline btn-sm" onClick={() => setResetTarget(null)} disabled={busy}>
+                Fermer
+              </button>
+            </header>
+            <form onSubmit={handleResetPassword}>
+              <div className="form-group">
+                <label htmlFor="sa-reset-password">Nouveau mot de passe *</label>
+                <PasswordField
+                  id="sa-reset-password"
+                  value={resetPassword}
+                  onChange={(e) => setResetPassword(e.target.value)}
+                  required
+                  minLength={6}
+                  placeholder="Minimum 6 caractères"
+                />
+              </div>
+              <div className="confirm-actions">
+                <button type="button" className="btn btn-outline" onClick={() => setResetTarget(null)} disabled={busy}>
+                  Annuler
+                </button>
+                <button type="submit" className="btn btn-primary" disabled={busy}>
+                  {busy ? 'Réinitialisation…' : 'Réinitialiser'}
                 </button>
               </div>
             </form>

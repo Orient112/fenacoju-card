@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { fetchSuperAdminStats, resolveMediaUrl } from '../api';
 
-export default function SuperAdminDashboard({ onManageFederations }) {
+export default function SuperAdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [stats, setStats] = useState({
@@ -31,7 +31,10 @@ export default function SuperAdminDashboard({ onManageFederations }) {
   if (loading) {
     return (
       <div className="page-loader">
-        <div className="spinner" />
+        <div className="brand-loader" aria-hidden="true">
+          <span className="brand-loader-ring" />
+          <img src="/fenacoju-logo.png" alt="" className="brand-loader-logo" />
+        </div>
         <p>Chargement du tableau de bord…</p>
       </div>
     );
@@ -45,11 +48,6 @@ export default function SuperAdminDashboard({ onManageFederations }) {
           <h2>Vue d&apos;ensemble</h2>
           <p>Pilotage consolidé de toutes les fédérations du système.</p>
         </div>
-        {onManageFederations && (
-          <button type="button" className="btn btn-primary" onClick={onManageFederations}>
-            Gérer les fédérations
-          </button>
-        )}
       </header>
 
       {error && <div className="form-error">{error}</div>}

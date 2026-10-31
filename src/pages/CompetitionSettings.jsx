@@ -2048,7 +2048,10 @@ export default function CompetitionSettings({ onBack, onToast }) {
   if (loading) {
     return (
       <div className="page-loader">
-        <div className="spinner" />
+        <div className="brand-loader" aria-hidden="true">
+          <span className="brand-loader-ring" />
+          <img src="/fenacoju-logo.png" alt="" className="brand-loader-logo" />
+        </div>
         <p>Chargement de la compétition...</p>
       </div>
     );

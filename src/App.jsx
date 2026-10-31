@@ -66,7 +66,10 @@ const SuperAdminDashboard = lazy(() => import('./components/SuperAdminDashboard'
 function PageLoader({ label = 'Chargement...' }) {
   return (
     <div className="page-loader">
-      <div className="spinner" />
+      <div className="brand-loader" aria-hidden="true">
+        <span className="brand-loader-ring" />
+        <img src="/fenacoju-logo.png" alt="" className="brand-loader-logo" />
+      </div>
       <p>{label}</p>
     </div>
   );
@@ -795,7 +798,10 @@ export default function App() {
     return (
       <div className="login-page">
         <div className="loading-state">
-          <div className="spinner" />
+          <div className="brand-loader" aria-hidden="true">
+            <span className="brand-loader-ring" />
+            <img src="/fenacoju-logo.png" alt="" className="brand-loader-logo" />
+          </div>
           <p>Chargement...</p>
         </div>
       </div>
@@ -817,6 +823,17 @@ export default function App() {
       />
     );
   }
+
+  const brandTitle = user.type === 'superadmin'
+    ? 'Fight Management'
+    : (user.federation_branding?.nom_profil
+      || user.federation_branding?.nom
+      || 'Fight Management');
+  const brandLogo = user.type === 'superadmin'
+    ? '/fenacoju-logo.png'
+    : (user.federation_branding?.logo_url
+      ? resolveMediaUrl(user.federation_branding.logo_url)
+      : '/fenacoju-logo.png');
 
   return (
     <>
@@ -882,12 +899,7 @@ export default function App() {
         {view === 'list' && user.type === 'superadmin' && dashboardTab !== 'federations' && (
           <div className="dashboard-workspace">
             <Suspense fallback={<PageLoader label="Chargement du tableau de bord..." />}>
-              <SuperAdminDashboard
-                onManageFederations={() => {
-                  setDashboardTab('federations');
-                  setView('list');
-                }}
-              />
+              <SuperAdminDashboard />
             </Suspense>
           </div>
         )}
@@ -1393,12 +1405,12 @@ export default function App() {
 
         <header className="header app-rail">
           <div className="header-brand">
-            <img src="/fenacoju-logo.png" alt="FENACOJU" className="header-logo-img" width="52" height="52" decoding="async" />
+            <img src={brandLogo} alt="" className="header-logo-img" width="52" height="52" decoding="async" />
             <div>
-              <h1>Fight Management</h1>
+              <h1>{brandTitle}</h1>
               <p>
                 {user.type === 'superadmin'
-                  ? 'Console SuperAdmin — gestion des fédérations'
+                  ? 'Console SuperAdmin - gestion des fédérations'
                   : 'Système intégral de gestion des arts martiaux'}
               </p>
             </div>

@@ -245,7 +245,10 @@ export default function CompetitionWeighPage({ token }) {
     return (
       <div className="competition-public-page">
         <div className="page-loader">
-          <div className="spinner" />
+          <div className="brand-loader" aria-hidden="true">
+            <span className="brand-loader-ring" />
+            <img src="/fenacoju-logo.png" alt="" className="brand-loader-logo" />
+          </div>
           <p>Chargement de la pesée...</p>
         </div>
       </div>

@@ -1010,6 +1010,18 @@ export async function deleteFederation(id) {
   return res.json();
 }
 
+export async function resetFederationAdminPassword(id, password) {
+  const res = await apiFetch(`/api/federations/${id}/reset-admin-password`, {
+    method: 'POST',
+    body: JSON.stringify({ password }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Réinitialisation impossible');
+  }
+  return res.json();
+}
+
 export async function uploadFederationLogo(id, file) {
   const formData = new FormData();
   formData.append('logo', file);
