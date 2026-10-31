@@ -66,6 +66,19 @@ async function apiFetch(url, options = {}) {
     window.dispatchEvent(new Event('auth:logout'));
   }
 
+  if (res.status === 403 && !url.includes('/auth/login')) {
+    try {
+      const clone = res.clone();
+      const data = await clone.json();
+      if (data?.code === 'FEDERATION_DISABLED') {
+        clearToken();
+        window.dispatchEvent(new Event('auth:logout'));
+      }
+    } catch {
+      // ignore parse errors
+    }
+  }
+
   return res;
 }
 
@@ -1018,6 +1031,18 @@ export async function resetFederationAdminPassword(id, password) {
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || 'Réinitialisation impossible');
+  }
+  return res.json();
+}
+
+export async function toggleFederationActive(id, actif) {
+  const res = await apiFetch(`/api/federations/${id}/toggle-active`, {
+    method: 'POST',
+    body: JSON.stringify({ actif }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Impossible de modifier l\'activation');
   }
   return res.json();
 }

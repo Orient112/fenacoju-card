@@ -43,6 +43,27 @@ export function getUserFederationId(user) {
   return user.federation_id || DEFAULT_JUDO_FEDERATION_ID;
 }
 
+/** true par défaut si le champ est absent (rétrocompatibilité). */
+export function isFederationEnabled(federation) {
+  if (!federation) return true;
+  if (federation.actif === false || federation.actif === 'false' || federation.actif === 0) {
+    return false;
+  }
+  return true;
+}
+
+export async function assertUserFederationEnabled(user) {
+  if (!user || user.type === 'superadmin') return true;
+  const fedId = getUserFederationId(user);
+  const fed = await getFederationById(fedId);
+  if (!isFederationEnabled(fed)) {
+    const err = new Error('Cette fédération est désactivée. Contactez le SuperAdmin.');
+    err.code = 'FEDERATION_DISABLED';
+    throw err;
+  }
+  return true;
+}
+
 export async function listFederations() {
   if (isSupabaseEnabled()) {
     try {
@@ -87,6 +108,7 @@ export async function ensureDefaultJudoFederation() {
     slug: 'fenacoju-judo',
     nom_profil: 'Fight Management',
     logo_url: '',
+    actif: true,
     admin_user_id: null,
     created_at: new Date().toISOString(),
   };
@@ -158,6 +180,7 @@ export async function createFederationWithAdmin({
     nom_profil: profilName,
     slug,
     logo_url: '',
+    actif: true,
     settings: {},
     admin_user_id: adminId,
     created_at: new Date().toISOString(),
@@ -180,9 +203,11 @@ export async function createFederationWithAdmin({
   if (isSupabaseEnabled()) {
     try {
       let { error: fedErr } = await getSupabase().from('federations').insert(federation);
-      if (fedErr && /nom_profil|column|schema cache/i.test(fedErr.message || '')) {
-        const { nom_profil: _np, ...withoutProfil } = federation;
-        ({ error: fedErr } = await getSupabase().from('federations').insert(withoutProfil));
+      if (fedErr && /nom_profil|actif|column|schema cache/i.test(fedErr.message || '')) {
+        const retry = { ...federation };
+        if (/nom_profil/i.test(fedErr.message || '')) delete retry.nom_profil;
+        if (/actif/i.test(fedErr.message || '')) delete retry.actif;
+        ({ error: fedErr } = await getSupabase().from('federations').insert(retry));
       }
       if (fedErr) throw fedErr;
       const { error: userErr } = await getSupabase().from('users').insert(admin);
@@ -337,6 +362,9 @@ export async function updateFederation(id, patch = {}) {
   if (patch.settings !== undefined) {
     next.settings = patch.settings && typeof patch.settings === 'object' ? patch.settings : {};
   }
+  if (patch.actif !== undefined) {
+    next.actif = Boolean(patch.actif);
+  }
 
   if (isSupabaseEnabled()) {
     try {
@@ -346,6 +374,7 @@ export async function updateFederation(id, patch = {}) {
         slug: next.slug,
         logo_url: next.logo_url || '',
         admin_user_id: next.admin_user_id,
+        actif: next.actif !== false,
       };
       if (patch.settings !== undefined) {
         payload.settings = next.settings || {};
@@ -356,11 +385,12 @@ export async function updateFederation(id, patch = {}) {
         .eq('id', id)
         .select('*')
         .maybeSingle();
-      if (error && /logo_url|settings|nom_profil|column|schema cache/i.test(error.message || '')) {
+      if (error && /logo_url|settings|nom_profil|actif|column|schema cache/i.test(error.message || '')) {
         const retry = { ...payload };
         if (/logo_url/i.test(error.message || '')) delete retry.logo_url;
         if (/settings/i.test(error.message || '')) delete retry.settings;
         if (/nom_profil/i.test(error.message || '')) delete retry.nom_profil;
+        if (/actif/i.test(error.message || '')) delete retry.actif;
         ({ data, error } = await getSupabase()
           .from('federations')
           .update(retry)
@@ -395,6 +425,13 @@ export async function resetFederationAdminPassword(id, password) {
   if (!federation) throw new Error('Fédération introuvable');
   await updateFederationAdminPassword(federation, password);
   return { success: true, id };
+}
+
+export async function setFederationActive(id, actif) {
+  const federation = await getFederationById(id);
+  if (!federation) throw new Error('Fédération introuvable');
+  const updated = await updateFederation(id, { actif: Boolean(actif) });
+  return updated;
 }
 
 export async function getFederationBrandingForUser(user) {

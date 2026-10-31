@@ -302,6 +302,12 @@ export async function login(identifier, password) {
     }
   }
 
+  // Fédération désactivée : aucun compte attaché ne peut se connecter (données conservées)
+  if (user.type !== 'superadmin') {
+    const { assertUserFederationEnabled } = await import('./federations.js');
+    await assertUserFederationEnabled(user);
+  }
+
   const token = crypto.randomBytes(32).toString('hex');
   await writeSession(token, user.id);
   return { token, user: sanitizeUser(user) };

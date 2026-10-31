@@ -109,6 +109,15 @@ export function IconCheck() {
   );
 }
 
+export function IconPower() {
+  return (
+    <svg {...svgProps}>
+      <path d="M12 2v10" />
+      <path d="M6.2 6.2a7 7 0 1 0 11.6 0" />
+    </svg>
+  );
+}
+
 export function IconAlert() {
   return (
     <svg {...svgProps}>

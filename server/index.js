@@ -86,6 +86,8 @@ import {
   getSuperAdminStats,
   resetFederationAdminPassword,
   getFederationBrandingForUser,
+  setFederationActive,
+  isFederationEnabled,
 } from './federations.js';
 import {
   getFederationSettingsForUser,
@@ -258,7 +260,12 @@ app.post('/api/auth/login', async (req, res) => {
       federation_branding,
     });
   } catch (err) {
-    if (err.code === 'PENDING_ACCOUNT' || err.code === 'REJECTED_ACCOUNT' || err.code === 'NO_LOGIN') {
+    if (
+      err.code === 'PENDING_ACCOUNT'
+      || err.code === 'REJECTED_ACCOUNT'
+      || err.code === 'NO_LOGIN'
+      || err.code === 'FEDERATION_DISABLED'
+    ) {
       return res.status(403).json({ error: err.message, code: err.code });
     }
     res.status(500).json({ error: err.message });
@@ -992,6 +999,23 @@ app.post('/api/federations/:id/reset-admin-password', async (req, res) => {
     }
     const result = await resetFederationAdminPassword(req.params.id, req.body?.password);
     res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/federations/:id/toggle-active', async (req, res) => {
+  try {
+    if (req.user.type !== 'superadmin') {
+      return res.status(403).json({ error: 'Réservé au SuperAdmin' });
+    }
+    const existing = await getFederationById(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Fédération introuvable' });
+    const nextActif = req.body?.actif !== undefined
+      ? Boolean(req.body.actif)
+      : !isFederationEnabled(existing);
+    const updated = await setFederationActive(req.params.id, nextActif);
+    res.json(updated);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

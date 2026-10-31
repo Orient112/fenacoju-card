@@ -6,11 +6,16 @@ import {
   fetchFederations,
   resetFederationAdminPassword,
   resolveMediaUrl,
+  toggleFederationActive,
   updateFederation,
   uploadFederationLogo,
 } from '../api';
-import { IconEdit, IconKey, IconTrash } from './ActionIcons';
+import { IconEdit, IconKey, IconPower, IconTrash } from './ActionIcons';
 import BrandLoader from './BrandLoader';
+
+function isFedActive(f) {
+  return f?.actif !== false;
+}
 
 const EMPTY_FORM = {
   nom_federation: '',
@@ -188,6 +193,28 @@ export default function SuperAdminFederations({ onToast }) {
     }
   };
 
+  const handleToggleActive = async (f) => {
+    const currentlyActive = isFedActive(f);
+    const next = !currentlyActive;
+    const confirmMsg = next
+      ? `Réactiver la fédération « ${f.nom} » ? Les comptes pourront à nouveau se connecter.`
+      : `Désactiver la fédération « ${f.nom} » ? Tous les comptes attachés ne pourront plus se connecter. Les données sont conservées.`;
+    if (!window.confirm(confirmMsg)) return;
+    setBusy(true);
+    setError('');
+    try {
+      await toggleFederationActive(f.id, next);
+      onToast?.(next
+        ? `Fédération activée : ${f.nom}`
+        : `Fédération désactivée : ${f.nom}`);
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const pickLogo = (federationId) => {
     setLogoTargetId(federationId);
     logoInputRef.current?.click();
@@ -310,6 +337,9 @@ export default function SuperAdminFederations({ onToast }) {
                   <strong>{f.nom}</strong>
                   {f.nom_profil ? <div className="judoka-club">{f.nom_profil}</div> : null}
                   {f.slug ? <div className="judoka-club">{f.slug}</div> : null}
+                  <div className={`fed-status-chip ${isFedActive(f) ? 'is-on' : 'is-off'}`}>
+                    {isFedActive(f) ? 'Activée' : 'Désactivée'}
+                  </div>
                 </td>
                 <td data-label="Admin">
                   {f.admin?.email || f.admin?.username || '—'}
@@ -355,6 +385,16 @@ export default function SuperAdminFederations({ onToast }) {
                     >
                       <IconTrash />
                       <span>Supprimer</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={`btn btn-sm fed-toggle-btn ${isFedActive(f) ? 'is-on' : 'is-off'}`}
+                      onClick={() => handleToggleActive(f)}
+                      title={isFedActive(f) ? 'Désactiver la fédération' : 'Activer la fédération'}
+                      disabled={busy}
+                    >
+                      <IconPower />
+                      <span>{isFedActive(f) ? 'Activer' : 'Désactiver'}</span>
                     </button>
                   </div>
                 </td>

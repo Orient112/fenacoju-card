@@ -3884,6 +3884,48 @@ tbody tr:last-child td {
   height: 14px;
 }
 
+.fed-status-chip {
+  display: inline-flex;
+  margin-top: 0.35rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.fed-status-chip.is-on {
+  background: rgba(22, 163, 74, 0.12);
+  color: #15803d;
+}
+
+.fed-status-chip.is-off {
+  background: rgba(227, 6, 19, 0.1);
+  color: #b91c1c;
+}
+
+.fed-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid transparent;
+}
+
+.fed-toggle-btn.is-on {
+  background: rgba(22, 163, 74, 0.12);
+  color: #15803d;
+  border-color: rgba(22, 163, 74, 0.28);
+}
+
+.fed-toggle-btn.is-off {
+  background: rgba(227, 6, 19, 0.1);
+  color: #b91c1c;
+  border-color: rgba(227, 6, 19, 0.25);
+}
+
+.fed-toggle-btn:hover:not(:disabled) {
+  filter: brightness(0.97);
+}
+
 /* SuperAdmin Dashboard */
 .sa-dashboard {
   display: flex;
