@@ -57,7 +57,7 @@ export async function assertUserFederationEnabled(user) {
   const fedId = getUserFederationId(user);
   const fed = await getFederationById(fedId);
   if (!isFederationEnabled(fed)) {
-    const err = new Error('Cette fédération est désactivée. Contactez le SuperAdmin.');
+    const err = new Error('Cette fédération est désactivée.');
     err.code = 'FEDERATION_DISABLED';
     throw err;
   }

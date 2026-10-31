@@ -354,47 +354,47 @@ export default function SuperAdminFederations({ onToast }) {
                   <div className="row-actions">
                     <button
                       type="button"
-                      className="btn btn-outline btn-sm"
+                      className="btn btn-outline btn-icon btn-sm"
                       onClick={() => openEdit(f)}
-                      title="Modifier / paramétrer"
+                      title="Modifier"
+                      aria-label="Modifier"
                       disabled={busy}
                     >
                       <IconEdit />
-                      <span>Modifier</span>
                     </button>
                     <button
                       type="button"
-                      className="btn btn-outline btn-sm"
+                      className="btn btn-outline btn-icon btn-sm"
                       onClick={() => {
                         setResetTarget(f);
                         setResetPassword('');
                         setError('');
                       }}
                       title="Réinitialiser le mot de passe Admin"
+                      aria-label="Réinitialiser le mot de passe Admin"
                       disabled={busy}
                     >
                       <IconKey />
-                      <span>Réinitialiser</span>
                     </button>
                     <button
                       type="button"
-                      className="btn btn-outline btn-sm"
+                      className="btn btn-outline btn-icon btn-sm"
                       onClick={() => setDeleteTarget(f)}
                       title="Supprimer"
+                      aria-label="Supprimer"
                       disabled={busy}
                     >
                       <IconTrash />
-                      <span>Supprimer</span>
                     </button>
                     <button
                       type="button"
-                      className={`btn btn-sm fed-toggle-btn ${isFedActive(f) ? 'is-on' : 'is-off'}`}
+                      className={`btn btn-icon btn-sm fed-toggle-btn ${isFedActive(f) ? 'is-on' : 'is-off'}`}
                       onClick={() => handleToggleActive(f)}
-                      title={isFedActive(f) ? 'Désactiver la fédération' : 'Activer la fédération'}
+                      title={isFedActive(f) ? 'Désactiver' : 'Activer'}
+                      aria-label={isFedActive(f) ? 'Désactiver' : 'Activer'}
                       disabled={busy}
                     >
                       <IconPower />
-                      <span>{isFedActive(f) ? 'Activer' : 'Désactiver'}</span>
                     </button>
                   </div>
                 </td>
