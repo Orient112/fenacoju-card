@@ -111,9 +111,13 @@ export async function createJudoka(data) {
   if (isSupabaseEnabled()) {
     let { error } = await getSupabase().from('judokas').insert(row);
     // Colonnes optionnelles absentes (migration non appliquée) → réessayer sans elles
-    if (error && /taille|poids|column|schema cache/i.test(error.message || '')) {
-      const { taille, poids, ...rest } = row;
+    if (error && /taille|poids|federation_id|column|schema cache/i.test(error.message || '')) {
+      const { taille, poids, federation_id, ...rest } = row;
       ({ error } = await getSupabase().from('judokas').insert(rest));
+      if (error && /taille|poids|column|schema cache/i.test(error.message || '')) {
+        const { taille: _t, poids: _p, ...minimal } = rest;
+        ({ error } = await getSupabase().from('judokas').insert(minimal));
+      }
     }
     if (error) throw new Error(error.message);
     return;

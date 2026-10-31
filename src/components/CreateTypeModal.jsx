@@ -14,7 +14,7 @@ const FEDERATION_CHOICES = [
   },
 ];
 
-const TYPE_ORDER = ['federation', 'ligue', 'entente', 'club', 'entraineur', 'arbitre'];
+const TYPE_ORDER = ['admin', 'federation', 'ligue', 'entente', 'club', 'entraineur', 'arbitre'];
 
 function buildDisplayTypes(allowedTypes, includeArbitre, groupFederation) {
   const allowed = new Set(allowedTypes?.length ? allowedTypes : Object.keys(USER_TYPES));

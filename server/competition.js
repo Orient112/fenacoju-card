@@ -274,8 +274,8 @@ function toDbSettings(settings) {
   const cats = parseCategoriesPoids(settings.categories_poids);
   const indivCats = parseCategoriesPoids(settings.categories_poids_individuel);
   const cleanDesc = String(settings.description || '').replace(META_RE, '').trimEnd();
-  return {
-    id: 1,
+  const row = {
+    id: settings.id || 1,
     access_enabled: Boolean(settings.access_enabled),
     nom: settings.nom || '',
     date_debut: settings.date_debut || null,
@@ -302,6 +302,8 @@ function toDbSettings(settings) {
     public_token: settings.public_token || '',
     updated_at: settings.updated_at,
   };
+  if (settings.federation_id) row.federation_id = settings.federation_id;
+  return row;
 }
 
 function readSettingsJson() {
@@ -329,22 +331,62 @@ function writeRegistrationsJson(list) {
   fs.writeFileSync(registrationsPath, JSON.stringify(list, null, 2));
 }
 
-export async function getCompetitionSettings() {
+export async function getCompetitionSettingsByPublicToken(token) {
+  const raw = String(token || '').trim();
+  if (!raw) return null;
   if (isSupabaseEnabled()) {
     try {
       const { data, error } = await getSupabase()
         .from('competition_settings')
         .select('*')
-        .eq('id', 1)
+        .eq('public_token', raw)
         .maybeSingle();
       if (error) throw error;
+      if (data) return ensureDefaults(data);
+    } catch (err) {
+      console.warn('getCompetitionSettingsByPublicToken:', err.message);
+    }
+  }
+  const settings = readSettingsJson();
+  if (settings.public_token === raw) return settings;
+  return null;
+}
+
+export async function getCompetitionSettings(federationId = null) {
+  if (isSupabaseEnabled()) {
+    try {
+      let data = null;
+      if (federationId) {
+        const byFed = await getSupabase()
+          .from('competition_settings')
+          .select('*')
+          .eq('federation_id', federationId)
+          .maybeSingle();
+        if (!byFed.error) data = byFed.data;
+      }
       if (!data) {
-        const initial = ensureDefaults();
-        const { error: insertErr } = await getSupabase().from('competition_settings').upsert(
-          toDbSettings(initial)
-        );
+        const byId = await getSupabase()
+          .from('competition_settings')
+          .select('*')
+          .eq('id', 1)
+          .maybeSingle();
+        if (byId.error) throw byId.error;
+        data = byId.data;
+        // Si on demande une autre fédération et qu'on n'a que le singleton judo, créer une ligne vide
+        if (federationId && data && data.federation_id && data.federation_id !== federationId) {
+          data = null;
+        }
+      }
+      if (!data) {
+        const initial = ensureDefaults({ federation_id: federationId || undefined });
+        const row = toDbSettings({
+          ...initial,
+          id: federationId ? Math.floor(Math.random() * 2_000_000_000) + 2 : 1,
+          federation_id: federationId || undefined,
+        });
+        const { error: insertErr } = await getSupabase().from('competition_settings').upsert(row);
         if (insertErr) throw insertErr;
-        return initial;
+        return { ...initial, federation_id: federationId || null, id: row.id };
       }
       return ensureDefaults(data);
     } catch (err) {
@@ -352,14 +394,19 @@ export async function getCompetitionSettings() {
       return readSettingsJson();
     }
   }
-  return readSettingsJson();
+  const settings = readSettingsJson();
+  if (federationId && settings.federation_id && settings.federation_id !== federationId) {
+    return ensureDefaults({ federation_id: federationId });
+  }
+  return settings;
 }
 
-export async function updateCompetitionSettings(patch) {
-  const current = await getCompetitionSettings();
+export async function updateCompetitionSettings(patch, federationId = null) {
+  const current = await getCompetitionSettings(federationId || patch?.federation_id || null);
   const next = ensureDefaults({
     ...current,
     ...patch,
+    federation_id: federationId || patch?.federation_id || current.federation_id || null,
     updated_at: new Date().toISOString(),
   });
 
@@ -419,24 +466,39 @@ function withRegistrationMode(list) {
   }));
 }
 
-export async function getCompetitionRegistrations() {
+export async function getCompetitionRegistrations(federationId = null) {
+  const filterFed = (list) => {
+    if (!federationId) return list;
+    return (list || []).filter((r) => !r.federation_id || r.federation_id === federationId);
+  };
+
   if (isSupabaseEnabled()) {
     try {
-      const { data, error } = await getSupabase()
+      let q = getSupabase()
         .from('competition_registrations')
         .select('*')
         .order('created_at', { ascending: false });
-      if (error) throw error;
+      if (federationId) q = q.eq('federation_id', federationId);
+      const { data, error } = await q;
+      if (error) {
+        // Colonne absente → fallback sans filtre SQL
+        if (/federation_id|column|schema cache/i.test(error.message || '')) {
+          const all = await getSupabase().from('competition_registrations').select('*').order('created_at', { ascending: false });
+          if (all.error) throw all.error;
+          return withRegistrationMode(filterFed(all.data || []));
+        }
+        throw error;
+      }
       return withRegistrationMode(data || []);
     } catch (err) {
       console.warn('Lecture competition_registrations impossible:', err.message);
       return withRegistrationMode(
-        readRegistrationsJson().sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+        filterFed(readRegistrationsJson().sort((a, b) => new Date(b.created_at) - new Date(a.created_at)))
       );
     }
   }
   return withRegistrationMode(
-    readRegistrationsJson().sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    filterFed(readRegistrationsJson().sort((a, b) => new Date(b.created_at) - new Date(a.created_at)))
   );
 }
 

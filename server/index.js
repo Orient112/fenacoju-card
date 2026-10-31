@@ -75,7 +75,13 @@ import {
   canToggleCompetitionAccess,
   canManageCompetition,
   isDirecteurCompetition,
+  getUserFederationId,
 } from './permissions.js';
+import {
+  listFederations,
+  createFederationWithAdmin,
+  getFederationById,
+} from './federations.js';
 import {
   getAllArbitres,
   getArbitreById,
@@ -89,6 +95,7 @@ import { isSupabaseEnabled } from './supabase.js';
 import { uploadsDir } from './paths.js';
 import {
   getCompetitionSettings,
+  getCompetitionSettingsByPublicToken,
   updateCompetitionSettings,
   getCompetitionRegistrations,
   createCompetitionRegistration,
@@ -261,12 +268,13 @@ app.get('/api/auth/me', async (req, res) => {
 
 app.get('/api/public/competition/:token', async (req, res) => {
   try {
-    const settings = await getCompetitionSettings();
-    if (settings.public_token !== req.params.token || !isCompetitionConfigured(settings)) {
+    const settings = await getCompetitionSettingsByPublicToken(req.params.token)
+      || await getCompetitionSettings();
+    if (!settings || settings.public_token !== req.params.token || !isCompetitionConfigured(settings)) {
       return res.status(404).json({ error: 'Formulaire de compétition indisponible' });
     }
 
-    const registrations = await getCompetitionRegistrations();
+    const registrations = await getCompetitionRegistrations(settings.federation_id || null);
     const teamCounts = {};
     const teamMembers = [];
     for (const r of registrations) {
@@ -800,7 +808,8 @@ app.get('/api/permissions', (req, res) => {
 
 app.get('/api/competition', async (req, res) => {
   try {
-    const settings = await getCompetitionSettings();
+    const fedId = getUserFederationId(req.user);
+    const settings = await getCompetitionSettings(fedId);
     const perms = getPermissions(req.user);
     const canToggle = canToggleCompetitionAccess(req.user);
     const canManage = canManageCompetition(req.user);
@@ -826,9 +835,42 @@ app.get('/api/competition', async (req, res) => {
       can_toggle_access: canToggle,
       can_edit: accessOk && (canToggle || canManage),
       scope_entente: req.user.type === 'entente',
+      federation_id: fedId,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+/** SuperAdmin : liste des fédérations / admins */
+app.get('/api/federations', async (req, res) => {
+  try {
+    if (req.user.type !== 'superadmin') {
+      return res.status(403).json({ error: 'Réservé au SuperAdmin' });
+    }
+    const federations = await listFederations();
+    const users = await getAllUsers();
+    const admins = users.filter((u) => u.type === 'admin');
+    res.json({
+      federations: federations.map((f) => ({
+        ...f,
+        admin: admins.find((a) => a.id === f.admin_user_id || a.federation_id === f.id) || null,
+      })),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/federations', async (req, res) => {
+  try {
+    if (req.user.type !== 'superadmin') {
+      return res.status(403).json({ error: 'Réservé au SuperAdmin' });
+    }
+    const result = await createFederationWithAdmin(req.body || {}, req.user);
+    res.status(201).json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
 });
 
@@ -838,11 +880,12 @@ app.put('/api/competition/access', async (req, res) => {
       return res.status(403).json({ error: 'Seul Admin ou Coordon peut activer la compétition' });
     }
     const enabled = Boolean(req.body?.access_enabled);
+    const fedId = getUserFederationId(req.user);
 
     // Off : efface toute la compétition (params, inscrits, ancien lien)
     // On : réactive l'accès pour une nouvelle compétition vide
     const settings = enabled
-      ? await updateCompetitionSettings({ access_enabled: true })
+      ? await updateCompetitionSettings({ access_enabled: true, federation_id: fedId }, fedId)
       : await resetCompetitionCompletely({ access_enabled: false });
 
     res.json({
@@ -857,7 +900,8 @@ app.put('/api/competition/access', async (req, res) => {
 
 app.put('/api/competition', async (req, res) => {
   try {
-    const current = await getCompetitionSettings();
+    const fedId = getUserFederationId(req.user);
+    const current = await getCompetitionSettings(fedId);
     const canToggle = canToggleCompetitionAccess(req.user);
     const canManage = canManageCompetition(req.user);
 
@@ -914,7 +958,7 @@ app.put('/api/competition', async (req, res) => {
       patch.public_enabled = Boolean(body.public_enabled);
     }
 
-    const settings = await updateCompetitionSettings(patch);
+    const settings = await updateCompetitionSettings({ ...patch, federation_id: fedId }, fedId);
     res.json({
       ...settings,
       configured: isCompetitionConfigured(settings),
@@ -926,7 +970,8 @@ app.put('/api/competition', async (req, res) => {
 
 app.post('/api/competition/logo', upload.single('logo'), async (req, res) => {
   try {
-    const current = await getCompetitionSettings();
+    const fedId = getUserFederationId(req.user);
+    const current = await getCompetitionSettings(fedId);
     const canToggle = canToggleCompetitionAccess(req.user);
     const canManage = canManageCompetition(req.user);
     if (!canToggle && !(canManage && current.access_enabled)) {
@@ -939,7 +984,7 @@ app.post('/api/competition/logo', upload.single('logo'), async (req, res) => {
     if (current.logo_url && current.logo_url !== logoUrl) {
       try { await deleteStoredFile(current.logo_url); } catch { /* ignore */ }
     }
-    const settings = await updateCompetitionSettings({ logo_url: logoUrl });
+    const settings = await updateCompetitionSettings({ logo_url: logoUrl, federation_id: fedId }, fedId);
     res.json({
       ...settings,
       configured: isCompetitionConfigured(settings),
@@ -1788,6 +1833,7 @@ app.post('/api/judokas', handlePhotoUpload, async (req, res) => {
       entraineur_nom: body.entraineur_nom?.trim() || '',
       date_inscription: body.date_inscription || new Date().toISOString().split('T')[0],
       statut: 'actif',
+      federation_id: getUserFederationId(req.user),
     });
 
     res.status(201).json(await getJudokaById(id));

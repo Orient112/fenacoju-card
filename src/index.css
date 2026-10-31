@@ -3665,6 +3665,25 @@ tbody tr:last-child td {
   box-shadow: var(--shadow-lg);
 }
 
+.superadmin-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.superadmin-panel .list-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.superadmin-panel h2 {
+  margin: 0;
+  color: var(--primary);
+}
+
 .judoka-fiche-head,
 .judoka-fiche-head-actions {
   display: flex;

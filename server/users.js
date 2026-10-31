@@ -102,12 +102,46 @@ function writeSessionsJson(sessions) {
 // ─── Supabase ───
 
 export async function ensureAdminExists() {
-  if (!isSupabaseEnabled()) return;
-  const supabase = getSupabase();
-  const { data } = await supabase.from('users').select('id').eq('type', 'admin').limit(1);
-  if (data?.length) return;
+  // SuperAdmin + fédération Judo par défaut (données existantes)
+  try {
+    const {
+      ensureSuperAdminExists,
+      ensureDefaultJudoFederation,
+      assignLegacyDataToDefaultFederation,
+      DEFAULT_JUDO_FEDERATION_ID,
+    } = await import('./federations.js');
+    await ensureSuperAdminExists();
+    await ensureDefaultJudoFederation();
+    await assignLegacyDataToDefaultFederation(getAllUsers);
+  } catch (err) {
+    console.warn('Bootstrap multi-fédérations:', err.message);
+  }
 
+  if (!isSupabaseEnabled()) {
+    // JSON : s'assurer qu'un admin judo existe avec federation_id
+    const users = readUsersJson();
+    const admin = users.find((u) => u.type === 'admin');
+    if (admin && !admin.federation_id) {
+      const { DEFAULT_JUDO_FEDERATION_ID } = await import('./federations.js');
+      admin.federation_id = DEFAULT_JUDO_FEDERATION_ID;
+      writeUsersJson(users);
+    }
+    return;
+  }
+
+  const supabase = getSupabase();
+  const { data } = await supabase.from('users').select('id,federation_id').eq('type', 'admin').limit(1);
+  if (data?.length) {
+    if (!data[0].federation_id) {
+      const { DEFAULT_JUDO_FEDERATION_ID } = await import('./federations.js');
+      await supabase.from('users').update({ federation_id: DEFAULT_JUDO_FEDERATION_ID }).eq('id', data[0].id);
+    }
+    return;
+  }
+
+  const { DEFAULT_JUDO_FEDERATION_ID } = await import('./federations.js');
   const admin = createAdminUser();
+  admin.federation_id = DEFAULT_JUDO_FEDERATION_ID;
   const { error } = await supabase.from('users').insert({
     id: admin.id,
     type: admin.type,
@@ -117,6 +151,7 @@ export async function ensureAdminExists() {
     nom: admin.nom,
     prenom: admin.prenom,
     statut: 'actif',
+    federation_id: admin.federation_id,
     created_at: admin.created_at,
   });
   if (error) console.error('Erreur création admin Supabase:', error.message);
@@ -322,6 +357,7 @@ export async function createUser(data, creator) {
     password: hashPassword(isNoLogin ? crypto.randomBytes(24).toString('hex') : enforced.password),
     telephone: enforced.telephone?.trim() || '',
     parent_id: enforced.parent_id || creator.id,
+    federation_id: enforced.federation_id || creator.federation_id || null,
     acces_systeme: !isNoLogin,
     statut: 'pending',
     created_at: new Date().toISOString(),

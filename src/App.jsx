@@ -52,6 +52,7 @@ const JudokaFicheModal = lazy(() => import('./components/JudokaFicheModal'));
 const TransferModal = lazy(() => import('./components/TransferModal'));
 const AccountDetailModal = lazy(() => import('./components/AccountDetailModal'));
 const CompetitionSettings = lazy(() => import('./pages/CompetitionSettings'));
+const SuperAdminFederations = lazy(() => import('./components/SuperAdminFederations'));
 
 function PageLoader({ label = 'Chargement...' }) {
   return (
@@ -115,6 +116,9 @@ function exportToCsv(judokas) {
 
 function getUserDisplayName(user) {
   if (!user) return '';
+  if (user.type === 'superadmin') {
+    return `${user.prenom || ''} ${user.nom || ''}`.trim() || 'SuperAdmin';
+  }
   if (user.type === 'admin') return 'Administrateur';
   if (user.type === 'club') return user.nom_club;
   if (user.type === 'ligue' || user.type === 'entente') {
@@ -126,7 +130,8 @@ function getUserDisplayName(user) {
 function getRoleLabel(user) {
   if (!user) return '';
   let label = '';
-  if (user.type === 'admin') label = 'Admin';
+  if (user.type === 'superadmin') label = 'SuperAdmin';
+  else if (user.type === 'admin') label = 'Admin';
   else if (user.type === 'federation') label = user.fonction || 'Fédération';
   else label = USER_TYPES[user.type]?.label || user.type;
   const text = String(label || '').trim();
@@ -153,6 +158,10 @@ function canUseQrScan(user, perms) {
 }
 
 function getVisibleTabs(user, tabs) {
+  if (user.type === 'superadmin') {
+    return [{ key: 'federations', label: 'Fédérations' }];
+  }
+
   if (user.type === 'admin') {
     return [
       { key: 'judokas', label: 'Judokas' },
@@ -347,6 +356,16 @@ export default function App() {
     const silent = options.silent === true;
     if (!silent) setLoading(true);
     try {
+      // SuperAdmin : pas de chargement judokas / stats métier
+      if (user.type === 'superadmin') {
+        setServerOnline(true);
+        setJudokas([]);
+        setMembers([]);
+        setArbitres([]);
+        setStats({ total: 0, actifs: 0, clubs: 0, entraineurs: 0, pendingAccounts: 0, arbitres: 0 });
+        return;
+      }
+
       const needsUsers = user.type === 'admin' || perms.viewUsers || user.type === 'club' || perms.viewClubInfo;
       const needsArbitres = tabs.includes('arbitres') || perms.createArbitres || user.type === 'admin';
       const requests = [fetchStats(), fetchJudokas(), fetchClubs()];
@@ -672,10 +691,16 @@ export default function App() {
     }
   };
 
-  const handleLogout = async () => {
-    await logoutUser();
+  const handleLogout = () => {
+    // Instantané : UI d'abord, invalidation session en arrière-plan
     setUser(null);
     setView('list');
+    setEditing(null);
+    setEditingUser(null);
+    setCreateType(null);
+    setJudokas([]);
+    setMembers([]);
+    logoutUser();
   };
 
   const openCreateModal = () => {
@@ -822,7 +847,15 @@ export default function App() {
               </div>
             </div>
 
-        {view === 'list' && (
+        {view === 'list' && user.type === 'superadmin' && (
+          <div className="dashboard-workspace">
+            <Suspense fallback={<PageLoader label="Chargement des fédérations..." />}>
+              <SuperAdminFederations onToast={showToast} />
+            </Suspense>
+          </div>
+        )}
+
+        {view === 'list' && user.type !== 'superadmin' && (
           <div className="dashboard-workspace">
             {perms.viewStats && (
               <div className="stats-grid">
@@ -1287,7 +1320,11 @@ export default function App() {
             <img src="/fenacoju-logo.png" alt="FENACOJU" className="header-logo-img" width="52" height="52" decoding="async" />
             <div>
               <h1>Fight Management</h1>
-              <p>Système intégral de gestion des arts martiaux</p>
+              <p>
+                {user.type === 'superadmin'
+                  ? 'Console SuperAdmin — gestion des fédérations'
+                  : 'Système intégral de gestion des arts martiaux'}
+              </p>
             </div>
           </div>
           <nav className="header-nav">
@@ -1297,12 +1334,24 @@ export default function App() {
             >
               Dashboard
             </button>
-            {showHeaderCreate && (
+            {showHeaderCreate && user.type !== 'superadmin' && (
               <button
                 className={`nav-btn ${view === 'user-form' && !editingUser ? 'active' : ''}`}
                 onClick={openCreateModal}
               >
                 Créer
+              </button>
+            )}
+            {user.type === 'superadmin' && (
+              <button
+                className="nav-btn"
+                type="button"
+                onClick={() => {
+                  setDashboardTab('federations');
+                  setView('list');
+                }}
+              >
+                Fédérations
               </button>
             )}
             {perms.canMessage !== false && (

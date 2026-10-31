@@ -110,13 +110,14 @@ export async function loginUser(identifier, password) {
 
 export async function logoutUser() {
   const token = getToken();
+  // Déconnexion locale immédiate (ne pas attendre le réseau)
+  clearToken();
   if (token) {
-    await fetchWithTimeout(apiUrl('/api/auth/logout'), {
+    fetchWithTimeout(apiUrl('/api/auth/logout'), {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
-    }).catch(() => {});
+    }, 5000).catch(() => {});
   }
-  clearToken();
 }
 
 export async function fetchCurrentUser() {
@@ -949,6 +950,7 @@ export const CLUB_DOCUMENT_LABELS = {
 };
 
 export const USER_TYPES = {
+  admin: { label: 'Admin Fédération', description: 'Compte Admin = une fédération isolée (créé par SuperAdmin)' },
   federation: { label: 'Compte Fédération', description: 'Compte connecté avec identifiant et mot de passe' },
   membre: { label: 'Membre Fédération', description: 'Fiche membre sans accès au système — fonction fédérale' },
   ligue: { label: 'Ligue', description: 'Créer un compte Ligue (validé par le Coordon)' },
@@ -956,6 +958,27 @@ export const USER_TYPES = {
   club: { label: 'Club', description: 'Enregistrer un club affilié (validé par le Coordon)' },
   entraineur: { label: 'Entraineur', description: 'Fiche entraineur / coach (sans connexion)' },
 };
+
+export async function fetchFederations() {
+  const res = await apiFetch('/api/federations');
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Impossible de charger les fédérations');
+  }
+  return res.json();
+}
+
+export async function createFederation(data) {
+  const res = await apiFetch('/api/federations', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Création de fédération impossible');
+  }
+  return res.json();
+}
 
 export const ACCOUNT_STATUT_LABELS = {
   pending: 'En attente',
