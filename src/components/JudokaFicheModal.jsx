@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import BrandLoader from './BrandLoader';
 import { fetchJudokaFiche, formatDate } from '../api';
 
 const TYPE_LABELS = {
@@ -56,13 +57,7 @@ export default function JudokaFicheModal({ judoka, onClose, onRequestTransfer })
         </header>
 
         {loading ? (
-          <div className="page-loader">
-          <div className="brand-loader" aria-hidden="true">
-            <span className="brand-loader-ring" />
-            <img src="/fenacoju-logo.png" alt="" className="brand-loader-logo" />
-          </div>
-          <p>Chargement…</p>
-        </div>
+          <BrandLoader label="Chargement…" />
         ) : error ? (
           <div className="form-error">{error}</div>
         ) : (

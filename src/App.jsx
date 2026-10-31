@@ -41,6 +41,7 @@ import {
   isCardVisible,
   mergeFederationSettings,
 } from './utils/federationConfig';
+import BrandLoader from './components/BrandLoader';
 
 const Messages = lazy(() => import('./pages/Messages'));
 const Settings = lazy(() => import('./pages/Settings'));
@@ -64,15 +65,7 @@ const SuperAdminFederations = lazy(() => import('./components/SuperAdminFederati
 const SuperAdminDashboard = lazy(() => import('./components/SuperAdminDashboard'));
 
 function PageLoader({ label = 'Chargement...' }) {
-  return (
-    <div className="page-loader">
-      <div className="brand-loader" aria-hidden="true">
-        <span className="brand-loader-ring" />
-        <img src="/fenacoju-logo.png" alt="" className="brand-loader-logo" />
-      </div>
-      <p>{label}</p>
-    </div>
-  );
+  return <BrandLoader label={label} />;
 }
 
 
@@ -795,17 +788,7 @@ export default function App() {
   };
 
   if (authLoading) {
-    return (
-      <div className="login-page">
-        <div className="loading-state">
-          <div className="brand-loader" aria-hidden="true">
-            <span className="brand-loader-ring" />
-            <img src="/fenacoju-logo.png" alt="" className="brand-loader-logo" />
-          </div>
-          <p>Chargement...</p>
-        </div>
-      </div>
-    );
+    return <BrandLoader label="Chargement..." fullscreen />;
   }
 
   if (!user) {

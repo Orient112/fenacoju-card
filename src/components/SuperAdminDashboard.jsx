@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { fetchSuperAdminStats, resolveMediaUrl } from '../api';
+import BrandLoader from './BrandLoader';
 
 export default function SuperAdminDashboard() {
   const [loading, setLoading] = useState(true);
@@ -30,13 +31,7 @@ export default function SuperAdminDashboard() {
 
   if (loading) {
     return (
-      <div className="page-loader">
-        <div className="brand-loader" aria-hidden="true">
-          <span className="brand-loader-ring" />
-          <img src="/fenacoju-logo.png" alt="" className="brand-loader-logo" />
-        </div>
-        <p>Chargement du tableau de bord…</p>
-      </div>
+      <BrandLoader label="Chargement du tableau de bord…" />
     );
   }
 

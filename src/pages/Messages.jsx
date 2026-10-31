@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import BrandLoader from '../components/BrandLoader';
 import {
   fetchMessageContacts,
   fetchConversation,
@@ -355,13 +356,7 @@ export default function Messages({ currentUser, onUnreadChange }) {
 
   if (loading) {
     return (
-      <div className="loading-state">
-        <div className="brand-loader" aria-hidden="true">
-          <span className="brand-loader-ring" />
-          <img src="/fenacoju-logo.png" alt="" className="brand-loader-logo" />
-        </div>
-        <p>Chargement des messages...</p>
-      </div>
+      <BrandLoader label="Chargement des messages..." />
     );
   }
 

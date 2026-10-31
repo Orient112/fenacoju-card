@@ -10,6 +10,7 @@ import {
   uploadFederationLogo,
 } from '../api';
 import { IconEdit, IconKey, IconTrash } from './ActionIcons';
+import BrandLoader from './BrandLoader';
 
 const EMPTY_FORM = {
   nom_federation: '',
@@ -127,7 +128,10 @@ export default function SuperAdminFederations({ onToast }) {
 
   const openEdit = (f) => {
     setEditTarget(f);
-    setEditForm({ nom: f.nom || '', nom_profil: f.nom_profil || '' });
+    setEditForm({
+      nom: f.nom || '',
+      nom_profil: String(f.nom_profil || f.nom || '').trim(),
+    });
     setError('');
   };
 
@@ -267,13 +271,7 @@ export default function SuperAdminFederations({ onToast }) {
       {error && <div className="form-error">{error}</div>}
 
       {loading ? (
-        <div className="page-loader">
-          <div className="brand-loader" aria-hidden="true">
-            <span className="brand-loader-ring" />
-            <img src="/fenacoju-logo.png" alt="" className="brand-loader-logo" />
-          </div>
-          <p>Chargement…</p>
-        </div>
+        <BrandLoader label="Chargement…" />
       ) : list.length === 0 ? (
         <div className="empty-state">
           <h3>Aucune fédération</h3>
@@ -373,7 +371,6 @@ export default function SuperAdminFederations({ onToast }) {
               <div>
                 <p className="sa-kicker">Nouveau tenant</p>
                 <h3 id="sa-fed-modal-title">Nouvelle fédération</h3>
-                <p>Définissez l&apos;espace et le compte Admin qui en assurera le paramétrage.</p>
               </div>
               <button type="button" className="sa-fed-modal-close" onClick={closeCreateForm} disabled={busy} aria-label="Fermer">
                 ×
@@ -404,30 +401,32 @@ export default function SuperAdminFederations({ onToast }) {
                 <div className="form-group">
                   <label>Logo</label>
                   <div className="superadmin-logo-edit">
-                    <img
-                      src={createLogoPreview || '/fenacoju-logo.png'}
-                      alt=""
-                      className="superadmin-fed-logo lg"
-                    />
-                    <div className="confirm-actions" style={{ margin: 0 }}>
-                      <button type="button" className="btn btn-outline btn-sm" onClick={() => createLogoRef.current?.click()} disabled={busy}>
-                        Charger un logo
+                    <button
+                      type="button"
+                      className={`sa-logo-dropzone ${createLogoPreview ? 'has-preview' : ''}`}
+                      onClick={() => createLogoRef.current?.click()}
+                      disabled={busy}
+                    >
+                      {createLogoPreview ? (
+                        <img src={createLogoPreview} alt="" />
+                      ) : (
+                        <span>Charger un logo</span>
+                      )}
+                    </button>
+                    {createLogoFile ? (
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-sm"
+                        onClick={() => {
+                          if (createLogoPreview) URL.revokeObjectURL(createLogoPreview);
+                          setCreateLogoFile(null);
+                          setCreateLogoPreview('');
+                        }}
+                        disabled={busy}
+                      >
+                        Retirer
                       </button>
-                      {createLogoFile ? (
-                        <button
-                          type="button"
-                          className="btn btn-outline btn-sm"
-                          onClick={() => {
-                            if (createLogoPreview) URL.revokeObjectURL(createLogoPreview);
-                            setCreateLogoFile(null);
-                            setCreateLogoPreview('');
-                          }}
-                          disabled={busy}
-                        >
-                          Retirer
-                        </button>
-                      ) : null}
-                    </div>
+                    ) : null}
                   </div>
                 </div>
               </fieldset>
@@ -479,56 +478,65 @@ export default function SuperAdminFederations({ onToast }) {
       )}
 
       {editTarget && (
-        <div className="confirm-overlay" onClick={() => !busy && setEditTarget(null)}>
-          <div className="transfer-modal" onClick={(e) => e.stopPropagation()}>
-            <header className="competition-params-modal-head">
+        <div className="confirm-overlay sa-fed-overlay" onClick={() => !busy && setEditTarget(null)}>
+          <div className="sa-fed-modal sa-fed-modal-edit" onClick={(e) => e.stopPropagation()} role="dialog" aria-labelledby="sa-edit-modal-title">
+            <div className="sa-fed-modal-banner sa-fed-modal-banner-edit">
               <div>
-                <h3>Paramétrage</h3>
-                <p className="form-hint">{editTarget.nom}</p>
+                <p className="sa-kicker">Fédération</p>
+                <h3 id="sa-edit-modal-title">Paramétrage</h3>
               </div>
-              <button type="button" className="btn btn-outline btn-sm" onClick={() => setEditTarget(null)} disabled={busy}>
-                Fermer
+              <button type="button" className="sa-fed-modal-close" onClick={() => setEditTarget(null)} disabled={busy} aria-label="Fermer">
+                ×
               </button>
-            </header>
-            <form onSubmit={handleEdit}>
-              <div className="form-group">
-                <label>Logo</label>
-                <div className="superadmin-logo-edit">
-                  <img
-                    src={editTarget.logo_url ? resolveMediaUrl(editTarget.logo_url) : '/fenacoju-logo.png'}
-                    alt=""
-                    className="superadmin-fed-logo lg"
-                  />
-                  <div className="confirm-actions" style={{ margin: 0 }}>
-                    <button type="button" className="btn btn-outline btn-sm" onClick={() => pickLogo(editTarget.id)} disabled={busy}>
-                      Changer le logo
+            </div>
+            <form onSubmit={handleEdit} className="sa-fed-modal-body">
+              <fieldset className="sa-fed-fieldset">
+                <legend>Identité</legend>
+                <div className="form-group">
+                  <label>Logo</label>
+                  <div className="superadmin-logo-edit">
+                    <button
+                      type="button"
+                      className={`sa-logo-dropzone has-preview`}
+                      onClick={() => pickLogo(editTarget.id)}
+                      disabled={busy}
+                    >
+                      <img
+                        src={editTarget.logo_url ? resolveMediaUrl(editTarget.logo_url) : '/fenacoju-logo.png'}
+                        alt=""
+                      />
                     </button>
-                    {editTarget.logo_url ? (
-                      <button type="button" className="btn btn-outline btn-sm" onClick={() => removeLogo(editTarget.id)} disabled={busy}>
-                        Retirer
+                    <div className="confirm-actions" style={{ margin: 0 }}>
+                      <button type="button" className="btn btn-outline btn-sm" onClick={() => pickLogo(editTarget.id)} disabled={busy}>
+                        Changer le logo
                       </button>
-                    ) : null}
+                      {editTarget.logo_url ? (
+                        <button type="button" className="btn btn-outline btn-sm" onClick={() => removeLogo(editTarget.id)} disabled={busy}>
+                          Retirer
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="form-group">
-                <label>Nom de la fédération *</label>
-                <input
-                  value={editForm.nom}
-                  onChange={(e) => setEditForm((p) => ({ ...p, nom: e.target.value }))}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label>Nom Profil *</label>
-                <input
-                  value={editForm.nom_profil}
-                  onChange={(e) => setEditForm((p) => ({ ...p, nom_profil: e.target.value }))}
-                  required
-                  placeholder="Affiché dans la bande des menus"
-                />
-              </div>
-              <div className="confirm-actions">
+                <div className="form-group">
+                  <label>Nom de la fédération *</label>
+                  <input
+                    value={editForm.nom}
+                    onChange={(e) => setEditForm((p) => ({ ...p, nom: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Nom Profil *</label>
+                  <input
+                    value={editForm.nom_profil}
+                    onChange={(e) => setEditForm((p) => ({ ...p, nom_profil: e.target.value }))}
+                    required
+                    placeholder="Affiché dans la bande des menus"
+                  />
+                </div>
+              </fieldset>
+              <div className="sa-fed-modal-actions">
                 <button type="button" className="btn btn-outline" onClick={() => setEditTarget(null)} disabled={busy}>
                   Annuler
                 </button>

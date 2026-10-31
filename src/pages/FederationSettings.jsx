@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import BrandLoader from '../components/BrandLoader';
 import { fetchFederationSettings, updateFederationSettings } from '../api';
 import {
   ACCOUNT_VISIBILITY_ROLES,
@@ -50,13 +51,7 @@ export default function FederationSettings({ onBack, onToast, onSettingsSaved })
 
   if (loading) {
     return (
-      <div className="page-loader">
-        <div className="brand-loader" aria-hidden="true">
-          <span className="brand-loader-ring" />
-          <img src="/fenacoju-logo.png" alt="" className="brand-loader-logo" />
-        </div>
-        <p>Chargement du paramétrage…</p>
-      </div>
+      <BrandLoader label="Chargement du paramétrage…" />
     );
   }
 

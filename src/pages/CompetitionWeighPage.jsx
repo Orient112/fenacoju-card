@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import BrandLoader from '../components/BrandLoader';
 import { fetchPublicCompetitionRegistrations, updatePublicCompetitionWeight, resolveMediaUrl } from '../api';
 import { IconEdit } from '../components/ActionIcons';
 
@@ -244,13 +245,7 @@ export default function CompetitionWeighPage({ token }) {
   if (loading) {
     return (
       <div className="competition-public-page">
-        <div className="page-loader">
-          <div className="brand-loader" aria-hidden="true">
-            <span className="brand-loader-ring" />
-            <img src="/fenacoju-logo.png" alt="" className="brand-loader-logo" />
-          </div>
-          <p>Chargement de la pesée...</p>
-        </div>
+        <BrandLoader label="Chargement de la pesée..." />
       </div>
     );
   }

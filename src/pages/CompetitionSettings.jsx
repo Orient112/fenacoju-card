@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import BrandLoader from '../components/BrandLoader';
 import {
   fetchCompetition,
   updateCompetition,
@@ -2046,15 +2047,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
   };
 
   if (loading) {
-    return (
-      <div className="page-loader">
-        <div className="brand-loader" aria-hidden="true">
-          <span className="brand-loader-ring" />
-          <img src="/fenacoju-logo.png" alt="" className="brand-loader-logo" />
-        </div>
-        <p>Chargement de la compétition...</p>
-      </div>
-    );
+    return <BrandLoader label="Chargement de la compétition..." />;
   }
 
   const publicUrl = competitionPublicUrl(settings?.public_token);

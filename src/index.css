@@ -2664,42 +2664,68 @@ tbody tr:last-child td {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.75rem;
+  gap: 0.85rem;
   padding: 2.5rem 1rem;
   color: var(--text-muted);
-  min-height: 220px;
+  min-height: min(62vh, 520px);
+  width: 100%;
+  margin: 0 auto;
 }
 
-.page-loader p {
+.page-loader-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background:
+    radial-gradient(ellipse 70% 50% at 50% 42%, rgba(29, 67, 147, 0.08), transparent 58%),
+    #f7faff;
+}
+
+.page-loader p,
+.brand-loader-label {
   font-size: 0.9rem;
+  margin: 0;
 }
 
 .brand-loader {
+  --brand-loader-size: 108px;
   position: relative;
-  width: 88px;
-  height: 88px;
+  width: var(--brand-loader-size);
+  height: var(--brand-loader-size);
   display: grid;
   place-items: center;
 }
 
 .brand-loader-logo {
-  width: 54px;
-  height: 54px;
+  width: 72px;
+  height: 72px;
   object-fit: contain;
-  border-radius: 14px;
+  border-radius: 50%;
   z-index: 1;
   background: #fff;
-  padding: 4px;
+  padding: 6px;
+  box-shadow: 0 8px 24px rgba(29, 67, 147, 0.12);
 }
 
+/* Anneau qui épouse la forme circulaire du logo */
 .brand-loader-ring {
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  border: 3px solid transparent;
-  border-top-color: var(--primary);
-  border-right-color: rgba(29, 67, 147, 0.25);
-  animation: brand-loader-spin 0.9s linear infinite;
+  background: conic-gradient(
+    from 0deg,
+    var(--primary) 0deg,
+    rgba(29, 67, 147, 0.15) 90deg,
+    transparent 160deg,
+    transparent 360deg
+  );
+  animation: brand-loader-spin 1s linear infinite;
+  -webkit-mask:
+    radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+  mask:
+    radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
 }
 
 @keyframes brand-loader-spin {
@@ -2709,10 +2735,43 @@ tbody tr:last-child td {
 @media (prefers-reduced-motion: reduce) {
   .brand-loader-ring {
     animation: none;
-    border-top-color: var(--primary);
-    border-right-color: var(--primary);
-    opacity: 0.55;
+    background: rgba(29, 67, 147, 0.35);
   }
+}
+
+.sa-logo-dropzone {
+  width: 88px;
+  height: 88px;
+  border: 1.5px dashed #cbd5e1;
+  border-radius: 14px;
+  background: #f8fafc;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  text-align: center;
+  line-height: 1.25;
+  overflow: hidden;
+}
+
+.sa-logo-dropzone:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.sa-logo-dropzone img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 6px;
+  background: #fff;
+}
+
+.sa-logo-dropzone.has-preview {
+  border-style: solid;
+  border-color: var(--border);
 }
 
 .table-skeleton {
@@ -3999,7 +4058,7 @@ tbody tr:last-child td {
 }
 
 .sa-fed-modal-banner h3 {
-  margin: 0.2rem 0 0.35rem;
+  margin: 0.2rem 0 0;
   font-size: 1.35rem;
 }
 
@@ -4007,6 +4066,11 @@ tbody tr:last-child td {
   margin: 0;
   opacity: 0.88;
   font-size: 0.92rem;
+}
+
+.sa-fed-modal-banner-edit {
+  background:
+    linear-gradient(125deg, #0f3d5c 0%, #1565a8 52%, #1d7fc2 100%);
 }
 
 .sa-fed-modal-close {
