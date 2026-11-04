@@ -1091,6 +1091,27 @@ export async function updateFederationSettings(data) {
   return res.json();
 }
 
+export async function fetchFederationSettingsById(id) {
+  const res = await apiFetch(`/api/federations/${id}/settings`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Impossible de charger la configuration');
+  }
+  return res.json();
+}
+
+export async function updateFederationSettingsById(id, data) {
+  const res = await apiFetch(`/api/federations/${id}/settings`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Enregistrement impossible');
+  }
+  return res.json();
+}
+
 export const ACCOUNT_STATUT_LABELS = {
   pending: 'En attente',
   actif: 'Actif',

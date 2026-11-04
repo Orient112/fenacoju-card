@@ -92,6 +92,10 @@ import {
 import {
   getFederationSettingsForUser,
   saveFederationSettings,
+  saveFederationSettingsById,
+  getFederationSettingsById,
+  getFederationRolesCatalog,
+  applySettingsToPermissions,
 } from './federationSettings.js';
 import {
   getAllArbitres,
@@ -255,7 +259,7 @@ app.post('/api/auth/login', async (req, res) => {
 
     res.json({
       ...result,
-      permissions: getPermissions(result.user),
+      permissions: applySettingsToPermissions(getPermissions(result.user), federation_settings),
       federation_settings,
       federation_branding,
     });
@@ -291,7 +295,7 @@ app.get('/api/auth/me', async (req, res) => {
     ]);
     res.json({
       ...user,
-      permissions: getPermissions(user),
+      permissions: applySettingsToPermissions(getPermissions(user), federation_settings),
       federation_settings,
       federation_branding,
     });
@@ -833,7 +837,11 @@ app.get('/api/federation/settings', async (req, res) => {
     if (req.user.type === 'superadmin') {
       return res.status(403).json({ error: 'Non applicable au SuperAdmin' });
     }
-    res.json(await getFederationSettingsForUser(req.user));
+    const settings = await getFederationSettingsForUser(req.user);
+    res.json({
+      ...settings,
+      roles_catalog: getFederationRolesCatalog(settings),
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -845,7 +853,40 @@ app.put('/api/federation/settings', async (req, res) => {
       return res.status(403).json({ error: 'Réservé au compte Admin de la fédération' });
     }
     const settings = await saveFederationSettings(req.user, req.body || {});
-    res.json(settings);
+    res.json({
+      ...settings,
+      roles_catalog: getFederationRolesCatalog(settings),
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.get('/api/federations/:id/settings', async (req, res) => {
+  try {
+    if (req.user.type !== 'superadmin') {
+      return res.status(403).json({ error: 'Réservé au SuperAdmin' });
+    }
+    const settings = await getFederationSettingsById(req.params.id);
+    res.json({
+      ...settings,
+      roles_catalog: getFederationRolesCatalog(settings),
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.put('/api/federations/:id/settings', async (req, res) => {
+  try {
+    if (req.user.type !== 'superadmin') {
+      return res.status(403).json({ error: 'Réservé au SuperAdmin' });
+    }
+    const settings = await saveFederationSettingsById(req.params.id, req.body || {});
+    res.json({
+      ...settings,
+      roles_catalog: getFederationRolesCatalog(settings),
+    });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

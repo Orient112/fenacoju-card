@@ -39,6 +39,7 @@ import {
   clearFederationTheme,
   entityLabel,
   isCardVisible,
+  menuLabel,
   mergeFederationSettings,
 } from './utils/federationConfig';
 import BrandLoader from './components/BrandLoader';
@@ -61,6 +62,7 @@ const TransferModal = lazy(() => import('./components/TransferModal'));
 const AccountDetailModal = lazy(() => import('./components/AccountDetailModal'));
 const CompetitionSettings = lazy(() => import('./pages/CompetitionSettings'));
 const FederationSettings = lazy(() => import('./pages/FederationSettings'));
+const SuperAdminConfigurations = lazy(() => import('./pages/SuperAdminConfigurations'));
 const SuperAdminFederations = lazy(() => import('./components/SuperAdminFederations'));
 const SuperAdminDashboard = lazy(() => import('./components/SuperAdminDashboard'));
 
@@ -283,6 +285,7 @@ export default function App() {
   const perms = user?.permissions || {};
   const tabs = perms.dashboardTabs || ['judokas'];
   const L = (key) => entityLabel(fedSettings, key);
+  const M = (key, fallback) => menuLabel(fedSettings, key, fallback);
   const showCard = (key) => isCardVisible(fedSettings, user, key);
   const lockedClub = perms.clubScope || null;
   const canManageUsers = perms.manageUsers || perms.createUsers;
@@ -845,9 +848,10 @@ export default function App() {
                 {view === 'user-form' && (editingUser ? 'Modifier le compte' : 'Créer un compte')}
                 {view === 'arbitre-form' && (editingArbitre ? 'Modifier l\'arbitre' : 'Nouvel arbitre')}
                 {view === 'messages' && 'Messages'}
-                {view === 'settings' && 'Réglages'}
-                {view === 'federation-settings' && 'Paramétrage fédération'}
-                {view === 'competition' && 'Compétition'}
+                {view === 'settings' && M('settings', 'Réglages')}
+                {view === 'federation-settings' && M('parametrage', 'Paramétrage fédération')}
+                {view === 'configurations' && 'Configurations'}
+                {view === 'competition' && M('competition', 'Compétition')}
               </div>
               <div className="dashboard-topbar-user">
                 <span>{getUserDisplayName(user) || 'utilisateur'}</span>
@@ -1335,6 +1339,12 @@ export default function App() {
           </Suspense>
         )}
 
+        {view === 'configurations' && user.type === 'superadmin' && (
+          <Suspense fallback={<PageLoader label="Chargement des configurations..." />}>
+            <SuperAdminConfigurations onToast={showToast} />
+          </Suspense>
+        )}
+
         {view === 'competition' && (
           <Suspense fallback={<PageLoader label="Chargement de la compétition..." />}>
             <CompetitionSettings
@@ -1366,6 +1376,7 @@ export default function App() {
               editingUser={editingUser}
               currentUser={user}
               registeredClubs={registeredClubs}
+              federationSettings={fedSettings}
               onSubmit={handleUserSaved}
               onCancel={() => { setCreateType(null); setEditingUser(null); setView('list'); }}
             />
@@ -1409,14 +1420,14 @@ export default function App() {
                 if (user.type === 'superadmin') setDashboardTab('overview');
               }}
             >
-              Dashboard
+              {M('dashboard', 'Dashboard')}
             </button>
             {showHeaderCreate && user.type !== 'superadmin' && (
               <button
                 className={`nav-btn ${view === 'user-form' && !editingUser ? 'active' : ''}`}
                 onClick={openCreateModal}
               >
-                Créer
+                {M('create', 'Créer')}
               </button>
             )}
             {user.type === 'superadmin' && (
@@ -1436,7 +1447,7 @@ export default function App() {
                 className={`nav-btn ${view === 'messages' ? 'active' : ''}`}
                 onClick={() => { setView('messages'); setEditing(null); setEditingUser(null); setCreateType(null); }}
               >
-                Messages{unreadMessages > 0 ? ` (${unreadMessages})` : ''}
+                {M('messages', 'Messages')}{unreadMessages > 0 ? ` (${unreadMessages})` : ''}
               </button>
             )}
             {canScanQr && (
@@ -1445,7 +1456,7 @@ export default function App() {
                 onClick={() => setShowQrScan(true)}
                 disabled={!serverOnline}
               >
-                Scan QR
+                {M('scan_qr', 'Scan QR')}
               </button>
             )}
             {canToggleCompetition && (
@@ -1481,7 +1492,7 @@ export default function App() {
                   ? (user?.type === 'entente' ? 'Compétition Entente (clubs liés)' : 'Paramètres compétition')
                   : 'En attente d\'activation Admin / Coordon'}
               >
-                Compétition
+                {M('competition', 'Compétition')}
               </button>
             )}
             {(canValidateTransfersLigue || canConfirmTransfersFederation) && (
@@ -1512,7 +1523,7 @@ export default function App() {
                 }}
                 title="Historique passations ceinture noire"
               >
-                Grades
+                {M('grades', 'Grades')}
               </button>
             )}
             {perms.export && !showCompetitionButton && (
@@ -1522,7 +1533,7 @@ export default function App() {
                 disabled={!serverOnline || exportingPdf}
                 title={isAdminOrCoordon(user) ? `Exporter en PDF l’onglet ${dashboardTab}` : 'Exporter'}
               >
-                {exportingPdf && isAdminOrCoordon(user) ? 'Export...' : 'Exporter'}
+                {exportingPdf && isAdminOrCoordon(user) ? 'Export...' : M('export', 'Exporter')}
               </button>
             )}
             {user.type === 'admin' && (
@@ -1531,15 +1542,24 @@ export default function App() {
                 type="button"
                 onClick={() => { setView('federation-settings'); setEditing(null); setEditingUser(null); setCreateType(null); }}
               >
-                Paramétrage
+                {M('parametrage', 'Paramétrage')}
               </button>
             )}
             <button
               className={`nav-btn ${view === 'settings' ? 'active' : ''}`}
               onClick={() => { setView('settings'); setEditing(null); setEditingUser(null); setCreateType(null); }}
             >
-              Réglages
+              {M('settings', 'Réglages')}
             </button>
+            {user.type === 'superadmin' && (
+              <button
+                className={`nav-btn ${view === 'configurations' ? 'active' : ''}`}
+                type="button"
+                onClick={() => { setView('configurations'); setEditing(null); setEditingUser(null); setCreateType(null); }}
+              >
+                Configurations
+              </button>
+            )}
           </nav>
         </header>
         <footer className="app-user-footer">

@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { createUser, updateUser, uploadClubDocuments, GRADES, USER_TYPES, FEDERATION_ACCOUNT_FONCTIONS, getUserClub, CLUB_DOC_FIELDS, normalizeFederationFonction } from '../api';
 import DocumentUploadField from './DocumentUploadField';
+import { mergeFederationSettings } from '../utils/federationConfig';
 
 function emptyClubDocs() {
   return Object.fromEntries(CLUB_DOC_FIELDS.map((f) => [f.key, null]));
@@ -223,7 +224,17 @@ function OrgFields({ form, onChange, nameLabel }) {
   );
 }
 
-export default function UserForm({ type, editingUser, currentUser, registeredClubs = [], onSubmit, onCancel }) {
+export default function UserForm({ type, editingUser, currentUser, registeredClubs = [], federationSettings = null, onSubmit, onCancel }) {
+  const federationRoleOptions = useMemo(() => {
+    const settings = mergeFederationSettings(federationSettings || currentUser?.federation_settings);
+    return FEDERATION_ACCOUNT_FONCTIONS
+      .filter((key) => settings.roles_enabled?.[key] !== false || key === editingUser?.fonction)
+      .map((key) => ({
+        key,
+        label: settings.role_labels?.[key] || key,
+      }));
+  }, [federationSettings, currentUser?.federation_settings, editingUser?.fonction]);
+
   const isEdit = !!editingUser;
   const lockedClub = currentUser?.type === 'club' && type === 'entraineur' ? getUserClub(currentUser) : '';
 
@@ -369,8 +380,8 @@ export default function UserForm({ type, editingUser, currentUser, registeredClu
                   <label>Fonction <span className="required">*</span></label>
                   <select name="fonction" value={form.fonction} onChange={handleChange} required>
                     <option value="">— Sélectionner une fonction —</option>
-                    {FEDERATION_ACCOUNT_FONCTIONS.map((f) => (
-                      <option key={f} value={f}>{f}</option>
+                    {federationRoleOptions.map((f) => (
+                      <option key={f.key} value={f.key}>{f.label}</option>
                     ))}
                   </select>
                 </div>
