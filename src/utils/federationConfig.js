@@ -16,6 +16,14 @@ export const DEFAULT_FEDERATION_COLORS = {
   bg: '#eef3fa',
 };
 
+export const COLOR_FIELD_META = {
+  primary: 'Couleur principale / menus',
+  primary_light: 'Principale claire',
+  primary_dark: 'Principale foncée',
+  accent: 'Accent',
+  bg: 'Fond',
+};
+
 export const DEFAULT_MENU_LABELS = {
   dashboard: 'Dashboard',
   create: 'Créer',
@@ -39,13 +47,13 @@ export const DEFAULT_FEATURES = {
 };
 
 export const FEATURE_OPTIONS = [
-  { key: 'competition', label: 'Compétition' },
-  { key: 'messages', label: 'Messages' },
-  { key: 'scan_qr', label: 'Scan QR' },
-  { key: 'transfers', label: 'Transferts' },
-  { key: 'grades', label: 'Grades / passations' },
-  { key: 'export', label: 'Export PDF / CSV' },
-  { key: 'create_accounts', label: 'Création de comptes' },
+  { key: 'competition', label: 'Compétition', system: true },
+  { key: 'messages', label: 'Messages', system: true },
+  { key: 'scan_qr', label: 'Scan QR', system: true },
+  { key: 'transfers', label: 'Transferts', system: true },
+  { key: 'grades', label: 'Grades / passations', system: true },
+  { key: 'export', label: 'Export PDF / CSV', system: true },
+  { key: 'create_accounts', label: 'Création de comptes', system: true },
 ];
 
 export const ACCOUNT_VISIBILITY_ROLES = [
@@ -67,23 +75,142 @@ export const DEFAULT_FEDERATION_ROLE_KEYS = [
   'Assistant (e)',
 ];
 
+export const ROLE_BASE_OPTIONS = [...DEFAULT_FEDERATION_ROLE_KEYS];
+
+export function slugifyKey(value, fallback = 'item') {
+  const raw = String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 40);
+  return raw || fallback;
+}
+
+function defaultRoles() {
+  return DEFAULT_FEDERATION_ROLE_KEYS.map((key, order) => ({
+    key,
+    label: key,
+    enabled: true,
+    system: true,
+    base: key,
+    order,
+  }));
+}
+
+function normalizeRoles(src = {}) {
+  if (Array.isArray(src.roles) && src.roles.length) {
+    const seen = new Set();
+    return src.roles
+      .map((item, idx) => {
+        const key = String(item?.key || item?.label || '').trim().slice(0, 60);
+        if (!key || seen.has(key)) return null;
+        seen.add(key);
+        const system = DEFAULT_FEDERATION_ROLE_KEYS.includes(key) || item?.system === true;
+        const base = ROLE_BASE_OPTIONS.includes(item?.base)
+          ? item.base
+          : (system ? key : 'Membre');
+        return {
+          key,
+          label: String(item?.label || key).trim().slice(0, 60) || key,
+          enabled: item?.enabled !== false,
+          system: !!system,
+          base,
+          order: typeof item?.order === 'number' ? item.order : idx,
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.order - b.order)
+      .map((role, order) => ({ ...role, order }));
+  }
+
+  const labels = src.role_labels || {};
+  const enabled = src.roles_enabled || {};
+  return defaultRoles().map((role) => ({
+    ...role,
+    label: labels[role.key] || role.key,
+    enabled: enabled[role.key] !== false,
+  }));
+}
+
 export function mergeFederationSettings(raw) {
   const src = raw && typeof raw === 'object' ? raw : {};
-  const roleLabels = Object.fromEntries(
-    DEFAULT_FEDERATION_ROLE_KEYS.map((k) => [k, k])
-  );
-  const rolesEnabled = Object.fromEntries(
-    DEFAULT_FEDERATION_ROLE_KEYS.map((k) => [k, true])
-  );
+  const roles = normalizeRoles(src);
+  const role_labels = Object.fromEntries(roles.map((r) => [r.key, r.label]));
+  const roles_enabled = Object.fromEntries(roles.map((r) => [r.key, r.enabled !== false]));
+
+  const labels = { ...DEFAULT_FEDERATION_LABELS, ...(src.labels || {}) };
+  const menu_labels = { ...DEFAULT_MENU_LABELS, ...(src.menu_labels || {}) };
+  const colors = { ...DEFAULT_FEDERATION_COLORS, ...(src.colors || {}) };
+
+  let feature_defs = Array.isArray(src.feature_defs) && src.feature_defs.length
+    ? src.feature_defs.map((f, order) => ({
+        key: slugifyKey(f.key || f.label, `feature_${order}`),
+        label: String(f.label || f.key || '').trim().slice(0, 60) || f.key,
+        system: FEATURE_OPTIONS.some((o) => o.key === f.key) || f.system === true,
+        order: typeof f.order === 'number' ? f.order : order,
+      }))
+    : FEATURE_OPTIONS.map((f, order) => ({ ...f, order }));
+
+  const featureKeys = new Set(feature_defs.map((f) => f.key));
+  for (const key of Object.keys(src.features || {})) {
+    if (!featureKeys.has(key)) {
+      feature_defs.push({ key, label: key, system: false, order: feature_defs.length });
+      featureKeys.add(key);
+    }
+  }
+
+  const features = { ...DEFAULT_FEATURES };
+  for (const def of feature_defs) {
+    if (typeof src.features?.[def.key] === 'boolean') features[def.key] = src.features[def.key];
+    else if (!(def.key in features)) features[def.key] = true;
+  }
+
+  let color_defs = Array.isArray(src.color_defs) && src.color_defs.length
+    ? src.color_defs
+      .filter((c) => colors[c.key])
+      .map((c, order) => ({
+        key: c.key,
+        label: c.label || COLOR_FIELD_META[c.key] || c.key,
+        system: Object.prototype.hasOwnProperty.call(DEFAULT_FEDERATION_COLORS, c.key) || c.system === true,
+        order: typeof c.order === 'number' ? c.order : order,
+      }))
+    : Object.keys(colors).map((key, order) => ({
+        key,
+        label: COLOR_FIELD_META[key] || key,
+        system: Object.prototype.hasOwnProperty.call(DEFAULT_FEDERATION_COLORS, key),
+        order,
+      }));
+
+  for (const key of Object.keys(colors)) {
+    if (!color_defs.some((c) => c.key === key)) {
+      color_defs.push({
+        key,
+        label: COLOR_FIELD_META[key] || key,
+        system: Object.prototype.hasOwnProperty.call(DEFAULT_FEDERATION_COLORS, key),
+        order: color_defs.length,
+      });
+    }
+  }
+
   return {
-    colors: { ...DEFAULT_FEDERATION_COLORS, ...(src.colors || {}) },
-    labels: { ...DEFAULT_FEDERATION_LABELS, ...(src.labels || {}) },
-    menu_labels: { ...DEFAULT_MENU_LABELS, ...(src.menu_labels || {}) },
-    role_labels: { ...roleLabels, ...(src.role_labels || {}) },
-    roles_enabled: { ...rolesEnabled, ...(src.roles_enabled || {}) },
-    features: { ...DEFAULT_FEATURES, ...(src.features || {}) },
+    colors,
+    color_defs,
+    labels,
+    menu_labels,
+    feature_defs,
+    roles,
+    role_labels,
+    roles_enabled,
+    features,
     card_visibility: src.card_visibility || {},
   };
+}
+
+export function getRolesCatalog(settings) {
+  const merged = mergeFederationSettings(settings);
+  return merged.roles || [];
 }
 
 export function getVisibilityRole(user) {

@@ -246,7 +246,7 @@ export function getScopedClubNames(allUsers, user) {
   return [];
 }
 
-export function getPermissions(user) {
+export function getPermissions(user, settings = null) {
   if (!user) return {};
 
   if (user.type === 'superadmin') {
@@ -391,7 +391,12 @@ export function getPermissions(user) {
 
   if (user.type === 'federation') {
     const fonction = user.fonction === 'Responsable Affiliation' ? 'Responsable Grade' : user.fonction;
-    const role = FEDERATION_ROLES[fonction] || DEFAULT_FEDERATION;
+    let role = FEDERATION_ROLES[fonction];
+    if (!role && settings?.roles?.length) {
+      const entry = settings.roles.find((r) => r.key === fonction);
+      if (entry?.base && FEDERATION_ROLES[entry.base]) role = FEDERATION_ROLES[entry.base];
+    }
+    role = role || DEFAULT_FEDERATION;
     const tabs = role.dashboardTabs || ['judokas'];
     return {
       ...role,
@@ -401,7 +406,7 @@ export function getPermissions(user) {
       canMessage: true,
       viewClubDetails: tabs.includes('clubs') || role.viewClubDetails === true,
       showHeaderCreate: (role.createTypes || []).length > 0 || role.createUsers === true,
-      canToggleCompetitionAccess: user.fonction === 'Coordon',
+      canToggleCompetitionAccess: user.fonction === 'Coordon' || (settings?.roles || []).some((r) => r.key === fonction && r.base === 'Coordon'),
     };
   }
 

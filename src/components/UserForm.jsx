@@ -227,6 +227,14 @@ function OrgFields({ form, onChange, nameLabel }) {
 export default function UserForm({ type, editingUser, currentUser, registeredClubs = [], federationSettings = null, onSubmit, onCancel }) {
   const federationRoleOptions = useMemo(() => {
     const settings = mergeFederationSettings(federationSettings || currentUser?.federation_settings);
+    const catalog = (settings.roles || [])
+      .filter((role) => role.key !== 'Membre')
+      .filter((role) => role.enabled !== false || role.key === editingUser?.fonction)
+      .map((role) => ({
+        key: role.key,
+        label: role.label || role.key,
+      }));
+    if (catalog.length) return catalog;
     return FEDERATION_ACCOUNT_FONCTIONS
       .filter((key) => settings.roles_enabled?.[key] !== false || key === editingUser?.fonction)
       .map((key) => ({

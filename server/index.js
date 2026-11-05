@@ -266,7 +266,7 @@ app.post('/api/auth/login', async (req, res) => {
 
     res.json({
       ...result,
-      permissions: applySettingsToPermissions(getPermissions(result.user), federation_settings),
+      permissions: applySettingsToPermissions(getPermissions(result.user, federation_settings), federation_settings),
       federation_settings,
       federation_branding,
     });
@@ -302,7 +302,7 @@ app.get('/api/auth/me', async (req, res) => {
     ]);
     res.json({
       ...user,
-      permissions: applySettingsToPermissions(getPermissions(user), federation_settings),
+      permissions: applySettingsToPermissions(getPermissions(user, federation_settings), federation_settings),
       federation_settings,
       federation_branding,
     });
