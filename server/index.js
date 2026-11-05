@@ -212,7 +212,13 @@ async function extractClubDocuments(files) {
   return documents;
 }
 
-const corsOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173,http://localhost:4173,https://fenacoju-card.vercel.app')
+const corsOrigins = (process.env.CORS_ORIGIN || [
+  'http://localhost:5173',
+  'http://localhost:4173',
+  'https://fenacoju-card.vercel.app',
+  'https://fight-management.com',
+  'https://www.fight-management.com',
+].join(','))
   .split(',')
   .map((o) => o.trim())
   .filter(Boolean);
@@ -222,6 +228,7 @@ app.use(cors({
     if (!origin) return cb(null, true);
     if (corsOrigins.includes(origin)) return cb(null, true);
     if (/^https:\/\/fenacoju-card(-[a-z0-9-]+)?\.vercel\.app$/i.test(origin)) return cb(null, true);
+    if (/^https:\/\/(www\.)?fight-management\.com$/i.test(origin)) return cb(null, true);
     return cb(null, false);
   },
   credentials: true,

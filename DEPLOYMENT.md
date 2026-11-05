@@ -196,7 +196,7 @@ NODE_ENV=production
 SUPABASE_URL=https://xxxxx.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=eyJ...
 SUPABASE_STORAGE_BUCKET=fenacoju-uploads
-CORS_ORIGIN=https://fenacoju-card.vercel.app
+CORS_ORIGIN=https://fenacoju-card.vercel.app,https://www.fight-management.com,https://fight-management.com
 ```
 
 ### Local (.env)
@@ -220,8 +220,8 @@ SIMPLY_PAY_API_KEY=votre_cle_api
 
 | Problème | Solution |
 |---|---|
-| `Failed to fetch` au login | Vérifiez `VITE_API_URL` sur Vercel + redeploy |
-| Erreur CORS | Ajoutez l'URL Vercel exacte dans `CORS_ORIGIN` sur Render |
+| `Failed to fetch` / « Impossible de joindre le serveur » | Vérifiez `VITE_API_URL` sur Vercel + `CORS_ORIGIN` sur Render (domaine custom inclus) + redeploy |
+| Erreur CORS après achat de domaine | Ajoutez `https://www.votredomaine.com` et `https://votredomaine.com` dans `CORS_ORIGIN` sur Render, puis redémarrez le service |
 | Photos/documents invisibles | Vérifiez que le bucket `fenacoju-uploads` est **public** dans Supabase Storage |
 | Backend lent (cold start) | Normal sur Render Free — première requête peut prendre ~30 s |
 | `supabase: false` dans /api/health | Variables Supabase manquantes sur Render — `storage` sera `"local"` |
