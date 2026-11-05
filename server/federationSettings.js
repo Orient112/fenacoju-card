@@ -310,15 +310,33 @@ function normalizeFeatures(input = {}, defs = []) {
   return base;
 }
 
+function normalizeLabelsFlexible(input = {}) {
+  if (!input || typeof input !== 'object' || !Object.keys(input).length) {
+    return { ...DEFAULT_FEDERATION_LABELS };
+  }
+  const base = {};
+  for (const [key, raw] of Object.entries(input)) {
+    const k = String(key || '').trim().slice(0, 40);
+    const v = String(raw || '').trim().slice(0, 40);
+    if (k && v) base[k] = v;
+  }
+  return Object.keys(base).length ? base : { ...DEFAULT_FEDERATION_LABELS };
+}
+
 function normalizeVisibility(input = {}, labelKeys = DASHBOARD_CARD_KEYS) {
   const keys = labelKeys.length ? labelKeys : DASHBOARD_CARD_KEYS;
-  const base = JSON.parse(JSON.stringify(DEFAULT_VISIBILITY));
-  for (const role of Object.keys(base)) {
+  const roleKeys = new Set([
+    ...Object.keys(DEFAULT_VISIBILITY),
+    ...Object.keys(input || {}),
+  ]);
+  const base = {};
+  for (const role of roleKeys) {
+    const defaults = DEFAULT_VISIBILITY[role] || DEFAULT_VISIBILITY.federation || {};
     const row = input[role] || {};
     const nextRow = {};
     for (const key of keys) {
       if (typeof row[key] === 'boolean') nextRow[key] = row[key];
-      else if (typeof base[role][key] === 'boolean') nextRow[key] = base[role][key];
+      else if (typeof defaults[key] === 'boolean') nextRow[key] = defaults[key];
       else nextRow[key] = true;
     }
     base[role] = nextRow;
@@ -330,7 +348,7 @@ export function mergeFederationSettings(raw) {
   const src = raw && typeof raw === 'object' ? raw : {};
   const roles = normalizeRolesList(src.roles, src.role_labels || {}, src.roles_enabled || {});
   const maps = rolesToMaps(roles);
-  const labels = normalizeDict(src.labels || {}, DEFAULT_FEDERATION_LABELS, { keepDefaults: true });
+  const labels = normalizeLabelsFlexible(src.labels || {});
   const menu_labels = normalizeDict(src.menu_labels || {}, DEFAULT_MENU_LABELS, { keepDefaults: true });
   const colors = normalizeColors(src.colors || {});
   const color_defs = normalizeColorDefs(src.color_defs, colors);
@@ -356,6 +374,9 @@ export function getAccountVisibilityKey(user) {
   if (user.type === 'club') return 'club';
   if (user.type === 'ligue') return 'ligue';
   if (user.type === 'entente') return 'entente';
+  if (user.type === 'federation' && user.fonction) {
+    return `federation:${user.fonction}`;
+  }
   return 'federation';
 }
 

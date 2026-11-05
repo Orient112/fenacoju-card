@@ -558,6 +558,15 @@ export function computeStats(judokas, users, user, arbitres = []) {
       ? clubAccounts
       : new Set(filteredJudokas.map((j) => j.club)).size;
 
+  const gradesMap = {};
+  for (const j of filteredJudokas) {
+    const grade = String(j.grade || 'Non défini').trim() || 'Non défini';
+    gradesMap[grade] = (gradesMap[grade] || 0) + 1;
+  }
+  const gradesBreakdown = Object.entries(gradesMap)
+    .map(([grade, count]) => ({ grade, count }))
+    .sort((a, b) => b.count - a.count || a.grade.localeCompare(b.grade, 'fr'));
+
   return {
     total: filteredJudokas.length,
     actifs: filteredJudokas.filter((j) => j.statut === 'actif').length,
@@ -582,6 +591,7 @@ export function computeStats(judokas, users, user, arbitres = []) {
     thisMonth: filteredJudokas.filter((j) => new Date(j.date_inscription) >= monthStart).length,
     entraineurs,
     entraineursActifs: filteredUsers.filter((u) => u.type === 'entraineur' && getAccountStatut(u) === 'actif').length,
+    gradesBreakdown,
   };
 }
 

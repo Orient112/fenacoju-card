@@ -12,6 +12,7 @@ import {
 } from './permissions.js';
 import { getSupabase, isSupabaseEnabled } from './supabase.js';
 import { dataDir } from './paths.js';
+import { allocateOrgCode, ensureOrgCodes } from './orgHierarchy.js';
 
 const usersPath = path.join(dataDir, 'users.json');
 const sessionsPath = path.join(dataDir, 'sessions.json');
@@ -411,18 +412,41 @@ export async function createUser(data, creator) {
     user.acces_systeme = false;
   }
 
-  if (isSupabaseEnabled()) {
-    const { error } = await getSupabase().from('users').insert(user);
-    if (error) {
-      if (/comites|schema cache|column/i.test(error.message || '')) {
-        const { comites: _ignored, ...withoutComites } = user;
-        const retry = await getSupabase().from('users').insert(withoutComites);
-        if (retry.error) throw new Error(retry.error.message);
-        console.warn('Colonne users.comites absente — exécutez migration_club_comites.sql');
-      } else {
-        throw new Error(error.message);
+  if (['ligue', 'entente', 'club'].includes(enforced.type)) {
+    const parent = users.find((u) => u.id === user.parent_id) || null;
+    // S'assurer que les parents ont déjà un org_code avant d'attribuer l'enfant
+    const { users: withCodes, updates } = ensureOrgCodes(users);
+    for (const upd of updates) {
+      const target = withCodes.find((u) => u.id === upd.id);
+      if (target) {
+        try {
+          if (isSupabaseEnabled()) {
+            await getSupabase().from('users').update({ org_code: upd.org_code }).eq('id', upd.id);
+          }
+        } catch {
+          // colonne absente tant que la migration n'est pas appliquée
+        }
       }
     }
+    const parentFresh = withCodes.find((u) => u.id === user.parent_id) || parent;
+    user.org_code = allocateOrgCode(withCodes, user, parentFresh) || undefined;
+  }
+
+  if (isSupabaseEnabled()) {
+    let { error } = await getSupabase().from('users').insert(user);
+    if (error && /org_code|schema cache|column/i.test(error.message || '')) {
+      const { org_code: _org, ...withoutOrg } = user;
+      ({ error } = await getSupabase().from('users').insert(withoutOrg));
+      if (!error) console.warn('Colonne users.org_code absente — exécutez migration_org_code.sql');
+    }
+    if (error && /comites|schema cache|column/i.test(error.message || '')) {
+      const { comites: _ignored, org_code: _org2, ...withoutComites } = user;
+      const retry = await getSupabase().from('users').insert(withoutComites);
+      if (retry.error) throw new Error(retry.error.message);
+      console.warn('Colonne users.comites absente — exécutez migration_club_comites.sql');
+      error = null;
+    }
+    if (error) throw new Error(error.message);
   } else {
     users.push(user);
     writeUsersJson(users);

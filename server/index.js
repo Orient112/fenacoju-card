@@ -97,6 +97,8 @@ import {
   getFederationRolesCatalog,
   applySettingsToPermissions,
 } from './federationSettings.js';
+import { enrichJudokasWithHierarchy, ensureOrgCodes } from './orgHierarchy.js';
+import { getSupabase, isSupabaseEnabled } from './supabase.js';
 import {
   getAllArbitres,
   getArbitreById,
@@ -106,7 +108,6 @@ import {
   ARBITRE_NIVEAUX,
 } from './arbitres.js';
 import { saveUploadedFile, deleteStoredFile } from './storage.js';
-import { isSupabaseEnabled } from './supabase.js';
 import { uploadsDir } from './paths.js';
 import {
   getCompetitionSettings,
@@ -1927,13 +1928,27 @@ app.delete('/api/arbitres/:id', async (req, res) => {
   }
 });
 
+async function withOrgCodes(users) {
+  const { users: coded, updates } = ensureOrgCodes(users || []);
+  if (updates.length && isSupabaseEnabled()) {
+    await Promise.all(updates.map(async (upd) => {
+      try {
+        await getSupabase().from('users').update({ org_code: upd.org_code }).eq('id', upd.id);
+      } catch {
+        // migration org_code non appliquée
+      }
+    }));
+  }
+  return coded;
+}
+
 app.get('/api/judokas', async (req, res) => {
   try {
     const search = req.query.search || '';
-    const users = await getAllUsers();
+    const users = await withOrgCodes(await getAllUsers());
     let judokas = await getAllJudokas(search);
     judokas = filterJudokas(judokas, req.user, users);
-    res.json(judokas);
+    res.json(enrichJudokasWithHierarchy(judokas, users));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1976,11 +1991,11 @@ app.get('/api/judokas/:id', async (req, res) => {
   try {
     const judoka = await getJudokaById(req.params.id);
     if (!judoka) return res.status(404).json({ error: 'Judoka introuvable' });
-    const users = await getAllUsers();
+    const users = await withOrgCodes(await getAllUsers());
     if (!canAccessJudoka(req.user, judoka, users)) {
       return res.status(403).json({ error: 'Accès non autorisé' });
     }
-    res.json(judoka);
+    res.json(enrichJudokasWithHierarchy([judoka], users)[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

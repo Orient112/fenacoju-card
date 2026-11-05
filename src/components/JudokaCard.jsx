@@ -6,6 +6,7 @@ function getCardQrValue(judoka) {
     org: 'FENACOJU',
     id: judoka.id,
     carte: judoka.numero_carte,
+    structure: judoka.hierarchy_id || judoka.club_code || '',
   });
 }
 
@@ -57,6 +58,14 @@ export default function JudokaCard({ judoka }) {
                 <span className="card-label">Grade</span>
                 <span className="card-value">{judoka.grade}</span>
               </div>
+              {(judoka.hierarchy_id || judoka.club_code) && (
+                <div className="card-detail">
+                  <span className="card-label">ID Structure</span>
+                  <span className="card-value card-hierarchy-id">
+                    {judoka.hierarchy_id || judoka.club_code}
+                  </span>
+                </div>
+              )}
               {judoka.categorie && (
                 <div className="card-detail">
                   <span className="card-label">Catégorie</span>

@@ -129,9 +129,14 @@ export default function SuperAdminConfigurations({ onToast }) {
   const [selectedId, setSelectedId] = useState('');
   const [section, setSection] = useState('roles');
   const [roleTab, setRoleTab] = useState('admin');
+  const [federationMemberRole, setFederationMemberRole] = useState('');
   const [form, setForm] = useState(() => mergeFederationSettings(null));
   const [modal, setModal] = useState(null);
   const [draft, setDraft] = useState({});
+
+  const cardsVisibilityKey = roleTab === 'federation' && federationMemberRole
+    ? `federation:${federationMemberRole}`
+    : roleTab;
 
   const selected = useMemo(
     () => federations.find((f) => f.id === selectedId) || null,
@@ -192,7 +197,14 @@ export default function SuperAdminConfigurations({ onToast }) {
       setError('');
       try {
         const data = await fetchFederationSettingsById(selectedId);
-        if (!cancelled) setForm(mergeFederationSettings(data));
+        if (!cancelled) {
+          const merged = mergeFederationSettings(data);
+          setForm(merged);
+          const firstRole = (merged.roles || []).find((r) => r.enabled !== false)?.key
+            || merged.roles?.[0]?.key
+            || '';
+          setFederationMemberRole(firstRole);
+        }
       } catch (err) {
         if (!cancelled) setError(err.message);
       } finally {
@@ -399,12 +411,12 @@ export default function SuperAdminConfigurations({ onToast }) {
         return mergeFederationSettings({ ...prev, colors, color_defs });
       }
       if (type === 'word') {
-        if (SYSTEM_LABEL_KEYS.has(item.key)) {
-          onToast?.('Libellé système : suppression non autorisée', 'error');
-          return prev;
-        }
         const labels = { ...prev.labels };
         delete labels[item.key];
+        if (!Object.keys(labels).length) {
+          onToast?.('Conservez au moins un libellé', 'error');
+          return prev;
+        }
         return mergeFederationSettings({ ...prev, labels });
       }
       if (type === 'menu') {
@@ -513,15 +525,11 @@ export default function SuperAdminConfigurations({ onToast }) {
           </p>
         </div>
         {selected && (
-          <div className="sa-config-hero-fed">
+          <div className="sa-config-hero-fed sa-config-hero-fed-logo-only" title={selected.nom}>
             <img
               src={selected.logo_url ? resolveMediaUrl(selected.logo_url) : '/fenacoju-logo.png'}
-              alt=""
+              alt={selected.nom || 'Fédération'}
             />
-            <div>
-              <strong>{selected.nom}</strong>
-              <span>{selected.nom_profil || selected.slug || '—'}</span>
-            </div>
           </div>
         )}
       </header>
@@ -712,9 +720,7 @@ export default function SuperAdminConfigurations({ onToast }) {
                             <td>{item.system ? 'Système' : 'Personnalisé'}</td>
                             <td className="sa-config-actions">
                               <button type="button" className="btn btn-sm btn-outline" onClick={() => openModal('word', 'edit', item)}>Modifier</button>
-                              {!item.system && (
-                                <button type="button" className="btn btn-sm btn-danger-outline" onClick={() => handleDelete('word', item)}>Supprimer</button>
-                              )}
+                              <button type="button" className="btn btn-sm btn-danger-outline" onClick={() => handleDelete('word', item)}>Supprimer</button>
                             </td>
                           </tr>
                         ))}
@@ -800,15 +806,37 @@ export default function SuperAdminConfigurations({ onToast }) {
                           key={r.key}
                           type="button"
                           className={`btn btn-sm ${roleTab === r.key ? 'btn-primary' : 'btn-outline'}`}
-                          onClick={() => setRoleTab(r.key)}
+                          onClick={() => {
+                            setRoleTab(r.key);
+                            if (r.key === 'federation' && !federationMemberRole) {
+                              setFederationMemberRole(form.roles?.[0]?.key || '');
+                            }
+                          }}
                         >
                           {r.label}
                         </button>
                       ))}
                     </div>
+                    {roleTab === 'federation' && (
+                      <div className="sa-config-member-roles">
+                        <p className="form-hint">Choisissez le compte membre, puis cochez ses cases Dashboard.</p>
+                        <div className="fed-role-tabs">
+                          {(form.roles || []).map((r) => (
+                            <button
+                              key={r.key}
+                              type="button"
+                              className={`btn btn-sm ${federationMemberRole === r.key ? 'btn-primary' : 'btn-outline'}`}
+                              onClick={() => setFederationMemberRole(r.key)}
+                            >
+                              {r.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     <div className="fed-visibility-grid">
                       {Object.keys(form.labels || {}).map((key) => {
-                        const checked = form.card_visibility?.[roleTab]?.[key] !== false;
+                        const checked = form.card_visibility?.[cardsVisibilityKey]?.[key] !== false;
                         return (
                           <label key={key} className="fed-visibility-item">
                             <input
@@ -818,8 +846,8 @@ export default function SuperAdminConfigurations({ onToast }) {
                                 ...p,
                                 card_visibility: {
                                   ...p.card_visibility,
-                                  [roleTab]: {
-                                    ...(p.card_visibility?.[roleTab] || {}),
+                                  [cardsVisibilityKey]: {
+                                    ...(p.card_visibility?.[cardsVisibilityKey] || {}),
                                     [key]: e.target.checked,
                                   },
                                 },
@@ -836,8 +864,7 @@ export default function SuperAdminConfigurations({ onToast }) {
                   </section>
                 )}
 
-                <div className="sa-config-savebar">
-                  <p className="form-hint">Les changements s&apos;appliquent uniquement à la fédération sélectionnée.</p>
+                <div className="sa-config-savebar sa-config-savebar-end">
                   <button type="submit" className="btn btn-primary" disabled={busy || !selectedId}>
                     {busy ? 'Enregistrement…' : 'Enregistrer la configuration'}
                   </button>

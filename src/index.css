@@ -4238,6 +4238,70 @@ tbody tr:last-child td {
   font-size: 0.78rem;
 }
 
+.sa-config-hero-fed-logo-only {
+  min-width: 0;
+  padding: 0.45rem;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.sa-config-hero-fed-logo-only img {
+  width: 56px;
+  height: 56px;
+}
+
+.sa-config-member-roles {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.sa-config-savebar-end {
+  justify-content: flex-end;
+}
+
+.entente-grades-panel {
+  margin-top: 0.35rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.entente-grades-panel h4 {
+  margin: 0 0 0.65rem;
+  color: var(--primary);
+  font-size: 0.95rem;
+}
+
+.entente-grades-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.55rem;
+}
+
+.entente-grade-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  font-size: 0.86rem;
+}
+
+.entente-grade-item strong {
+  color: var(--primary);
+}
+
+.card-hierarchy-id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  color: var(--primary-dark, #122d66);
+}
+
 .sa-config-layout {
   display: grid;
   grid-template-columns: minmax(240px, 280px) minmax(0, 1fr);

@@ -79,6 +79,9 @@ export default function UserList({
                 {u.fonction && !hideFonctionUnderName && (
                   <div className="judoka-club">{u.fonction}</div>
                 )}
+                {u.org_code && ['ligue', 'entente', 'club'].includes(u.type) && (
+                  <div className="judoka-club">ID {u.org_code}</div>
+                )}
               </td>
               {showClub && <td data-label="Club">{u.club || u.nom_club || '—'}</td>}
               <td data-label="Email">

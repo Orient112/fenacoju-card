@@ -25,6 +25,7 @@ create table if not exists users (
   statut text not null default 'actif' check (statut in ('pending', 'actif', 'rejete')),
   acces_systeme boolean default true,
   parent_id uuid references users(id) on delete set null,
+  org_code text,
   created_at timestamptz default now()
 );
 

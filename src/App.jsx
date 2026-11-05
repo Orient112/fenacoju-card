@@ -1021,6 +1021,47 @@ export default function App() {
                       />
                     )}
                   </>
+                ) : user.type === 'entente' ? (
+                  <>
+                    {showCard('clubs') && (
+                      <StatCard
+                        theme="blue"
+                        icon={<IconBuilding />}
+                        value={stats.clubs}
+                        label={L('clubs')}
+                        active={dashboardTab === 'clubs'}
+                        onClick={tabs.includes('clubs') ? () => { setDashboardTab('clubs'); setView('list'); } : undefined}
+                      />
+                    )}
+                    {showStatsJudokas && showCard('judokas') && (
+                      <>
+                        <StatCard
+                          theme="blue"
+                          icon={<IconPeople />}
+                          value={stats.total}
+                          label={L('judokas')}
+                          active={dashboardTab === 'judokas'}
+                          onClick={() => { setDashboardTab('judokas'); setView('list'); }}
+                        />
+                        <StatCard
+                          theme="blue"
+                          icon={<IconCheck />}
+                          value={stats.actifs}
+                          label={`${L('judokas')} actifs`}
+                        />
+                      </>
+                    )}
+                    {showStatsEntraineurs && showCard('entraineurs') && (
+                      <StatCard
+                        theme="blue"
+                        icon={<IconPerson />}
+                        value={stats.entraineurs}
+                        label={L('entraineurs')}
+                        active={dashboardTab === 'entraineurs'}
+                        onClick={tabs.includes('entraineurs') ? () => { setDashboardTab('entraineurs'); setView('list'); } : undefined}
+                      />
+                    )}
+                  </>
                 ) : (
                   <>
                     {showStatsJudokas && showCard('judokas') && (
@@ -1060,6 +1101,20 @@ export default function App() {
               </div>
             )}
 
+            {user.type === 'entente' && perms.viewStats && Array.isArray(stats.gradesBreakdown) && stats.gradesBreakdown.length > 0 && (
+              <div className="entente-grades-panel">
+                <h4>Athlètes par ceinture / grade</h4>
+                <div className="entente-grades-grid">
+                  {stats.gradesBreakdown.map((row) => (
+                    <div key={row.grade} className="entente-grade-item">
+                      <span>{row.grade}</span>
+                      <strong>{row.count}</strong>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {user.type === 'club' && perms.viewStats && (
               <ClubInfoPanel
                 title={user.nom_club}
@@ -1070,7 +1125,11 @@ export default function App() {
 
             {(user.type === 'ligue' || user.type === 'entente') && perms.viewStats && (
               <ClubInfoPanel
-                title={user.nom_organisation || user.nom}
+                title={
+                  user.org_code
+                    ? `${user.nom_organisation || user.nom} · ${user.org_code}`
+                    : (user.nom_organisation || user.nom)
+                }
                 responsable={user.responsable}
                 ville={user.ville}
                 responsableLabel={user.type === 'ligue' ? 'Responsable de la ligue' : 'Responsable de l\'entente'}

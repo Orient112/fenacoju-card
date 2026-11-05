@@ -140,7 +140,9 @@ export function mergeFederationSettings(raw) {
   const role_labels = Object.fromEntries(roles.map((r) => [r.key, r.label]));
   const roles_enabled = Object.fromEntries(roles.map((r) => [r.key, r.enabled !== false]));
 
-  const labels = { ...DEFAULT_FEDERATION_LABELS, ...(src.labels || {}) };
+  const labels = (src.labels && typeof src.labels === 'object' && Object.keys(src.labels).length)
+    ? { ...src.labels }
+    : { ...DEFAULT_FEDERATION_LABELS };
   const menu_labels = { ...DEFAULT_MENU_LABELS, ...(src.menu_labels || {}) };
   const colors = { ...DEFAULT_FEDERATION_COLORS, ...(src.colors || {}) };
 
@@ -219,12 +221,19 @@ export function getVisibilityRole(user) {
   if (user.type === 'club') return 'club';
   if (user.type === 'ligue') return 'ligue';
   if (user.type === 'entente') return 'entente';
+  if (user.type === 'federation' && user.fonction) {
+    return `federation:${user.fonction}`;
+  }
   return 'federation';
 }
 
 export function isCardVisible(settings, user, cardKey) {
   const role = getVisibilityRole(user);
-  const row = settings?.card_visibility?.[role];
+  const specific = settings?.card_visibility?.[role];
+  const fallback = role.startsWith('federation:')
+    ? settings?.card_visibility?.federation
+    : null;
+  const row = specific || fallback;
   if (!row || row[cardKey] === undefined) return true;
   return row[cardKey] !== false;
 }
