@@ -1569,7 +1569,7 @@ export default function App() {
               lockedClub={lockedClub}
               registeredClubs={registeredClubs}
               entraineurs={entraineurs.filter((e) => (e.statut || 'actif') === 'actif')}
-              allowPhoto={user.type === 'admin' || (user.type === 'federation' && user.fonction === 'Coordon')}
+              allowPhoto
               onSubmit={editing ? handleUpdate : handleCreate}
               onCancel={() => { setEditing(null); setView('list'); }}
             />          </Suspense>

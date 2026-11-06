@@ -23,46 +23,27 @@ const JUDOKA_FORM_FIELDS = [
   'numero_licence',
   'telephone',
   'email',
-  'taille',
   'poids',
   'date_inscription',
   'statut',
 ];
 
 const emptyForm = () => ({
-
   nom: '',
-
   prenom: '',
-
   date_naissance: '',
-
   sexe: 'M',
-
   club: '',
-
   entraineur_id: '',
-
   entraineur_nom: '',
-
   grade: 'Blanche',
-
   categorie: '',
-
   numero_licence: '',
-
   telephone: '',
-
   email: '',
-
-  taille: '',
-
   poids: '',
-
   date_inscription: new Date().toISOString().split('T')[0],
-
   statut: 'actif',
-
 });
 
 function formFromJudoka(judoka) {
@@ -420,25 +401,6 @@ export default function JudokaForm({ judoka, lockedClub, registeredClubs = [], e
             </select>
 
           </div>
-
-
-
-            <div className="form-group">
-
-              <label>Taille (cm)</label>
-
-              <input
-                name="taille"
-                type="number"
-                min="50"
-                max="250"
-                step="0.1"
-                value={form.taille || ''}
-                onChange={handleChange}
-                placeholder="Ex. 172"
-              />
-
-            </div>
 
 
 
