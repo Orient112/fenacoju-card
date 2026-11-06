@@ -6799,6 +6799,16 @@ tbody tr:last-child td {
   border-radius: 14px;
 }
 
+.competition-choice-btn:disabled,
+.competition-choice-btn.is-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+  color: #94a3b8;
+  border-color: #cbd5e1;
+  background: #f1f5f9;
+}
+
 .competition-error-overlay {
   z-index: 260;
   backdrop-filter: blur(8px);

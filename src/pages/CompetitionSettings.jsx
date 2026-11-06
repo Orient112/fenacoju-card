@@ -610,18 +610,10 @@ function ParamsFormFields({
       <div className="competition-fees-block" style={{ marginBottom: '1.25rem' }}>
         <div className="competition-cat-block-head">
           <span className="competition-cat-block-kicker">Athlètes Hors Système</span>
-          <h4>Inscriptions sans carte FENACOJU</h4>
         </div>
-        <p className="form-hint">
-          Inactive par défaut. Activez pour autoriser le bouton « Pas encore dans le Système »
-          sur la page d&apos;inscription publique.
-        </p>
         <div className="transfer-row" style={{ padding: '0.5rem 0' }}>
           <div>
             <strong>{horsSystemeOn ? 'Activé' : 'Désactivé'}</strong>
-            <small>{horsSystemeOn
-              ? 'Les athlètes hors système peuvent s\'inscrire'
-              : 'Seuls les athlètes déjà dans le système peuvent s\'inscrire'}</small>
           </div>
           <label className={`competition-access-toggle ${horsSystemeOn ? 'is-on' : ''}`}>
             <input
@@ -636,7 +628,7 @@ function ParamsFormFields({
           </label>
         </div>
         <p className="form-hint" style={{ marginTop: '0.35rem' }}>
-          {horsSystemeOn ? 'Désactiver' : 'Activer'} les athlètes hors système
+          {horsSystemeOn ? 'Désactiver' : 'Activer'}
         </p>
       </div>
       <div className="form-group form-group-full competition-description-field">

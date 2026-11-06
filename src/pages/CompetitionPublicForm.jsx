@@ -914,21 +914,14 @@ export default function CompetitionPublicForm({ token }) {
                   </button>
                   <button
                     type="button"
-                    className="btn btn-outline competition-choice-btn"
+                    className={`btn btn-outline competition-choice-btn${!allowHorsSysteme ? ' is-disabled' : ''}`}
                     onClick={startNew}
                     disabled={!allowHorsSysteme}
-                    title={allowHorsSysteme
-                      ? 'Inscrire un athlète hors système'
-                      : 'Option désactivée par l\'organisateur de la compétition'}
+                    aria-disabled={!allowHorsSysteme}
                   >
                     Pas encore dans le Système
                   </button>
                 </div>
-                {!allowHorsSysteme && (
-                  <p className="form-hint" style={{ textAlign: 'center' }}>
-                    Les inscriptions hors système sont désactivées pour cette compétition.
-                  </p>
-                )}
                 <div className="form-actions" style={{ justifyContent: 'center' }}>
                   <button type="button" className="btn btn-outline" onClick={resetFlow}>
                     Retour
