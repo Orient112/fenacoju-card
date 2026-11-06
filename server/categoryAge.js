@@ -16,7 +16,46 @@ export const CATEGORY_AGE_RANGES = {
   seniors: { min: 22, max: 99, label: 'Seniors' },
 };
 
-export function getCategoryAgeRule(categorie) {
+export function parseCategoriesAge(raw) {
+  let list = [];
+  if (Array.isArray(raw)) list = raw;
+  else if (typeof raw === 'string' && raw.trim()) {
+    try {
+      const parsed = JSON.parse(raw);
+      return parseCategoriesAge(parsed);
+    } catch {
+      return [];
+    }
+  }
+
+  const seen = new Set();
+  const cats = [];
+  for (const item of list) {
+    const label = String(item?.label || item?.nom || item?.categorie || '').trim();
+    const min = Number(item?.min);
+    const max = Number(item?.max);
+    if (!label || !Number.isFinite(min) || !Number.isFinite(max)) continue;
+    const lo = Math.min(min, max);
+    const hi = Math.max(min, max);
+    const key = label.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    cats.push({
+      id: String(item?.id || `${key}-${lo}-${hi}`),
+      label,
+      min: lo,
+      max: hi,
+    });
+  }
+  return cats.sort((a, b) => a.min - b.min || a.max - b.max || a.label.localeCompare(b.label, 'fr'));
+}
+
+export function getCategoryAgeRule(categorie, thresholds = null) {
+  const parsed = parseCategoriesAge(thresholds);
+  if (parsed.length) {
+    const key = String(categorie || '').trim().toLowerCase();
+    return parsed.find((t) => t.label.toLowerCase() === key) || null;
+  }
   const key = String(categorie || '')
     .trim()
     .toLowerCase()
@@ -28,7 +67,7 @@ export function getCategoryAgeRule(categorie) {
 }
 
 /**
- * Détermine la catégorie d’âge à partir de la date de naissance.
+ * Détermine la catégorie d’âge à partir de la date de naissance (règles globales).
  * @returns {'Juniors'|'Seniors'|''}
  */
 export function categoryFromBirthDate(dateNaissance, refDate = new Date()) {
@@ -43,11 +82,21 @@ export function categoryFromBirthDate(dateNaissance, refDate = new Date()) {
   return '';
 }
 
+/** Catégorie d’âge selon les seuils paramétrés d’une compétition. */
+export function categoryFromAgeThresholds(dateNaissance, thresholds, refDate = new Date()) {
+  const parsed = parseCategoriesAge(thresholds);
+  if (!parsed.length) return categoryFromBirthDate(dateNaissance, refDate);
+  const age = calcAgeFromDate(dateNaissance, refDate);
+  if (!Number.isFinite(age) || age < 0) return '';
+  const match = parsed.find((t) => age >= t.min && age <= t.max);
+  return match ? match.label : '';
+}
+
 /**
  * @returns {string|null} message d’erreur, ou null si OK / pas de règle
  */
-export function validateCategoryAge(categorie, dateNaissance) {
-  const rule = getCategoryAgeRule(categorie);
+export function validateCategoryAge(categorie, dateNaissance, thresholds = null) {
+  const rule = getCategoryAgeRule(categorie, thresholds);
   if (!rule) return null;
   if (!dateNaissance) {
     return `La date de naissance est obligatoire pour la catégorie ${rule.label}`;
@@ -55,7 +104,11 @@ export function validateCategoryAge(categorie, dateNaissance) {
   const age = calcAgeFromDate(dateNaissance);
   if (!Number.isFinite(age) || age < 0) return 'Date de naissance invalide';
   if (age < rule.min || age > rule.max) {
-    return `La catégorie ${rule.label} accepte uniquement les judokas de ${rule.min} à ${rule.max} ans (âge actuel : ${age} ans)`;
+    return `La catégorie ${rule.label} accepte uniquement les athlètes de ${rule.min} à ${rule.max} ans (âge actuel : ${age} ans)`;
   }
   return null;
+}
+
+export function validateCategoryAgeThresholds(categorie, dateNaissance, thresholds) {
+  return validateCategoryAge(categorie, dateNaissance, thresholds);
 }

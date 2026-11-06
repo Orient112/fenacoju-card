@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 
-import { GRADES, GRADES_CLUB, CATEGORIES, resolveMediaUrl } from '../api';
+import { GRADES, CATEGORIES, resolveMediaUrl } from '../api';
 
 import CameraCapture from './CameraCapture';
 
@@ -520,13 +520,9 @@ export default function JudokaForm({ judoka, lockedClub, registeredClubs = [], e
             <label>Grade / Ceinture <span className="required">*</span></label>
 
             <select name="grade" value={form.grade} onChange={handleChange}>
-
-              {(lockedClub ? GRADES_CLUB : GRADES).map((g) => (
-
+              {GRADES.map((g) => (
                 <option key={g} value={g}>{g}</option>
-
               ))}
-
             </select>
 
           </div>
@@ -553,10 +549,6 @@ export default function JudokaForm({ judoka, lockedClub, registeredClubs = [], e
               ))}
 
             </select>
-
-            {categoryFromBirthDate(form.date_naissance) && (
-              <p className="form-hint">Déterminée automatiquement selon l&apos;âge (Juniors 17–21 ans, Seniors 22–99 ans).</p>
-            )}
 
           </div>
 

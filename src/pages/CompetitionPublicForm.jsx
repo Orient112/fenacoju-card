@@ -8,6 +8,7 @@ import {
   CATEGORIES,
   validateCategoryAge,
   categoryFromBirthDate,
+  categoryFromAgeThresholds,
 } from '../api';
 import CompetitionPaymentModal, { formatMoney } from '../components/CompetitionPaymentModal';
 import CompetitionClubSelect from '../components/CompetitionClubSelect';
@@ -153,6 +154,8 @@ export default function CompetitionPublicForm({ token }) {
             registrations_count: data.registrations_count,
             closed: data.closed,
             categories_poids: data.categories_poids,
+            categories_age: data.categories_age,
+            allow_hors_systeme: data.allow_hors_systeme,
             competition_clubs: data.competition_clubs,
             frais_individuel: data.frais_individuel,
             frais_equipe: data.frais_equipe,
@@ -208,12 +211,23 @@ export default function CompetitionPublicForm({ token }) {
     });
   }, [competition?.team_members, competition?.categories_poids, teamClub, teamSexe, step]);
 
+  const ageThresholds = Array.isArray(competition?.categories_age) ? competition.categories_age : [];
+  const allowHorsSysteme = Boolean(competition?.allow_hors_systeme);
+  const resolveAgeCategory = (dateNaissance) => (
+    ageThresholds.length
+      ? categoryFromAgeThresholds(dateNaissance, ageThresholds)
+      : categoryFromBirthDate(dateNaissance)
+  );
+  const categoryOptions = ageThresholds.length
+    ? ageThresholds.map((t) => t.label)
+    : CATEGORIES;
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => {
       const next = { ...prev, [name]: value };
       if (name === 'date_naissance') {
-        const autoCat = categoryFromBirthDate(value);
+        const autoCat = resolveAgeCategory(value);
         if (autoCat) next.categorie = autoCat;
       }
       return next;
@@ -268,6 +282,10 @@ export default function CompetitionPublicForm({ token }) {
   };
 
   const startNew = () => {
+    if (!allowHorsSysteme) {
+      setError('Les inscriptions d\'athlètes hors système ne sont pas autorisées pour cette compétition');
+      return;
+    }
     setStep('form');
     setError('');
     setCardId('');
@@ -303,7 +321,7 @@ export default function CompetitionPublicForm({ token }) {
         prenom: judoka.prenom || '',
         date_naissance: dateNaissance,
         sexe: judoka.sexe || 'M',
-        categorie: categoryFromBirthDate(dateNaissance) || judoka.categorie || '',
+        categorie: resolveAgeCategory(dateNaissance) || judoka.categorie || '',
       });
       setStep('form');
     } catch (err) {
@@ -329,7 +347,7 @@ export default function CompetitionPublicForm({ token }) {
       setError('Complétez les champs obligatoires avant d\'ajouter');
       return;
     }
-    const ageError = validateCategoryAge(form.categorie, form.date_naissance);
+    const ageError = validateCategoryAge(form.categorie, form.date_naissance, ageThresholds);
     if (ageError) {
       setError(ageError);
       return;
@@ -359,7 +377,7 @@ export default function CompetitionPublicForm({ token }) {
     setError('');
     let list = [...basket];
     if (form.nom?.trim() && form.prenom?.trim() && form.club?.trim() && form.date_naissance) {
-      const ageError = validateCategoryAge(form.categorie, form.date_naissance);
+      const ageError = validateCategoryAge(form.categorie, form.date_naissance, ageThresholds);
       if (ageError) {
         setError(ageError);
         return;
@@ -374,7 +392,7 @@ export default function CompetitionPublicForm({ token }) {
       }
     }
     for (const item of list) {
-      const ageError = validateCategoryAge(item.categorie, item.date_naissance);
+      const ageError = validateCategoryAge(item.categorie, item.date_naissance, ageThresholds);
       if (ageError) {
         setError(`${item.prenom || ''} ${item.nom || ''}`.trim()
           ? `${ageError} (${item.prenom} ${item.nom})`
@@ -894,10 +912,23 @@ export default function CompetitionPublicForm({ token }) {
                   <button type="button" className="btn btn-primary competition-choice-btn" onClick={startExisting}>
                     Déjà dans le Système
                   </button>
-                  <button type="button" className="btn btn-outline competition-choice-btn" onClick={startNew}>
+                  <button
+                    type="button"
+                    className="btn btn-outline competition-choice-btn"
+                    onClick={startNew}
+                    disabled={!allowHorsSysteme}
+                    title={allowHorsSysteme
+                      ? 'Inscrire un athlète hors système'
+                      : 'Option désactivée par l\'organisateur de la compétition'}
+                  >
                     Pas encore dans le Système
                   </button>
                 </div>
+                {!allowHorsSysteme && (
+                  <p className="form-hint" style={{ textAlign: 'center' }}>
+                    Les inscriptions hors système sont désactivées pour cette compétition.
+                  </p>
+                )}
                 <div className="form-actions" style={{ justifyContent: 'center' }}>
                   <button type="button" className="btn btn-outline" onClick={resetFlow}>
                     Retour
@@ -1026,16 +1057,13 @@ export default function CompetitionPublicForm({ token }) {
                       name="categorie"
                       value={form.categorie}
                       onChange={handleChange}
-                      disabled={Boolean(categoryFromBirthDate(form.date_naissance))}
+                      disabled={Boolean(resolveAgeCategory(form.date_naissance))}
                     >
                       <option value="">— Sélectionner —</option>
-                      {CATEGORIES.map((c) => (
+                      {categoryOptions.map((c) => (
                         <option key={c} value={c}>{c}</option>
                       ))}
                     </select>
-                    {categoryFromBirthDate(form.date_naissance) && (
-                      <p className="form-hint">Déterminée automatiquement selon l&apos;âge (Juniors 17–21 ans, Seniors 22–99 ans).</p>
-                    )}
                   </div>
                 </div>
 

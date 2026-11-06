@@ -417,14 +417,27 @@ function ParamsFormFields({
   onChange,
   onCategoriesChange,
   onIndividualCategoriesChange,
+  onAgeThresholdsChange,
   onLogoSelected,
   onLogoRemoved,
   logoUploading = false,
 }) {
   const teamCats = Array.isArray(form.categories_poids) ? form.categories_poids : [];
   const individualCats = Array.isArray(form.categories_poids_individuel) ? form.categories_poids_individuel : [];
+  const ageCats = Array.isArray(form.categories_age) ? form.categories_age : [];
   const logoSrc = form.logo_url ? resolveMediaUrl(form.logo_url) : '/fenacoju-logo.png';
   const hasCustomLogo = Boolean(form.logo_url);
+  const horsSystemeOn = Boolean(form.allow_hors_systeme);
+
+  const updateAgeCat = (index, field, value) => {
+    const next = ageCats.map((c, i) => (i === index ? { ...c, [field]: value } : c));
+    onAgeThresholdsChange?.(next);
+  };
+  const addAgeCat = () => onAgeThresholdsChange?.([
+    ...ageCats,
+    { label: '', min: '', max: '' },
+  ]);
+  const removeAgeCat = (index) => onAgeThresholdsChange?.(ageCats.filter((_, i) => i !== index));
 
   const renderCatEditor = (cats, onUpdate, prefix) => {
     const updateCat = (index, field, value) => {
@@ -594,6 +607,38 @@ function ParamsFormFields({
           </div>
         </div>
       </div>
+      <div className="competition-fees-block" style={{ marginBottom: '1.25rem' }}>
+        <div className="competition-cat-block-head">
+          <span className="competition-cat-block-kicker">Athlètes Hors Système</span>
+          <h4>Inscriptions sans carte FENACOJU</h4>
+        </div>
+        <p className="form-hint">
+          Inactive par défaut. Activez pour autoriser le bouton « Pas encore dans le Système »
+          sur la page d&apos;inscription publique.
+        </p>
+        <div className="transfer-row" style={{ padding: '0.5rem 0' }}>
+          <div>
+            <strong>{horsSystemeOn ? 'Activé' : 'Désactivé'}</strong>
+            <small>{horsSystemeOn
+              ? 'Les athlètes hors système peuvent s\'inscrire'
+              : 'Seuls les athlètes déjà dans le système peuvent s\'inscrire'}</small>
+          </div>
+          <label className={`competition-access-toggle ${horsSystemeOn ? 'is-on' : ''}`}>
+            <input
+              type="checkbox"
+              name="allow_hors_systeme"
+              checked={horsSystemeOn}
+              onChange={(e) => onChange?.({
+                target: { name: 'allow_hors_systeme', value: e.target.checked, type: 'checkbox' },
+              })}
+            />
+            <span className="toggle-slider" aria-hidden="true" />
+          </label>
+        </div>
+        <p className="form-hint" style={{ marginTop: '0.35rem' }}>
+          {horsSystemeOn ? 'Désactiver' : 'Activer'} les athlètes hors système
+        </p>
+      </div>
       <div className="form-group form-group-full competition-description-field">
         <div className="competition-description-head">
           <span className="competition-cat-block-kicker">Présentation</span>
@@ -694,6 +739,63 @@ function ParamsFormFields({
           </div>
         </div>
       </div>
+      <div className="competition-fees-block">
+        <div className="competition-cat-block-head">
+          <span className="competition-cat-block-kicker">Seuil d&apos;âge</span>
+          <h4>Catégories selon l&apos;âge</h4>
+        </div>
+        <p className="form-hint">
+          Définissez les tranches d&apos;âge de cette compétition (ex. Cadets 15–16 ans).
+          Elles sont utilisées à l&apos;inscription individuelle.
+        </p>
+        <div className="club-comites-head">
+          <label>Catégories d&apos;âge</label>
+          <button type="button" className="btn btn-outline btn-sm" onClick={addAgeCat}>
+            + Ajouter
+          </button>
+        </div>
+        {ageCats.length === 0 ? (
+          <p className="form-hint">Aucun seuil d&apos;âge pour le moment.</p>
+        ) : (
+          <div className="club-comites-list">
+            {ageCats.map((cat, index) => (
+              <div key={cat.id || `age-${index}`} className="club-comite-row club-comite-row-cat">
+                <input
+                  value={cat.label || ''}
+                  onChange={(e) => updateAgeCat(index, 'label', e.target.value)}
+                  placeholder="Ex. Cadets"
+                  aria-label={`Catégorie d'âge ${index + 1}`}
+                />
+                <span className="form-hint" style={{ margin: 0 }}>de</span>
+                <input
+                  value={cat.min ?? ''}
+                  onChange={(e) => updateAgeCat(index, 'min', e.target.value)}
+                  placeholder="Min"
+                  inputMode="numeric"
+                  aria-label={`Âge minimum ${index + 1}`}
+                />
+                <span className="form-hint" style={{ margin: 0 }}>à</span>
+                <input
+                  value={cat.max ?? ''}
+                  onChange={(e) => updateAgeCat(index, 'max', e.target.value)}
+                  placeholder="Max"
+                  inputMode="numeric"
+                  aria-label={`Âge maximum ${index + 1}`}
+                />
+                <span className="form-hint" style={{ margin: 0 }}>ans</span>
+                <button
+                  type="button"
+                  className="btn btn-icon btn-icon-delete"
+                  title="Retirer"
+                  onClick={() => removeAgeCat(index)}
+                >
+                  <IconTrash />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
       <div className="competition-cat-block competition-cat-block-indiv">
         <div className="competition-cat-block-head">
           <span className="competition-cat-block-kicker">Individuel</span>
@@ -785,6 +887,8 @@ export default function CompetitionSettings({ onBack, onToast }) {
     logo_url: '',
     categories_poids: [],
     categories_poids_individuel: [],
+    categories_age: [],
+    allow_hors_systeme: false,
     frais_monnaie: 'CDF',
     frais_individuel_cdf: 0,
     frais_individuel_usd: 0,
@@ -815,6 +919,8 @@ export default function CompetitionSettings({ onBack, onToast }) {
       logo_url: data.logo_url || '',
       categories_poids: Array.isArray(data.categories_poids) ? data.categories_poids : [],
       categories_poids_individuel: Array.isArray(data.categories_poids_individuel) ? data.categories_poids_individuel : [],
+      categories_age: Array.isArray(data.categories_age) ? data.categories_age : [],
+      allow_hors_systeme: Boolean(data.allow_hors_systeme),
       frais_monnaie: String(data.frais_monnaie || '').toUpperCase() === 'USD' ? 'USD' : 'CDF',
       frais_individuel_cdf: Math.max(0, Number(data.frais_individuel_cdf ?? data.frais_individuel) || 0),
       frais_individuel_usd: Math.max(0, Number(data.frais_individuel_usd) || 0),
@@ -924,11 +1030,11 @@ export default function CompetitionSettings({ onBack, onToast }) {
   }, [loading, showReceiptScan, settings?.access_ok, settings?.can_toggle_access, refreshSilent]);
 
   const handleChange = (e) => {
-    const { name, value, type } = e.target;
+    const { name, value, type, checked } = e.target;
     formDirtyRef.current = true;
     setForm((prev) => ({
       ...prev,
-      [name]: type === 'number' ? value : value,
+      [name]: type === 'checkbox' ? Boolean(checked) : value,
     }));
   };
 
@@ -940,6 +1046,11 @@ export default function CompetitionSettings({ onBack, onToast }) {
   const handleIndividualCategoriesChange = (next) => {
     formDirtyRef.current = true;
     setForm((prev) => ({ ...prev, categories_poids_individuel: next }));
+  };
+
+  const handleAgeThresholdsChange = (next) => {
+    formDirtyRef.current = true;
+    setForm((prev) => ({ ...prev, categories_age: next }));
   };
 
   const handleLogoSelected = async (file) => {
@@ -2234,6 +2345,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
                   onChange={handleChange}
                   onCategoriesChange={handleCategoriesChange}
                   onIndividualCategoriesChange={handleIndividualCategoriesChange}
+                  onAgeThresholdsChange={handleAgeThresholdsChange}
                   onLogoSelected={handleLogoSelected}
                   onLogoRemoved={handleLogoRemoved}
                   logoUploading={logoUploading}
@@ -2443,6 +2555,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
                 onChange={handleChange}
                 onCategoriesChange={handleCategoriesChange}
                 onIndividualCategoriesChange={handleIndividualCategoriesChange}
+                onAgeThresholdsChange={handleAgeThresholdsChange}
                 onLogoSelected={handleLogoSelected}
                 onLogoRemoved={handleLogoRemoved}
                 logoUploading={logoUploading}

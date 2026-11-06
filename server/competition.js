@@ -3,7 +3,11 @@ import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { getSupabase, isSupabaseEnabled } from './supabase.js';
 import { dataDir } from './paths.js';
-import { validateCategoryAge, categoryFromBirthDate } from './categoryAge.js';
+import {
+  validateCategoryAge,
+  categoryFromBirthDate,
+  parseCategoriesAge,
+} from './categoryAge.js';
 
 const settingsPath = path.join(dataDir, 'competition.json');
 const registrationsPath = path.join(dataDir, 'competition_registrations.json');
@@ -21,6 +25,8 @@ const DEFAULT_SETTINGS = {
   public_token: '',
   categories_poids: [],
   categories_poids_individuel: [],
+  categories_age: [],
+  allow_hors_systeme: false,
   competition_clubs: [],
   frais_monnaie: 'CDF',
   frais_individuel: 0,
@@ -248,6 +254,22 @@ function ensureDefaults(raw = {}) {
     settings.description = desc.replace(META_RE, '').replace(/<!--FENACOJU_META:[\s\S]*?-->/g, '').trimEnd();
   }
 
+  // Seuils d'âge & hors système : valeur explicite du payload prioritaire sur META
+  if (Object.prototype.hasOwnProperty.call(raw, 'categories_age')) {
+    settings.categories_age = parseCategoriesAge(raw.categories_age);
+  } else if (meta && Array.isArray(meta.categories_age)) {
+    settings.categories_age = parseCategoriesAge(meta.categories_age);
+  } else {
+    settings.categories_age = parseCategoriesAge(settings.categories_age);
+  }
+  if (Object.prototype.hasOwnProperty.call(raw, 'allow_hors_systeme')) {
+    settings.allow_hors_systeme = Boolean(raw.allow_hors_systeme);
+  } else if (meta && meta.allow_hors_systeme !== undefined) {
+    settings.allow_hors_systeme = Boolean(meta.allow_hors_systeme);
+  } else {
+    settings.allow_hors_systeme = Boolean(settings.allow_hors_systeme);
+  }
+
   settings.frais_monnaie = String(settings.frais_monnaie || meta?.frais_monnaie || '').toUpperCase() === 'USD'
     ? 'USD'
     : 'CDF';
@@ -332,6 +354,8 @@ function toDbSettings(settings) {
     description: `${cleanDesc}\n<!--FENACOJU_META:${JSON.stringify({
       categories_poids: cats,
       categories_poids_individuel: indivCats,
+      categories_age: parseCategoriesAge(settings.categories_age),
+      allow_hors_systeme: Boolean(settings.allow_hors_systeme),
       competition_clubs: parseCompetitionClubs(settings.competition_clubs),
       frais_monnaie: String(settings.frais_monnaie || '').toUpperCase() === 'USD' ? 'USD' : 'CDF',
       frais_individuel_cdf: Math.max(0, Number(settings.frais_individuel_cdf ?? settings.frais_individuel) || 0),
@@ -647,6 +671,8 @@ export function toPublicCompetition(settings, extras = {}, options = {}) {
     public_token: settings.public_token,
     categories_poids: parseCategoriesPoids(settings.categories_poids),
     categories_poids_individuel: parseCategoriesPoids(settings.categories_poids_individuel),
+    categories_age: parseCategoriesAge(settings.categories_age),
+    allow_hors_systeme: Boolean(settings.allow_hors_systeme),
     competition_clubs: parseCompetitionClubs(settings.competition_clubs),
     frais_monnaie: String(settings.frais_monnaie || '').toUpperCase() === 'USD' ? 'USD' : 'CDF',
     frais_individuel_cdf: Math.max(0, Number(settings.frais_individuel_cdf ?? settings.frais_individuel) || 0),

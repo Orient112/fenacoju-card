@@ -464,6 +464,9 @@ export {
   validateCategoryAge,
   getCategoryAgeRule,
   categoryFromBirthDate,
+  categoryFromAgeThresholds,
+  validateCategoryAgeThresholds,
+  parseCategoriesAge,
   CATEGORY_AGE_RANGES,
 } from './utils/categoryAge.js';
 
@@ -1172,6 +1175,11 @@ export const GRADES = [
   'Noire 3ème Dan',
   'Noire 4ème Dan',
   'Noire 5ème Dan',
+  'Noire 6ème Dan',
+  'Noire 7ème Dan',
+  'Noire 8ème Dan',
+  'Noire 9ème Dan',
+  'Noire 10ème Dan',
 ];
 
 export const CATEGORIES = [

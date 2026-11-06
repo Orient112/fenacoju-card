@@ -17,7 +17,7 @@ import {
   generateCardNumber,
   findJudokaByIdentity,
 } from './database.js';
-import { validateCategoryAge, categoryFromBirthDate } from './categoryAge.js';
+import { validateCategoryAge, categoryFromBirthDate, parseCategoriesAge } from './categoryAge.js';
 import {
   addGradeHistory,
   actorLabel,
@@ -362,6 +362,8 @@ app.get('/api/public/competition/:token', async (req, res) => {
       logo_url: settings.logo_url || '',
       public_token: settings.public_token,
       categories_poids: settings.categories_poids || [],
+      categories_age: settings.categories_age || [],
+      allow_hors_systeme: Boolean(settings.allow_hors_systeme),
       competition_clubs: settings.competition_clubs || [],
       team_counts: teamCounts,
       team_members: teamMembers,
@@ -600,6 +602,19 @@ app.post('/api/public/competition/:token/register', async (req, res) => {
     const scopeMeta = { federation_id: federationId, owner_key: ownerKey };
     const body = req.body || {};
     const modeInscription = body.mode_inscription === 'equipe' ? 'equipe' : 'individuel';
+
+    // Athlètes hors système : désactivé par défaut (paramétrable dans Paramètres de Compétition)
+    if (modeInscription === 'individuel' && !settings.allow_hors_systeme) {
+      const isNewAthlete = Array.isArray(body.batch) && body.batch.length
+        ? body.batch.some((item) => !item?.deja_enregistre && !item?.judoka_id)
+        : (!body.deja_enregistre && !body.judoka_id);
+      if (isNewAthlete) {
+        return res.status(403).json({
+          error: 'Les inscriptions d\'athlètes hors système ne sont pas autorisées pour cette compétition',
+        });
+      }
+    }
+
     const payMode = body.paiement && typeof body.paiement === 'object'
       ? String(body.paiement.mode || '').trim()
       : '';
@@ -1310,6 +1325,12 @@ app.put('/api/competition', async (req, res) => {
     }
     if (body.categories_poids_individuel !== undefined) {
       patch.categories_poids_individuel = parseCategoriesPoids(body.categories_poids_individuel);
+    }
+    if (body.categories_age !== undefined) {
+      patch.categories_age = parseCategoriesAge(body.categories_age);
+    }
+    if (body.allow_hors_systeme !== undefined) {
+      patch.allow_hors_systeme = Boolean(body.allow_hors_systeme);
     }
     if (body.competition_clubs !== undefined) {
       let clubs = parseCompetitionClubs(body.competition_clubs);
