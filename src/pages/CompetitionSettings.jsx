@@ -794,6 +794,8 @@ export default function CompetitionSettings({ onBack, onToast }) {
   const [logoUploading, setLogoUploading] = useState(false);
   const formRef = useRef(form);
   const savingRef = useRef(false);
+  const formDirtyRef = useRef(false);
+  const wasConfiguredRef = useRef(false);
 
   useEffect(() => {
     formRef.current = form;
@@ -834,6 +836,8 @@ export default function CompetitionSettings({ onBack, onToast }) {
         return;
       }
       applySettingsForm(data);
+      formDirtyRef.current = false;
+      wasConfiguredRef.current = Boolean(data.configured);
       if (data.access_ok || data.can_toggle_access || data.can_edit) {
         const regs = await fetchCompetitionRegistrations().catch(() => []);
         setRegistrations(regs);
@@ -853,22 +857,20 @@ export default function CompetitionSettings({ onBack, onToast }) {
         fetchCompetitionRegistrations().catch(() => null),
       ]);
       setSettings((prev) => ({ ...prev, ...data }));
-      // Si Admin/Coordon a reset (Off), synchroniser le formulaire local
-      if (!data.configured || !data.nom) {
-        setForm({
-          nom: data.nom || '',
-          date_debut: data.date_debut || '',
-          date_fin: data.date_fin || '',
-          lieu: data.lieu || '',
-          description: data.description || '',
-          categories_poids: Array.isArray(data.categories_poids) ? data.categories_poids : [],
-          categories_poids_individuel: Array.isArray(data.categories_poids_individuel) ? data.categories_poids_individuel : [],
-        });
+
+      // Reset formulaire uniquement si la compétition a été effacée à distance
+      // (pas pendant la 1ère saisie Paramètres — sinon le texte disparaît chaque seconde)
+      const lostConfig = wasConfiguredRef.current && !data.configured;
+      wasConfiguredRef.current = Boolean(data.configured);
+      if (lostConfig && !formDirtyRef.current) {
+        applySettingsForm(data);
+        formDirtyRef.current = false;
         setDrawResult(null);
         setShowParamsModal(false);
       }
+
       if (regs) setRegistrations(regs);
-      else if (!data.configured) setRegistrations([]);
+      else if (!data.configured && !formDirtyRef.current) setRegistrations([]);
       setLiveTick((v) => !v);
     } catch {
       // silent
@@ -889,6 +891,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
 
   const handleChange = (e) => {
     const { name, value, type } = e.target;
+    formDirtyRef.current = true;
     setForm((prev) => ({
       ...prev,
       [name]: type === 'number' ? value : value,
@@ -896,10 +899,12 @@ export default function CompetitionSettings({ onBack, onToast }) {
   };
 
   const handleCategoriesChange = (next) => {
+    formDirtyRef.current = true;
     setForm((prev) => ({ ...prev, categories_poids: next }));
   };
 
   const handleIndividualCategoriesChange = (next) => {
+    formDirtyRef.current = true;
     setForm((prev) => ({ ...prev, categories_poids_individuel: next }));
   };
 
@@ -952,6 +957,8 @@ export default function CompetitionSettings({ onBack, onToast }) {
       const updated = await updateCompetition(payload);
       setSettings((prev) => ({ ...prev, ...updated }));
       applySettingsForm(updated);
+      formDirtyRef.current = false;
+      wasConfiguredRef.current = Boolean(updated.configured);
       setShowParamsModal(false);
       onToast?.('Paramètres de la compétition enregistrés');
     } catch (err) {

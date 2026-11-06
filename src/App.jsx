@@ -1883,8 +1883,7 @@ export default function App() {
               <div>
                 <h3>Compétition par Entente</h3>
                 <p className="form-hint">
-                  Activez une ou plusieurs Ententes à la fois. Chaque Entente gère sa compétition
-                  indépendamment, avec ses clubs et athlètes uniquement.
+                  Chaque Entente gère sa compétition indépendamment, avec ses clubs et athlètes uniquement.
                 </p>
               </div>
               <button type="button" className="btn btn-outline btn-sm" onClick={() => setShowEntenteCompetitionPanel(false)}>Fermer</button>
