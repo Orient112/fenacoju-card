@@ -850,27 +850,61 @@ export default function CompetitionSettings({ onBack, onToast }) {
   }, []);
 
   const refreshSilent = useCallback(async () => {
-    if (savingRef.current) return;
+    if (savingRef.current || formDirtyRef.current) return;
     try {
       const [data, regs] = await Promise.all([
         fetchCompetition(),
         fetchCompetitionRegistrations().catch(() => null),
       ]);
-      setSettings((prev) => ({ ...prev, ...data }));
 
-      // Reset formulaire uniquement si la compétition a été effacée à distance
-      // (pas pendant la 1ère saisie Paramètres — sinon le texte disparaît chaque seconde)
-      const lostConfig = wasConfiguredRef.current && !data.configured;
-      wasConfiguredRef.current = Boolean(data.configured);
-      if (lostConfig && !formDirtyRef.current) {
-        applySettingsForm(data);
+      let effective = data;
+      setSettings((prev) => {
+        // Garde les params locaux si le serveur renvoie une compétition « vide »
+        // alors que l'accès est toujours actif (glitch de lecture / scope Entente)
+        const accessStillOn = Boolean(
+          data.access_enabled || data.access_ok || prev?.access_enabled || prev?.access_ok
+        );
+        if (prev?.configured && !data.configured && accessStillOn) {
+          effective = {
+            ...data,
+            nom: prev.nom || data.nom,
+            date_debut: prev.date_debut || data.date_debut,
+            date_fin: prev.date_fin || data.date_fin,
+            lieu: prev.lieu || data.lieu,
+            description: prev.description || data.description,
+            categories_poids: (prev.categories_poids?.length ? prev.categories_poids : data.categories_poids),
+            categories_poids_individuel: (prev.categories_poids_individuel?.length
+              ? prev.categories_poids_individuel
+              : data.categories_poids_individuel),
+            competition_clubs: prev.competition_clubs?.length ? prev.competition_clubs : data.competition_clubs,
+            configured: true,
+            public_token: prev.public_token || data.public_token,
+            public_enabled: prev.public_enabled ?? data.public_enabled,
+            logo_url: prev.logo_url || data.logo_url,
+          };
+          return { ...prev, ...effective };
+        }
+        return { ...prev, ...data };
+      });
+
+      // Reset formulaire uniquement si compétition vraiment désactivée / effacée à distance
+      const hardReset = wasConfiguredRef.current
+        && !effective.configured
+        && !effective.access_enabled
+        && !effective.access_ok;
+      wasConfiguredRef.current = Boolean(effective.configured);
+      if (hardReset) {
+        applySettingsForm(effective);
         formDirtyRef.current = false;
         setDrawResult(null);
         setShowParamsModal(false);
+      } else if (effective.configured && !formDirtyRef.current) {
+        // Resynchroniser le formulaire avec les données persistées (comme Directeur)
+        applySettingsForm(effective);
       }
 
       if (regs) setRegistrations(regs);
-      else if (!data.configured && !formDirtyRef.current) setRegistrations([]);
+      else if (!effective.configured) setRegistrations([]);
       setLiveTick((v) => !v);
     } catch {
       // silent

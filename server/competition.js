@@ -281,12 +281,49 @@ function ensureDefaults(raw = {}) {
   return settings;
 }
 
+function newCompetitionSettingsId() {
+  return Math.floor(Math.random() * 2_000_000_000) + 2;
+}
+
+/** id=1 réservé au scope federation historique ; les Ententes ont toujours un id dédié. */
+function resolveCompetitionSettingsId(settings, scope = 'federation') {
+  const rawId = Number(settings?.id);
+  if (Number.isFinite(rawId) && rawId > 0) {
+    if (scope !== 'federation' && rawId === 1) return newCompetitionSettingsId();
+    return rawId;
+  }
+  return scope === 'federation' ? 1 : newCompetitionSettingsId();
+}
+
+function peekSettingsJson(ownerKey = 'federation') {
+  try {
+    if (!fs.existsSync(settingsPath)) return null;
+    const store = readSettingsStore();
+    const key = ownerKey || 'federation';
+    if (!store.scopes?.[key]) return null;
+    return ensureDefaults({ ...store.scopes[key], owner_key: key });
+  } catch {
+    return null;
+  }
+}
+
+function pickRicherSettings(primary, fallback) {
+  if (!fallback) return primary;
+  if (!primary) return fallback;
+  if (isCompetitionConfigured(fallback) && !isCompetitionConfigured(primary)) return fallback;
+  if (!(primary.nom || '').trim() && (fallback.nom || '').trim()) return fallback;
+  if (!(primary.lieu || '').trim() && (fallback.lieu || '').trim()) return fallback;
+  if (!primary.date_debut && fallback.date_debut) return fallback;
+  return primary;
+}
+
 function toDbSettings(settings) {
   const cats = parseCategoriesPoids(settings.categories_poids);
   const indivCats = parseCategoriesPoids(settings.categories_poids_individuel);
   const cleanDesc = String(settings.description || '').replace(META_RE, '').trimEnd();
+  const scope = settings.owner_key || 'federation';
   const row = {
-    id: settings.id || 1,
+    id: resolveCompetitionSettingsId(settings, scope),
     access_enabled: Boolean(settings.access_enabled),
     nom: settings.nom || '',
     date_debut: settings.date_debut || null,
@@ -395,18 +432,27 @@ export async function getCompetitionSettingsByPublicToken(token) {
 
 export async function getCompetitionSettings(federationId = null, ownerKey = 'federation') {
   const scope = ownerKey || 'federation';
+  const localFallback = () => {
+    const local = peekSettingsJson(scope) || readSettingsJson(scope);
+    if (federationId && local.federation_id && local.federation_id !== federationId) {
+      return ensureDefaults({ federation_id: federationId, owner_key: scope });
+    }
+    return ensureDefaults({ ...local, federation_id: federationId || local.federation_id || null, owner_key: scope });
+  };
+
   if (isSupabaseEnabled()) {
     try {
       let data = null;
+      let ownerKeyUnsupported = false;
       if (federationId) {
-        let q = getSupabase()
+        let byFed = await getSupabase()
           .from('competition_settings')
           .select('*')
           .eq('federation_id', federationId)
-          .eq('owner_key', scope);
-        let byFed = await q.maybeSingle();
+          .eq('owner_key', scope)
+          .maybeSingle();
         if (byFed.error && /owner_key|column|schema cache/i.test(byFed.error.message || '')) {
-          // Migration non appliquée : fallback ancienne ligne fédération uniquement pour scope federation
+          ownerKeyUnsupported = true;
           if (scope === 'federation') {
             byFed = await getSupabase()
               .from('competition_settings')
@@ -414,7 +460,8 @@ export async function getCompetitionSettings(federationId = null, ownerKey = 'fe
               .eq('federation_id', federationId)
               .maybeSingle();
           } else {
-            byFed = { data: null, error: null };
+            // Migration owner_key absente : les Ententes vivent en JSON local
+            return localFallback();
           }
         }
         if (!byFed.error) data = byFed.data;
@@ -432,73 +479,146 @@ export async function getCompetitionSettings(federationId = null, ownerKey = 'fe
           }
         }
       }
-      if (!data) {
-        const initial = ensureDefaults({
-          federation_id: federationId || undefined,
-          owner_key: scope,
-        });
-        const row = toDbSettings({
-          ...initial,
-          id: Math.floor(Math.random() * 2_000_000_000) + 2,
-          federation_id: federationId || undefined,
-          owner_key: scope,
-        });
-        const { error: insertErr } = await getSupabase().from('competition_settings').upsert(row);
-        if (insertErr && /owner_key|column|schema cache/i.test(insertErr.message || '')) {
-          if (scope !== 'federation') {
-            // Sans colonne owner_key, stocker en JSON local pour les ententes
-            writeSettingsJson(initial, scope);
-            return { ...initial, federation_id: federationId || null };
-          }
-          const { owner_key: _ok, ...withoutOwner } = row;
-          const retry = await getSupabase().from('competition_settings').upsert(withoutOwner);
-          if (retry.error) throw retry.error;
-          return { ...initial, federation_id: federationId || null, id: withoutOwner.id };
+
+      if (data) {
+        const fromDb = ensureDefaults({ ...data, owner_key: data.owner_key || scope });
+        // Si le JSON local est plus complet (ex. upsert a échoué après save), le préférer
+        if (scope !== 'federation') {
+          return pickRicherSettings(fromDb, peekSettingsJson(scope));
         }
-        if (insertErr) throw insertErr;
-        return { ...initial, federation_id: federationId || null, id: row.id };
+        return fromDb;
       }
-      return ensureDefaults({ ...data, owner_key: data.owner_key || scope });
+
+      // Pas de ligne : pour Entente, ne jamais écraser un JSON déjà configuré
+      if (scope !== 'federation') {
+        const existingLocal = peekSettingsJson(scope);
+        if (existingLocal && (isCompetitionConfigured(existingLocal) || (existingLocal.nom || '').trim())) {
+          return ensureDefaults({
+            ...existingLocal,
+            federation_id: federationId || existingLocal.federation_id || null,
+            owner_key: scope,
+          });
+        }
+      }
+
+      const initial = ensureDefaults({
+        federation_id: federationId || undefined,
+        owner_key: scope,
+        id: resolveCompetitionSettingsId({ id: scope === 'federation' ? 1 : undefined }, scope),
+      });
+      const row = toDbSettings({
+        ...initial,
+        federation_id: federationId || undefined,
+        owner_key: scope,
+      });
+
+      if (ownerKeyUnsupported && scope !== 'federation') {
+        return localFallback();
+      }
+
+      const { error: insertErr } = await getSupabase().from('competition_settings').upsert(row);
+      if (insertErr && /owner_key|column|schema cache/i.test(insertErr.message || '')) {
+        if (scope !== 'federation') return localFallback();
+        const { owner_key: _ok, ...withoutOwner } = row;
+        const retry = await getSupabase().from('competition_settings').upsert(withoutOwner);
+        if (retry.error) throw retry.error;
+        return { ...initial, federation_id: federationId || null, id: withoutOwner.id };
+      }
+      if (insertErr) {
+        // Conflit unique (ex. ancienne contrainte federation_id seule) → JSON pour Entente
+        if (scope !== 'federation') {
+          console.warn('Insert competition_settings Entente:', insertErr.message);
+          return localFallback();
+        }
+        throw insertErr;
+      }
+      return { ...initial, federation_id: federationId || null, id: row.id };
     } catch (err) {
       console.warn('Lecture competition_settings impossible:', err.message);
-      return readSettingsJson(scope);
+      return localFallback();
     }
   }
-  const settings = readSettingsJson(scope);
-  if (federationId && settings.federation_id && settings.federation_id !== federationId) {
-    return ensureDefaults({ federation_id: federationId, owner_key: scope });
-  }
-  return settings;
+  return localFallback();
 }
 
 export async function updateCompetitionSettings(patch, federationId = null, ownerKey = 'federation') {
   const scope = ownerKey || patch?.owner_key || 'federation';
-  const current = await getCompetitionSettings(federationId || patch?.federation_id || null, scope);
+  const fedId = federationId || patch?.federation_id || null;
+  const current = await getCompetitionSettings(fedId, scope);
   const next = ensureDefaults({
     ...current,
     ...patch,
-    federation_id: federationId || patch?.federation_id || current.federation_id || null,
+    federation_id: fedId || current.federation_id || null,
     owner_key: scope,
+    id: resolveCompetitionSettingsId({ ...current, ...patch }, scope),
     updated_at: new Date().toISOString(),
   });
 
+  // Toujours garder une copie JSON pour les scopes Entente (filet de sécurité)
+  if (scope !== 'federation') {
+    writeSettingsJson(next, scope);
+  }
+
   if (isSupabaseEnabled()) {
     try {
-      const { error } = await getSupabase().from('competition_settings').upsert(toDbSettings(next));
+      const row = toDbSettings(next);
+
+      // 1) Update ciblé si une ligne existe déjà pour ce scope
+      if (fedId) {
+        let upd = getSupabase()
+          .from('competition_settings')
+          .update(row)
+          .eq('federation_id', fedId)
+          .eq('owner_key', scope)
+          .select('*')
+          .maybeSingle();
+        let updated = await upd;
+        if (updated.error && /owner_key|column|schema cache/i.test(updated.error.message || '')) {
+          if (scope !== 'federation') {
+            writeSettingsJson(next, scope);
+            return next;
+          }
+          updated = await getSupabase()
+            .from('competition_settings')
+            .update((({ owner_key: _o, ...rest }) => rest)(row))
+            .eq('federation_id', fedId)
+            .select('*')
+            .maybeSingle();
+        }
+        if (!updated.error && updated.data) {
+          const saved = ensureDefaults({ ...updated.data, owner_key: scope });
+          if (scope !== 'federation') writeSettingsJson({ ...next, ...saved, id: saved.id || next.id }, scope);
+          return { ...next, ...saved, id: saved.id || next.id, owner_key: scope };
+        }
+      }
+
+      // 2) Upsert (création ou remplacement par id)
+      const { data: upserted, error } = await getSupabase()
+        .from('competition_settings')
+        .upsert(row)
+        .select('*')
+        .maybeSingle();
       if (error && /owner_key|column|schema cache/i.test(error.message || '')) {
         if (scope !== 'federation') {
           writeSettingsJson(next, scope);
           return next;
         }
-        const { owner_key: _ok, ...withoutOwner } = toDbSettings(next);
-        const retry = await getSupabase().from('competition_settings').upsert(withoutOwner);
+        const { owner_key: _ok, ...withoutOwner } = row;
+        const retry = await getSupabase().from('competition_settings').upsert(withoutOwner).select('*').maybeSingle();
         if (retry.error) throw retry.error;
-        return next;
+        return { ...next, id: retry.data?.id || withoutOwner.id };
       }
       if (error) throw error;
+      if (upserted) {
+        const saved = ensureDefaults({ ...upserted, owner_key: scope });
+        if (scope !== 'federation') writeSettingsJson({ ...next, ...saved, id: saved.id || next.id }, scope);
+        return { ...next, ...saved, id: saved.id || next.id, owner_key: scope };
+      }
       return next;
     } catch (err) {
       console.warn('Écriture competition_settings impossible:', err.message);
+      writeSettingsJson(next, scope);
+      return next;
     }
   }
 
