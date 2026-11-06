@@ -415,6 +415,18 @@ export default function App() {
         results[0].status === 'rejected' && results[1].status === 'rejected';
       setServerOnline(!coreDown);
 
+      // Entente / Directeur : resynchroniser l'accès Compétition (reste actif après refresh Ligue)
+      if (user.type === 'entente' || user.fonction === 'Directeur Compétition') {
+        fetchCompetition()
+          .then((data) => {
+            setCompetitionAccessState(
+              Boolean(data.access_enabled)
+              || (user.type === 'entente' && Boolean(user.competition_access))
+            );
+          })
+          .catch(() => {});
+      }
+
       if (coreDown) {
         if (!silent) {
           showToast('Connexion au serveur lente ou indisponible. Réessayez dans un instant.', 'error');
@@ -445,13 +457,25 @@ export default function App() {
     }
     if (!canToggleCompetition && !canManageCompetition) return undefined;
 
+    // Flag durable Entente : déjà connu sur le compte (survit au refresh)
+    if (user.type === 'entente' && user.competition_access) {
+      setCompetitionAccessState(true);
+    }
+
     let cancelled = false;
     fetchCompetition()
       .then((data) => {
-        if (!cancelled) setCompetitionAccessState(Boolean(data.access_enabled));
+        if (!cancelled) {
+          setCompetitionAccessState(
+            Boolean(data.access_enabled)
+            || (user.type === 'entente' && Boolean(user.competition_access))
+          );
+        }
       })
       .catch(() => {
-        if (!cancelled) setCompetitionAccessState(false);
+        if (!cancelled) {
+          setCompetitionAccessState(user.type === 'entente' && Boolean(user.competition_access));
+        }
       });
     return () => { cancelled = true; };
   }, [user, canToggleCompetition, canManageCompetition]);

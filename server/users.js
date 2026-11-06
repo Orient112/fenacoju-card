@@ -582,6 +582,41 @@ export async function setUserAccountStatut(id, statut, editor) {
   return sanitizeUser(updated);
 }
 
+/** Active / désactive durablement la page Compétition d'un compte Entente. */
+export async function setUserCompetitionAccess(id, enabled) {
+  const users = await readUsers();
+  const index = users.findIndex((u) => u.id === id);
+  if (index === -1) throw new Error('Utilisateur introuvable');
+  const target = users[index];
+  if (target.type !== 'entente') {
+    throw new Error('La compétition par activation Ligue concerne uniquement les Ententes');
+  }
+
+  const updated = { ...target, competition_access: Boolean(enabled) };
+
+  if (isSupabaseEnabled()) {
+    const { error } = await getSupabase()
+      .from('users')
+      .update({ competition_access: Boolean(enabled) })
+      .eq('id', id);
+    if (error) {
+      if (/competition_access|column|schema cache/i.test(error.message || '')) {
+        // Migration absente : fallback JSON local
+        users[index] = updated;
+        writeUsersJson(users);
+        console.warn('Colonne users.competition_access absente — exécutez migration_competition_access.sql');
+        return sanitizeUser(updated);
+      }
+      throw new Error(error.message);
+    }
+  } else {
+    users[index] = updated;
+    writeUsersJson(users);
+  }
+
+  return sanitizeUser(updated);
+}
+
 export async function deleteUser(id, editor) {
   const users = await readUsers();
   const target = users.find((u) => u.id === id);

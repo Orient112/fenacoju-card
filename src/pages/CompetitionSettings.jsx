@@ -826,16 +826,15 @@ export default function CompetitionSettings({ onBack, onToast }) {
     setError('');
     try {
       const data = await fetchCompetition();
+      setSettings(data);
       if (!data.access_ok && !data.can_toggle_access) {
-        setError(settings?.scope_entente
+        setError(data.scope_entente
           ? 'Le bouton Compétition n\'est pas encore activé par votre Ligue.'
           : 'Le bouton Compétition n\'est pas encore activé par Admin / Coordon.');
-        setSettings(data);
         return;
       }
-      setSettings(data);
       applySettingsForm(data);
-      if (data.access_ok || data.can_toggle_access) {
+      if (data.access_ok || data.can_toggle_access || data.can_edit) {
         const regs = await fetchCompetitionRegistrations().catch(() => []);
         setRegistrations(regs);
       }
