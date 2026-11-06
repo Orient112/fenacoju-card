@@ -1363,8 +1363,15 @@ export default function CompetitionSettings({ onBack, onToast }) {
   const handleAddCompetitionClub = async (e) => {
     e.preventDefault();
     const nom = clubDraft.trim();
-    const ligue = ligueDraft.trim() || '-';
+    const ligue = settings?.scope_entente ? (settings?.scope_label || 'Entente') : (ligueDraft.trim() || '-');
     if (!nom || !clubsEditorCadre) return;
+    if (settings?.scope_entente && Array.isArray(settings.scoped_clubs) && settings.scoped_clubs.length) {
+      const ok = settings.scoped_clubs.some((c) => String(c).trim().toLowerCase() === nom.toLowerCase());
+      if (!ok) {
+        onToast?.('Ce club n\'appartient pas à votre entente', 'error');
+        return;
+      }
+    }
     const current = settings?.competition_clubs || [];
     if (current.some((c) => c.cadre === clubsEditorCadre && String(c.nom).toLowerCase() === nom.toLowerCase())) {
       onToast?.('Ce club est déjà enregistré pour ce cadre', 'error');
@@ -3118,26 +3125,56 @@ export default function CompetitionSettings({ onBack, onToast }) {
               </div>
             )}
             <form onSubmit={handleAddCompetitionClub}>
+              {settings?.scope_entente && (
+                <p className="form-hint">
+                  Uniquement les clubs rattachés à votre entente
+                  {Array.isArray(settings.scoped_clubs) ? ` (${settings.scoped_clubs.length})` : ''}.
+                </p>
+              )}
               <div className="competition-club-fields-row">
                 <div className="form-group">
                   <label htmlFor="competition-club-name">Nom du club</label>
-                  <input
-                    id="competition-club-name"
-                    value={clubDraft}
-                    onChange={(e) => setClubDraft(e.target.value)}
-                    placeholder="Ex. Club Judo Kinshasa"
-                    autoFocus
-                  />
+                  {settings?.scope_entente && Array.isArray(settings.scoped_clubs) && settings.scoped_clubs.length > 0 ? (
+                    <select
+                      id="competition-club-name"
+                      value={clubDraft}
+                      onChange={(e) => setClubDraft(e.target.value)}
+                      autoFocus
+                    >
+                      <option value="">Sélectionner un club…</option>
+                      {settings.scoped_clubs.map((nom) => (
+                        <option key={nom} value={nom}>{nom}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      id="competition-club-name"
+                      value={clubDraft}
+                      onChange={(e) => setClubDraft(e.target.value)}
+                      placeholder="Ex. Club Judo Kinshasa"
+                      autoFocus
+                      list={settings?.scope_entente ? 'entente-scoped-clubs' : undefined}
+                    />
+                  )}
+                  {settings?.scope_entente && Array.isArray(settings.scoped_clubs) && (
+                    <datalist id="entente-scoped-clubs">
+                      {settings.scoped_clubs.map((nom) => (
+                        <option key={nom} value={nom} />
+                      ))}
+                    </datalist>
+                  )}
                 </div>
-                <div className="form-group">
-                  <label htmlFor="competition-club-ligue">Ligue</label>
-                  <input
-                    id="competition-club-ligue"
-                    value={ligueDraft}
-                    onChange={(e) => setLigueDraft(e.target.value)}
-                    placeholder="Ex. Kinshasa"
-                  />
-                </div>
+                {!settings?.scope_entente && (
+                  <div className="form-group">
+                    <label htmlFor="competition-club-ligue">Ligue</label>
+                    <input
+                      id="competition-club-ligue"
+                      value={ligueDraft}
+                      onChange={(e) => setLigueDraft(e.target.value)}
+                      placeholder="Ex. Kinshasa"
+                    />
+                  </div>
+                )}
               </div>
               <div className="confirm-actions" style={{ marginBottom: '1rem' }}>
                 <button type="submit" className="btn btn-primary" disabled={saving || !clubDraft.trim()}>

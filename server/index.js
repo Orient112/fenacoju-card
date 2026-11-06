@@ -317,15 +317,29 @@ app.get('/api/auth/me', async (req, res) => {
   }
 });
 
+/** Résout une compétition publique (Directeur ou Entente) via son token. */
+async function resolvePublicCompetition(token) {
+  const settings = await getCompetitionSettingsByPublicToken(token);
+  if (!settings || settings.public_token !== String(token || '').trim()) return null;
+  return settings;
+}
+
+function publicCompetitionScope(settings) {
+  return {
+    federationId: settings?.federation_id || null,
+    ownerKey: settings?.owner_key || 'federation',
+  };
+}
+
 app.get('/api/public/competition/:token', async (req, res) => {
   try {
-    const settings = await getCompetitionSettingsByPublicToken(req.params.token)
-      || await getCompetitionSettings();
-    if (!settings || settings.public_token !== req.params.token || !isCompetitionConfigured(settings)) {
+    const settings = await resolvePublicCompetition(req.params.token);
+    if (!settings || !isCompetitionConfigured(settings)) {
       return res.status(404).json({ error: 'Formulaire de compétition indisponible' });
     }
 
-    const registrations = await getCompetitionRegistrations(settings.federation_id || null);
+    const { federationId, ownerKey } = publicCompetitionScope(settings);
+    const registrations = await getCompetitionRegistrations(federationId, ownerKey);
     const teamCounts = {};
     const teamMembers = [];
     for (const r of registrations) {
@@ -377,11 +391,8 @@ app.get('/api/public/competition/:token', async (req, res) => {
 /** Judokas d'un club pour sélection équipe (inscription publique Par équipe) */
 app.get('/api/public/competition/:token/club-judokas', async (req, res) => {
   try {
-    const settings = await getCompetitionSettings();
-    if (!settings.public_token || settings.public_token !== req.params.token) {
-      return res.status(404).json({ error: 'Formulaire de compétition indisponible' });
-    }
-    if (!settings.public_enabled || !isCompetitionConfigured(settings)) {
+    const settings = await resolvePublicCompetition(req.params.token);
+    if (!settings || !settings.public_enabled || !isCompetitionConfigured(settings)) {
       return res.status(404).json({ error: 'Formulaire de compétition indisponible' });
     }
     const club = String(req.query.club || '').trim().toLowerCase();
@@ -416,15 +427,13 @@ app.get('/api/public/competition/:token/club-judokas', async (req, res) => {
 
 app.get('/api/public/competition/:token/registrations', async (req, res) => {
   try {
-    const settings = await getCompetitionSettings();
+    const settings = await resolvePublicCompetition(req.params.token);
     // Pesée autorisée même si les inscriptions sont clôturées (token valide requis)
-    if (!settings.public_token || settings.public_token !== req.params.token) {
+    if (!settings || !isCompetitionConfigured(settings)) {
       return res.status(404).json({ error: 'Page de pesée indisponible' });
     }
-    if (!isCompetitionConfigured(settings)) {
-      return res.status(404).json({ error: 'Page de pesée indisponible' });
-    }
-    const registrations = await getCompetitionRegistrations();
+    const { federationId, ownerKey } = publicCompetitionScope(settings);
+    const registrations = await getCompetitionRegistrations(federationId, ownerKey);
     const competition = toPublicCompetition(
       settings,
       { registrations_count: registrations.length, closed: !settings.public_enabled },
@@ -444,12 +453,9 @@ app.get('/api/public/competition/:token/registrations', async (req, res) => {
 
 app.put('/api/public/competition/:token/registrations/:id/poids', async (req, res) => {
   try {
-    const settings = await getCompetitionSettings();
+    const settings = await resolvePublicCompetition(req.params.token);
     // Pesée autorisée même si les inscriptions sont clôturées (token valide requis)
-    if (!settings.public_token || settings.public_token !== req.params.token) {
-      return res.status(404).json({ error: 'Page de pesée indisponible' });
-    }
-    if (!isCompetitionConfigured(settings)) {
+    if (!settings || !isCompetitionConfigured(settings)) {
       return res.status(404).json({ error: 'Page de pesée indisponible' });
     }
 
@@ -463,21 +469,27 @@ app.put('/api/public/competition/:token/registrations/:id/poids', async (req, re
 
 app.get('/api/public/competition/:token/judoka/:cardId', async (req, res) => {
   try {
-    const settings = await getCompetitionSettings();
-    if (!settings.public_enabled || settings.public_token !== req.params.token) {
-      return res.status(404).json({ error: 'Formulaire de compétition indisponible' });
-    }
-    if (!isCompetitionConfigured(settings)) {
+    const settings = await resolvePublicCompetition(req.params.token);
+    if (!settings || !settings.public_enabled || !isCompetitionConfigured(settings)) {
       return res.status(404).json({ error: 'Formulaire de compétition indisponible' });
     }
 
     const judoka = await getJudokaByCardNumber(req.params.cardId);
     if (!judoka) return res.status(404).json({ error: 'Aucun judoka trouvé avec cet identifiant' });
 
+    const clubKey = String(judoka.club || '').trim().toLowerCase();
+    const allowedClubs = (settings.competition_clubs || []).map((c) => String(c.nom || '').trim().toLowerCase());
+    if (allowedClubs.length && !allowedClubs.includes(clubKey)) {
+      return res.status(403).json({ error: 'Ce club n\'est pas autorisé pour cette compétition' });
+    }
+
+    const { federationId, ownerKey } = publicCompetitionScope(settings);
     const duplicate = await findDuplicateCompetitionRegistration({
       deja_enregistre: true,
       judoka_id: judoka.id,
       numero_carte: judoka.numero_carte,
+      federation_id: federationId,
+      owner_key: ownerKey,
     });
     if (duplicate) {
       return res.status(409).json({ error: 'Ce judoka est déjà inscrit à cette compétition' });
@@ -506,8 +518,8 @@ app.get('/api/public/competition/:token/judoka/:cardId', async (req, res) => {
 /** Initie un push Mobile Money SimplyPaye (requête courte — adapté Vercel). */
 app.post('/api/public/competition/:token/pay/initiate', async (req, res) => {
   try {
-    const settings = await getCompetitionSettings();
-    if (!settings.public_enabled || settings.public_token !== req.params.token) {
+    const settings = await resolvePublicCompetition(req.params.token);
+    if (!settings || !settings.public_enabled) {
       return res.status(404).json({ error: 'Formulaire de compétition indisponible' });
     }
     if (!isSimplyPayConfigured()) {
@@ -553,8 +565,8 @@ app.post('/api/public/competition/:token/pay/initiate', async (req, res) => {
 /** Vérifie le statut d'un paiement SimplyPaye (polling côté client). */
 app.get('/api/public/competition/:token/pay/status/:orderNumber', async (req, res) => {
   try {
-    const settings = await getCompetitionSettings();
-    if (!settings.public_enabled || settings.public_token !== req.params.token) {
+    const settings = await resolvePublicCompetition(req.params.token);
+    if (!settings || !settings.public_enabled) {
       return res.status(404).json({ error: 'Formulaire de compétition indisponible' });
     }
     if (!isSimplyPayConfigured()) {
@@ -579,14 +591,13 @@ app.get('/api/public/competition/:token/pay/status/:orderNumber', async (req, re
 
 app.post('/api/public/competition/:token/register', async (req, res) => {
   try {
-    const settings = await getCompetitionSettings();
-    if (!settings.public_enabled || settings.public_token !== req.params.token) {
-      return res.status(404).json({ error: 'Formulaire de compétition indisponible' });
-    }
-    if (!isCompetitionConfigured(settings)) {
+    const settings = await resolvePublicCompetition(req.params.token);
+    if (!settings || !settings.public_enabled || !isCompetitionConfigured(settings)) {
       return res.status(404).json({ error: 'Formulaire de compétition indisponible' });
     }
 
+    const { federationId, ownerKey } = publicCompetitionScope(settings);
+    const scopeMeta = { federation_id: federationId, owner_key: ownerKey };
     const body = req.body || {};
     const modeInscription = body.mode_inscription === 'equipe' ? 'equipe' : 'individuel';
     const payMode = body.paiement && typeof body.paiement === 'object'
@@ -678,6 +689,7 @@ app.post('/api/public/competition/:token/register', async (req, res) => {
           paiement_statut: paymentMeta.paiement_statut,
           mode_paiement: paymentMeta.mode_paiement,
           montant_paye: paymentMeta.paiement_statut === 'paye' ? unitFee : 0,
+          ...scopeMeta,
         });
         created.push(registration);
       }
@@ -755,6 +767,7 @@ app.post('/api/public/competition/:token/register', async (req, res) => {
         allowedCategories: settings.categories_poids || [],
         allowExisting: Boolean(body.allow_existing),
         paiement: teamPaiement,
+        ...scopeMeta,
       });
       return res.status(201).json(roster);
     }
@@ -785,6 +798,7 @@ app.post('/api/public/competition/:token/register', async (req, res) => {
         deja_enregistre: true,
         judoka_id: judokaId,
         numero_carte: numeroCarte,
+        ...scopeMeta,
       });
       if (duplicate) {
         return res.status(409).json({ error: 'Ce judoka est déjà inscrit à cette compétition' });
@@ -807,6 +821,7 @@ app.post('/api/public/competition/:token/register', async (req, res) => {
         deja_enregistre: true,
         mode_inscription: modeInscription,
         ...payInfo,
+        ...scopeMeta,
       });
       return res.status(201).json(registration);
     }
@@ -818,6 +833,7 @@ app.post('/api/public/competition/:token/register', async (req, res) => {
       date_naissance: body.date_naissance,
       club: body.club,
       email: body.email,
+      ...scopeMeta,
     });
     if (duplicate) {
       return res.status(409).json({ error: 'Ce judoka est déjà inscrit à cette compétition' });
@@ -832,6 +848,7 @@ app.post('/api/public/competition/:token/register', async (req, res) => {
       deja_enregistre: false,
       mode_inscription: modeInscription,
       ...payInfo,
+      ...scopeMeta,
     });
     res.status(201).json(registration);
   } catch (err) {
@@ -948,9 +965,14 @@ app.get('/api/competition', async (req, res) => {
     }
 
     let competitionClubs = settings.competition_clubs || [];
+    let scopedClubs = [];
     if (req.user.type === 'entente') {
       const users = await getAllUsers();
-      const allowed = new Set(getScopedClubNames(users, req.user).map((c) => c.toLowerCase()));
+      scopedClubs = getScopedClubNames(users, req.user)
+        .map((nom) => String(nom || '').trim())
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b, 'fr'));
+      const allowed = new Set(scopedClubs.map((c) => c.toLowerCase()));
       competitionClubs = competitionClubs.filter((c) => allowed.has(String(c.nom || '').trim().toLowerCase()));
     }
 
@@ -958,6 +980,7 @@ app.get('/api/competition', async (req, res) => {
       ...settings,
       access_enabled: accessEnabled,
       competition_clubs: competitionClubs,
+      scoped_clubs: scopedClubs,
       configured: isCompetitionConfigured(settings),
       access_ok: accessOk,
       can_toggle_access: canToggle,
@@ -1021,36 +1044,63 @@ app.put('/api/competition/ententes-access', async (req, res) => {
     if (!perms.canToggleEntenteCompetition && !canToggleCompetitionAccess(req.user)) {
       return res.status(403).json({ error: 'Réservé à la Ligue (ou Admin / Coordon)' });
     }
-    const ententeId = String(req.body?.entente_id || '').trim();
     const enabled = Boolean(req.body?.access_enabled);
-    if (!ententeId) return res.status(400).json({ error: 'entente_id requis' });
-
     const users = await getAllUsers();
-    const entente = users.find((u) => u.id === ententeId && u.type === 'entente');
-    if (!entente) return res.status(404).json({ error: 'Entente introuvable' });
+    const ligueDescendants = req.user.type === 'ligue'
+      ? getDescendantUsers(users, req.user.id)
+      : null;
 
-    if (req.user.type === 'ligue') {
-      const descendants = getDescendantUsers(users, req.user.id);
-      if (!descendants.some((u) => u.id === ententeId)) {
-        return res.status(403).json({ error: 'Cette entente n\'appartient pas à votre ligue' });
-      }
+    const eligibleEntentes = (req.user.type === 'ligue'
+      ? ligueDescendants
+      : users
+    ).filter((u) => u.type === 'entente' && getAccountStatut(u) === 'actif');
+
+    let targetIds = [];
+    if (Array.isArray(req.body?.entente_ids) && req.body.entente_ids.length) {
+      targetIds = req.body.entente_ids.map((id) => String(id || '').trim()).filter(Boolean);
+    } else if (req.body?.all === true) {
+      targetIds = eligibleEntentes.map((u) => u.id);
+    } else if (req.body?.entente_id) {
+      targetIds = [String(req.body.entente_id).trim()];
+    }
+    if (!targetIds.length) {
+      return res.status(400).json({ error: 'entente_id, entente_ids ou all requis' });
     }
 
-    const fedId = getUserFederationId(req.user) || getUserFederationId(entente);
-    const ownerKey = ententeOwnerKey(ententeId);
+    const eligibleSet = new Set(eligibleEntentes.map((u) => u.id));
+    const results = [];
 
-    // Flag durable sur le compte Entente (survit aux refresh / redémarrages)
-    await setUserCompetitionAccess(ententeId, enabled);
+    for (const ententeId of targetIds) {
+      if (!eligibleSet.has(ententeId)) {
+        results.push({ entente_id: ententeId, error: 'Entente hors périmètre ou inactive' });
+        continue;
+      }
+      const entente = users.find((u) => u.id === ententeId);
+      const fedId = getUserFederationId(req.user) || getUserFederationId(entente);
+      const ownerKey = ententeOwnerKey(ententeId);
 
-    const settings = enabled
-      ? await updateCompetitionSettings({ access_enabled: true, federation_id: fedId, owner_key: ownerKey }, fedId, ownerKey)
-      : await resetCompetitionCompletely({ access_enabled: false, federationId: fedId, ownerKey });
+      // Flag durable indépendant par Entente (plusieurs peuvent être actives en parallèle)
+      await setUserCompetitionAccess(ententeId, enabled);
+      const settings = enabled
+        ? await updateCompetitionSettings({ access_enabled: true, federation_id: fedId, owner_key: ownerKey }, fedId, ownerKey)
+        : await resetCompetitionCompletely({ access_enabled: false, federationId: fedId, ownerKey });
 
+      results.push({
+        entente_id: ententeId,
+        access_enabled: enabled,
+        configured: isCompetitionConfigured(settings),
+        reset: !enabled,
+      });
+    }
+
+    // Compat mono-toggle
+    if (results.length === 1 && !results[0].error) {
+      return res.json(results[0]);
+    }
     res.json({
-      entente_id: ententeId,
       access_enabled: enabled,
-      configured: isCompetitionConfigured(settings),
-      reset: !enabled,
+      count: results.filter((r) => !r.error).length,
+      results,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1262,7 +1312,13 @@ app.put('/api/competition', async (req, res) => {
       patch.categories_poids_individuel = parseCategoriesPoids(body.categories_poids_individuel);
     }
     if (body.competition_clubs !== undefined) {
-      patch.competition_clubs = parseCompetitionClubs(body.competition_clubs);
+      let clubs = parseCompetitionClubs(body.competition_clubs);
+      if (req.user.type === 'entente') {
+        const users = await getAllUsers();
+        const allowed = new Set(getScopedClubNames(users, req.user).map((c) => c.toLowerCase()));
+        clubs = clubs.filter((c) => allowed.has(String(c.nom || '').trim().toLowerCase()));
+      }
+      patch.competition_clubs = clubs;
     }
     if (body.frais_monnaie !== undefined) {
       patch.frais_monnaie = String(body.frais_monnaie).toUpperCase() === 'USD' ? 'USD' : 'CDF';
@@ -1413,6 +1469,14 @@ app.post('/api/competition/registrations/charge-team', async (req, res) => {
       return res.status(403).json({ error: 'Accès non autorisé' });
     }
     const body = req.body || {};
+    if (req.user.type === 'entente') {
+      const users = await getAllUsers();
+      const allowed = new Set(getScopedClubNames(users, req.user).map((c) => c.toLowerCase()));
+      const club = String(body.club || '').trim().toLowerCase();
+      if (club && !allowed.has(club)) {
+        return res.status(403).json({ error: 'Club hors du périmètre de votre entente' });
+      }
+    }
     const result = await chargeTeamFromIndividuel({
       club: body.club,
       members: Array.isArray(body.members) ? body.members : [],
@@ -1437,27 +1501,39 @@ app.post('/api/competition/registrations', async (req, res) => {
     }
     const body = req.body || {};
 
-    const toPayload = (item = {}) => ({
-      nom: item.nom,
-      prenom: item.prenom,
-      date_naissance: item.date_naissance || '',
-      sexe: item.sexe === 'F' ? 'F' : 'M',
-      club: item.club,
-      grade: item.grade || '',
-      categorie: item.categorie || '',
-      poids: item.poids || '',
-      telephone: item.telephone || '',
-      email: item.email || '',
-      judoka_id: item.judoka_id || null,
-      numero_carte: item.numero_carte || '',
-      deja_enregistre: Boolean(item.deja_enregistre),
-      mode_inscription: 'individuel',
-      paiement_statut: item.paiement_statut || 'en_attente',
-      montant_paye: Math.max(0, Number(item.montant_paye) || 0),
-      mode_paiement: String(item.mode_paiement || '').trim(),
-      federation_id: fedId,
-      owner_key: ownerKey,
-    });
+    let allowedClubSet = null;
+    if (req.user.type === 'entente') {
+      const users = await getAllUsers();
+      allowedClubSet = new Set(getScopedClubNames(users, req.user).map((c) => c.toLowerCase()));
+    }
+
+    const toPayload = (item = {}) => {
+      const club = String(item.club || '').trim();
+      if (allowedClubSet && club && !allowedClubSet.has(club.toLowerCase())) {
+        throw new Error(`Club « ${club} » hors du périmètre de votre entente`);
+      }
+      return {
+        nom: item.nom,
+        prenom: item.prenom,
+        date_naissance: item.date_naissance || '',
+        sexe: item.sexe === 'F' ? 'F' : 'M',
+        club,
+        grade: item.grade || '',
+        categorie: item.categorie || '',
+        poids: item.poids || '',
+        telephone: item.telephone || '',
+        email: item.email || '',
+        judoka_id: item.judoka_id || null,
+        numero_carte: item.numero_carte || '',
+        deja_enregistre: Boolean(item.deja_enregistre),
+        mode_inscription: 'individuel',
+        paiement_statut: item.paiement_statut || 'en_attente',
+        montant_paye: Math.max(0, Number(item.montant_paye) || 0),
+        mode_paiement: String(item.mode_paiement || '').trim(),
+        federation_id: fedId,
+        owner_key: ownerKey,
+      };
+    };
 
     if (Array.isArray(body.batch) && body.batch.length) {
       const created = [];

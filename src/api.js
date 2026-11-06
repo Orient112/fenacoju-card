@@ -641,6 +641,22 @@ export async function setEntenteCompetitionAccess(ententeId, accessEnabled) {
   return res.json();
 }
 
+/** Active / désactive plusieurs Ententes (ou toutes) en une fois. */
+export async function setEntenteCompetitionAccessBulk({ ententeIds, all = false, accessEnabled }) {
+  const body = all
+    ? { all: true, access_enabled: accessEnabled }
+    : { entente_ids: ententeIds || [], access_enabled: accessEnabled };
+  const res = await apiFetch('/api/competition/ententes-access', {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Erreur lors de l\'activation groupée');
+  }
+  return res.json();
+}
+
 export async function updateCompetition(data) {
   const res = await apiFetch('/api/competition', {
     method: 'PUT',

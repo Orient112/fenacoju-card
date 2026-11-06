@@ -374,13 +374,22 @@ export async function getCompetitionSettingsByPublicToken(token) {
         .eq('public_token', raw)
         .maybeSingle();
       if (error) throw error;
-      if (data) return ensureDefaults(data);
+      if (data) {
+        return ensureDefaults({
+          ...data,
+          owner_key: data.owner_key || 'federation',
+        });
+      }
     } catch (err) {
       console.warn('getCompetitionSettingsByPublicToken:', err.message);
     }
   }
-  const settings = readSettingsJson();
-  if (settings.public_token === raw) return settings;
+  // Chercher dans tous les scopes JSON (federation + chaque entente:{id})
+  const store = readSettingsStore();
+  for (const [key, value] of Object.entries(store.scopes || {})) {
+    const settings = ensureDefaults({ ...value, owner_key: key });
+    if (settings.public_token === raw) return settings;
+  }
   return null;
 }
 
@@ -721,18 +730,21 @@ export async function createCompetitionTeamRoster({
   allowedCategories = [],
   paiement = null,
   allowExisting = false,
+  federation_id = null,
+  owner_key = 'federation',
 } = {}) {
   const clubName = String(club || '').trim();
   if (!clubName) throw new Error('Le nom du club est obligatoire');
   const teamSexe = String(sexe).toUpperCase().startsWith('F') ? 'F' : 'M';
   const sexeLabel = teamSexe === 'F' ? 'Fille' : 'Garçon';
+  const scope = owner_key || 'federation';
 
   const cats = categoriesForSexe(allowedCategories, teamSexe);
   if (cats.length < TEAM_MIN_CATEGORIES) {
     throw new Error(`Au moins 3 catégories de poids ${sexeLabel} doivent être définies pour le mode Par équipe`);
   }
 
-  const existing = (await getCompetitionRegistrations()).filter((r) => (
+  const existing = (await getCompetitionRegistrations(federation_id, scope)).filter((r) => (
     getRegistrationMode(r) === 'equipe'
     && norm(r.club) === norm(clubName)
     && (r.sexe === 'F' ? 'F' : 'M') === teamSexe
@@ -840,6 +852,8 @@ export async function createCompetitionTeamRoster({
       deja_enregistre: member.deja_enregistre,
       mode_inscription: 'equipe',
       role_equipe: member.role_equipe,
+      federation_id,
+      owner_key: scope,
       ...payInfo,
     });
     created.push(row);
@@ -847,16 +861,22 @@ export async function createCompetitionTeamRoster({
   return { club: clubName, sexe: teamSexe, count: created.length, registrations: created };
 }
 
-export async function chargeTeamFromIndividuel({ club, members = [] } = {}) {
+export async function chargeTeamFromIndividuel({
+  club,
+  members = [],
+  federation_id = null,
+  owner_key = 'federation',
+} = {}) {
   const clubName = String(club || '').trim();
   if (!clubName) throw new Error('Le nom du club est obligatoire');
   if (!Array.isArray(members) || !members.length) {
     throw new Error('Sélectionnez au moins un judoka à charger');
   }
 
-  const settings = await getCompetitionSettings();
+  const scope = owner_key || 'federation';
+  const settings = await getCompetitionSettings(federation_id, scope);
   const allowedCategories = parseCategoriesPoids(settings.categories_poids || []);
-  const existing = (await getCompetitionRegistrations()).filter((r) => (
+  const existing = (await getCompetitionRegistrations(federation_id, scope)).filter((r) => (
     getRegistrationMode(r) === 'equipe' && norm(r.club) === norm(clubName)
   ));
 
@@ -907,6 +927,8 @@ export async function chargeTeamFromIndividuel({ club, members = [] } = {}) {
       deja_enregistre: Boolean(raw?.deja_enregistre || raw?.judoka_id),
       mode_inscription: 'equipe',
       role_equipe: role,
+      federation_id,
+      owner_key: scope,
     });
     created.push(row);
   }

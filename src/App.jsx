@@ -19,6 +19,7 @@ import {
   setCompetitionAccess,
   fetchEntenteCompetitionAccess,
   setEntenteCompetitionAccess,
+  setEntenteCompetitionAccessBulk,
   getToken,
   USER_TYPES,
   resolveMediaUrl,
@@ -283,7 +284,8 @@ export default function App() {
   const [competitionToggleBusy, setCompetitionToggleBusy] = useState(false);
   const [showEntenteCompetitionPanel, setShowEntenteCompetitionPanel] = useState(false);
   const [ententeCompetitionList, setEntenteCompetitionList] = useState([]);
-  const [ententeCompetitionBusyId, setEntenteCompetitionBusyId] = useState('');
+  const [ententeCompetitionBusyIds, setEntenteCompetitionBusyIds] = useState(() => new Set());
+  const [ententeCompetitionBulkBusy, setEntenteCompetitionBulkBusy] = useState(false);
   const [judokaStatutFilter, setJudokaStatutFilter] = useState(null);
   const [fedSettings, setFedSettings] = useState(() => mergeFederationSettings(null));
 
@@ -509,8 +511,8 @@ export default function App() {
   };
 
   const handleEntenteCompetitionToggle = async (ententeId, currentlyEnabled) => {
-    if (!ententeId || ententeCompetitionBusyId) return;
-    setEntenteCompetitionBusyId(ententeId);
+    if (!ententeId || ententeCompetitionBusyIds.has(ententeId) || ententeCompetitionBulkBusy) return;
+    setEntenteCompetitionBusyIds((prev) => new Set(prev).add(ententeId));
     try {
       const next = !currentlyEnabled;
       await setEntenteCompetitionAccess(ententeId, next);
@@ -523,7 +525,47 @@ export default function App() {
     } catch (err) {
       showToast(err.message || 'Erreur', 'error');
     } finally {
-      setEntenteCompetitionBusyId('');
+      setEntenteCompetitionBusyIds((prev) => {
+        const next = new Set(prev);
+        next.delete(ententeId);
+        return next;
+      });
+    }
+  };
+
+  const handleEntenteCompetitionBulk = async (enable) => {
+    if (ententeCompetitionBulkBusy || !ententeCompetitionList.length) return;
+    const targets = ententeCompetitionList.filter((e) => Boolean(e.access_enabled) !== enable);
+    if (!targets.length) {
+      showToast(enable
+        ? 'Toutes les Ententes sont déjà activées'
+        : 'Aucune compétition Entente n\'est activée');
+      return;
+    }
+    if (!enable && !window.confirm(
+      `Désactiver la compétition pour ${targets.length} Entente(s) ? Les données de chaque compétition seront effacées.`,
+    )) {
+      return;
+    }
+    setEntenteCompetitionBulkBusy(true);
+    try {
+      await setEntenteCompetitionAccessBulk({ all: true, accessEnabled: enable });
+      setEntenteCompetitionList((prev) => prev.map((e) => ({
+        ...e,
+        access_enabled: enable,
+        configured: enable ? e.configured : false,
+      })));
+      showToast(enable
+        ? `Compétition activée pour ${targets.length} Entente(s) — chacune gère la sienne indépendamment`
+        : `Compétition désactivée pour ${targets.length} Entente(s)`);
+    } catch (err) {
+      showToast(err.message || 'Erreur', 'error');
+      try {
+        const data = await fetchEntenteCompetitionAccess();
+        setEntenteCompetitionList(data.ententes || []);
+      } catch { /* ignore */ }
+    } finally {
+      setEntenteCompetitionBulkBusy(false);
     }
   };
 
@@ -1840,35 +1882,69 @@ export default function App() {
             <header className="competition-params-modal-head">
               <div>
                 <h3>Compétition par Entente</h3>
-                <p className="form-hint">Activez séparément la page Compétition de chaque Entente de votre ligue.</p>
+                <p className="form-hint">
+                  Activez une ou plusieurs Ententes à la fois. Chaque Entente gère sa compétition
+                  indépendamment, avec ses clubs et athlètes uniquement.
+                </p>
               </div>
               <button type="button" className="btn btn-outline btn-sm" onClick={() => setShowEntenteCompetitionPanel(false)}>Fermer</button>
             </header>
             {ententeCompetitionList.length === 0 ? (
               <p className="form-hint">Aucune entente active dans votre ligue.</p>
             ) : (
-              <ul className="transfer-list">
-                {ententeCompetitionList.map((entente) => (
-                  <li key={entente.id} className="transfer-row">
-                    <div>
-                      <strong>{entente.nom}</strong>
-                      <small>
-                        {entente.org_code ? `ID ${entente.org_code} · ` : ''}
-                        {entente.access_enabled ? 'Compétition activée' : 'Compétition désactivée'}
-                      </small>
-                    </div>
-                    <label className={`competition-access-toggle ${entente.access_enabled ? 'is-on' : ''}`}>
-                      <input
-                        type="checkbox"
-                        checked={Boolean(entente.access_enabled)}
-                        disabled={ententeCompetitionBusyId === entente.id || !serverOnline}
-                        onChange={() => handleEntenteCompetitionToggle(entente.id, entente.access_enabled)}
-                      />
-                      <span className="toggle-slider" />
-                    </label>
-                  </li>
-                ))}
-              </ul>
+              <>
+                <div className="confirm-actions" style={{ marginBottom: '0.75rem', justifyContent: 'flex-start', gap: '0.5rem' }}>
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    disabled={ententeCompetitionBulkBusy || !serverOnline
+                      || ententeCompetitionList.every((e) => e.access_enabled)}
+                    onClick={() => handleEntenteCompetitionBulk(true)}
+                  >
+                    {ententeCompetitionBulkBusy ? '…' : 'Tout activer'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-sm"
+                    disabled={ententeCompetitionBulkBusy || !serverOnline
+                      || ententeCompetitionList.every((e) => !e.access_enabled)}
+                    onClick={() => handleEntenteCompetitionBulk(false)}
+                  >
+                    Tout désactiver
+                  </button>
+                  <small className="form-hint" style={{ margin: 0 }}>
+                    {ententeCompetitionList.filter((e) => e.access_enabled).length}
+                    {' / '}
+                    {ententeCompetitionList.length} activée(s)
+                  </small>
+                </div>
+                <ul className="transfer-list">
+                  {ententeCompetitionList.map((entente) => (
+                    <li key={entente.id} className="transfer-row">
+                      <div>
+                        <strong>{entente.nom}</strong>
+                        <small>
+                          {entente.org_code ? `ID ${entente.org_code} · ` : ''}
+                          {entente.access_enabled ? 'Compétition activée' : 'Compétition désactivée'}
+                        </small>
+                      </div>
+                      <label className={`competition-access-toggle ${entente.access_enabled ? 'is-on' : ''}`}>
+                        <input
+                          type="checkbox"
+                          checked={Boolean(entente.access_enabled)}
+                          disabled={
+                            ententeCompetitionBusyIds.has(entente.id)
+                            || ententeCompetitionBulkBusy
+                            || !serverOnline
+                          }
+                          onChange={() => handleEntenteCompetitionToggle(entente.id, entente.access_enabled)}
+                        />
+                        <span className="toggle-slider" />
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+              </>
             )}
           </div>
         </div>
