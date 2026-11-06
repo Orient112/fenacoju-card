@@ -319,12 +319,13 @@ export function getPermissions(user, settings = null) {
       manageUsers: false,
       validateTransfersLigue: true,
       createTypes: ['entente'],
-      dashboardTabs: ['judokas', 'ententes', 'clubs', 'entraineurs'],
+      dashboardTabs: ['ententes', 'clubs', 'entraineurs', 'judokas'],
       canMessage: true,
       viewClubDetails: true,
       orgScope: true,
       showHeaderCreate: false,
       liveRefresh: true,
+      canToggleEntenteCompetition: true,
     };
   }
 
@@ -341,7 +342,7 @@ export function getPermissions(user, settings = null) {
       deleteJudokas: false,
       manageUsers: false,
       createTypes: ['club'],
-      dashboardTabs: ['judokas', 'clubs', 'entraineurs'],
+      dashboardTabs: ['clubs', 'entraineurs', 'judokas'],
       canMessage: true,
       viewClubDetails: true,
       orgScope: true,

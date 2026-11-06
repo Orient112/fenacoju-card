@@ -17,6 +17,8 @@ import {
   fetchUnreadMessages,
   fetchCompetition,
   setCompetitionAccess,
+  fetchEntenteCompetitionAccess,
+  setEntenteCompetitionAccess,
   getToken,
   USER_TYPES,
   resolveMediaUrl,
@@ -184,18 +186,18 @@ function getVisibleTabs(user, tabs, fedSettings) {
 
   if (user.type === 'ligue') {
     return filterVisible([
-      { key: 'judokas', label: L('judokas') },
       { key: 'ententes', label: L('ententes') },
       { key: 'clubs', label: L('clubs') },
       { key: 'entraineurs', label: L('entraineurs') },
+      { key: 'judokas', label: L('judokas') },
     ]);
   }
 
   if (user.type === 'entente') {
     return filterVisible([
-      { key: 'judokas', label: L('judokas') },
       { key: 'clubs', label: L('clubs') },
       { key: 'entraineurs', label: L('entraineurs') },
+      { key: 'judokas', label: L('judokas') },
     ]);
   }
 
@@ -279,6 +281,9 @@ export default function App() {
   const [serverOnline, setServerOnline] = useState(true);
   const [competitionAccess, setCompetitionAccessState] = useState(false);
   const [competitionToggleBusy, setCompetitionToggleBusy] = useState(false);
+  const [showEntenteCompetitionPanel, setShowEntenteCompetitionPanel] = useState(false);
+  const [ententeCompetitionList, setEntenteCompetitionList] = useState([]);
+  const [ententeCompetitionBusyId, setEntenteCompetitionBusyId] = useState('');
   const [judokaStatutFilter, setJudokaStatutFilter] = useState(null);
   const [fedSettings, setFedSettings] = useState(() => mergeFederationSettings(null));
 
@@ -306,8 +311,9 @@ export default function App() {
   const showHeaderCreate = perms.showHeaderCreate !== false && (perms.createUsers || perms.createTypes?.length > 0);
   const canScanQr = canUseQrScan(user, perms);
   const canToggleCompetition = perms.canToggleCompetitionAccess === true;
+  const canToggleEntenteCompetition = perms.canToggleEntenteCompetition === true;
   const canManageCompetition = perms.canManageCompetition === true;
-  const showCompetitionButton = canManageCompetition;
+  const showCompetitionButton = canManageCompetition && !canToggleCompetition;
   const competitionButtonEnabled = canManageCompetition && competitionAccess;
   const visibleTabs = useMemo(
     () => (user ? getVisibleTabs(user, tabs, fedSettings) : []),
@@ -464,6 +470,36 @@ export default function App() {
       showToast(err.message || 'Erreur', 'error');
     } finally {
       setCompetitionToggleBusy(false);
+    }
+  };
+
+  const openEntenteCompetitionPanel = async () => {
+    setShowEntenteCompetitionPanel(true);
+    try {
+      const data = await fetchEntenteCompetitionAccess();
+      setEntenteCompetitionList(data.ententes || []);
+    } catch (err) {
+      showToast(err.message || 'Erreur', 'error');
+      setEntenteCompetitionList([]);
+    }
+  };
+
+  const handleEntenteCompetitionToggle = async (ententeId, currentlyEnabled) => {
+    if (!ententeId || ententeCompetitionBusyId) return;
+    setEntenteCompetitionBusyId(ententeId);
+    try {
+      const next = !currentlyEnabled;
+      await setEntenteCompetitionAccess(ententeId, next);
+      setEntenteCompetitionList((prev) => prev.map((e) => (
+        e.id === ententeId ? { ...e, access_enabled: next, configured: next ? e.configured : false } : e
+      )));
+      showToast(next
+        ? 'Compétition activée pour cette Entente'
+        : 'Compétition désactivée pour cette Entente — données effacées');
+    } catch (err) {
+      showToast(err.message || 'Erreur', 'error');
+    } finally {
+      setEntenteCompetitionBusyId('');
     }
   };
 
@@ -1033,6 +1069,16 @@ export default function App() {
                         onClick={tabs.includes('clubs') ? () => { setDashboardTab('clubs'); setView('list'); } : undefined}
                       />
                     )}
+                    {showStatsEntraineurs && showCard('entraineurs') && (
+                      <StatCard
+                        theme="blue"
+                        icon={<IconPerson />}
+                        value={stats.entraineurs}
+                        label={L('entraineurs')}
+                        active={dashboardTab === 'entraineurs'}
+                        onClick={tabs.includes('entraineurs') ? () => { setDashboardTab('entraineurs'); setView('list'); } : undefined}
+                      />
+                    )}
                     {showStatsJudokas && showCard('judokas') && (
                       <>
                         <StatCard
@@ -1051,6 +1097,29 @@ export default function App() {
                         />
                       </>
                     )}
+                  </>
+                ) : user.type === 'ligue' ? (
+                  <>
+                    {showCard('ententes') && (
+                      <StatCard
+                        theme="blue"
+                        icon={<IconBuilding />}
+                        value={stats.ententes ?? 0}
+                        label={L('ententes')}
+                        active={dashboardTab === 'ententes'}
+                        onClick={() => { setDashboardTab('ententes'); setView('list'); }}
+                      />
+                    )}
+                    {showCard('clubs') && (
+                      <StatCard
+                        theme="blue"
+                        icon={<IconBuilding />}
+                        value={stats.clubs}
+                        label={L('clubs')}
+                        active={dashboardTab === 'clubs'}
+                        onClick={tabs.includes('clubs') ? () => { setDashboardTab('clubs'); setView('list'); } : undefined}
+                      />
+                    )}
                     {showStatsEntraineurs && showCard('entraineurs') && (
                       <StatCard
                         theme="blue"
@@ -1061,6 +1130,19 @@ export default function App() {
                         onClick={tabs.includes('entraineurs') ? () => { setDashboardTab('entraineurs'); setView('list'); } : undefined}
                       />
                     )}
+                    {showStatsJudokas && showCard('judokas') && (
+                      <>
+                        <StatCard
+                          theme="blue"
+                          icon={<IconPeople />}
+                          value={stats.total}
+                          label={L('judokas')}
+                          active={dashboardTab === 'judokas'}
+                          onClick={() => { setDashboardTab('judokas'); setView('list'); }}
+                        />
+                        <StatCard theme="blue" icon={<IconCheck />} value={stats.actifs} label="Actifs" />
+                      </>
+                    )}
                   </>
                 ) : (
                   <>
@@ -1070,9 +1152,9 @@ export default function App() {
                         <StatCard theme="blue" icon={<IconCheck />} value={stats.actifs} label="Actifs" />
                         <StatCard
                           theme="blue"
-                          icon={user.type === 'ligue' ? <IconBuilding /> : <IconAlert />}
-                          value={user.type === 'ligue' ? (stats.ententes ?? 0) : (stats.arbitres ?? 0)}
-                          label={user.type === 'ligue' ? L('ententes') : 'Inactifs'}
+                          icon={<IconAlert />}
+                          value={stats.arbitres ?? 0}
+                          label="Inactifs"
                         />
                       </>
                     )}
@@ -1533,12 +1615,28 @@ export default function App() {
                 <span className="toggle-slider" />
               </label>
             )}
+            {canToggleEntenteCompetition && (
+              <button
+                type="button"
+                className="nav-btn"
+                onClick={openEntenteCompetitionPanel}
+                disabled={!serverOnline}
+                title="Activer la compétition séparément pour chaque Entente"
+              >
+                Compétition Ententes
+              </button>
+            )}
             {showCompetitionButton && (
               <button
                 className={`nav-btn ${view === 'competition' ? 'active' : ''}`}
                 onClick={() => {
                   if (!competitionButtonEnabled) {
-                    showToast('Le bouton Compétition n\'est pas encore activé par Admin / Coordon', 'error');
+                    showToast(
+                      user?.type === 'entente'
+                        ? 'Le bouton Compétition n\'est pas encore activé par votre Ligue'
+                        : 'Le bouton Compétition n\'est pas encore activé par Admin / Coordon',
+                      'error'
+                    );
                     return;
                   }
                   setView('competition');
@@ -1549,7 +1647,7 @@ export default function App() {
                 disabled={!serverOnline || !competitionButtonEnabled}
                 title={competitionButtonEnabled
                   ? (user?.type === 'entente' ? 'Compétition Entente (clubs liés)' : 'Paramètres compétition')
-                  : 'En attente d\'activation Admin / Coordon'}
+                  : (user?.type === 'entente' ? 'En attente d\'activation Ligue' : 'En attente d\'activation Admin / Coordon')}
               >
                 {M('competition', 'Compétition')}
               </button>
@@ -1710,6 +1808,46 @@ export default function App() {
             onDone={loadData}
           />
         </Suspense>
+      )}
+
+      {showEntenteCompetitionPanel && (
+        <div className="confirm-overlay" onClick={() => setShowEntenteCompetitionPanel(false)}>
+          <div className="transfer-modal" onClick={(e) => e.stopPropagation()}>
+            <header className="competition-params-modal-head">
+              <div>
+                <h3>Compétition par Entente</h3>
+                <p className="form-hint">Activez séparément la page Compétition de chaque Entente de votre ligue.</p>
+              </div>
+              <button type="button" className="btn btn-outline btn-sm" onClick={() => setShowEntenteCompetitionPanel(false)}>Fermer</button>
+            </header>
+            {ententeCompetitionList.length === 0 ? (
+              <p className="form-hint">Aucune entente active dans votre ligue.</p>
+            ) : (
+              <ul className="transfer-list">
+                {ententeCompetitionList.map((entente) => (
+                  <li key={entente.id} className="transfer-row">
+                    <div>
+                      <strong>{entente.nom}</strong>
+                      <small>
+                        {entente.org_code ? `ID ${entente.org_code} · ` : ''}
+                        {entente.access_enabled ? 'Compétition activée' : 'Compétition désactivée'}
+                      </small>
+                    </div>
+                    <label className={`competition-access-toggle ${entente.access_enabled ? 'is-on' : ''}`}>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(entente.access_enabled)}
+                        disabled={ententeCompetitionBusyId === entente.id || !serverOnline}
+                        onChange={() => handleEntenteCompetitionToggle(entente.id, entente.access_enabled)}
+                      />
+                      <span className="toggle-slider" />
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
       )}
 
       {gradeHistoryOpen && (

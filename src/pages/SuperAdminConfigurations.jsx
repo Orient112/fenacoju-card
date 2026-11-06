@@ -566,8 +566,8 @@ export default function SuperAdminConfigurations({ onToast }) {
                     alt=""
                   />
                   <span>
-                    <strong>{f.nom}</strong>
-                    <small>{f.nom_profil || f.slug || '—'}</small>
+                    <strong>{f.nom_profil || f.slug || f.nom}</strong>
+                    <small>{f.nom}</small>
                   </span>
                 </button>
               ))}

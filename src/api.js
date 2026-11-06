@@ -620,6 +620,27 @@ export async function setCompetitionAccess(accessEnabled) {
   return res.json();
 }
 
+export async function fetchEntenteCompetitionAccess() {
+  const res = await apiFetch('/api/competition/ententes-access');
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Impossible de charger les accès compétition');
+  }
+  return res.json();
+}
+
+export async function setEntenteCompetitionAccess(ententeId, accessEnabled) {
+  const res = await apiFetch('/api/competition/ententes-access', {
+    method: 'PUT',
+    body: JSON.stringify({ entente_id: ententeId, access_enabled: accessEnabled }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Erreur lors de l\'activation Entente');
+  }
+  return res.json();
+}
+
 export async function updateCompetition(data) {
   const res = await apiFetch('/api/competition', {
     method: 'PUT',

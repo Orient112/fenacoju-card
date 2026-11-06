@@ -30,7 +30,7 @@ export async function captureCardImage(judoka) {
   });
   await waitForImages(host);
 
-  const node = host.querySelector('.athlète-card');
+  const node = host.querySelector('.judoka-card');
   if (!node) {
     root.unmount();
     document.body.removeChild(host);
@@ -41,6 +41,8 @@ export async function captureCardImage(judoka) {
   node.style.boxShadow = 'none';
   node.style.maxWidth = 'none';
   node.style.transform = 'none';
+  node.style.width = '85mm';
+  node.style.height = '55mm';
 
   const width = node.offsetWidth;
   const height = node.offsetHeight;

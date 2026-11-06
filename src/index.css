@@ -1492,7 +1492,7 @@ tbody tr:last-child td {
 /* Print styles — carte 85mm × 55mm */
 @media print {
   @page {
-    size: 85mm 55mm landscape;
+    size: 85mm 55mm;
     margin: 0;
   }
 

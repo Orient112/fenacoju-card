@@ -10,6 +10,7 @@ const registrationsPath = path.join(dataDir, 'competition_registrations.json');
 
 const DEFAULT_SETTINGS = {
   access_enabled: false,
+  owner_key: 'federation',
   nom: '',
   date_debut: '',
   date_fin: '',
@@ -30,6 +31,16 @@ const DEFAULT_SETTINGS = {
   frais_equipe_usd: 0,
   updated_at: null,
 };
+
+/** Clé de portée : Directeur Compétition = federation ; Entente = entente:{id} */
+export function competitionOwnerKey(user) {
+  if (user?.type === 'entente' && user.id) return `entente:${user.id}`;
+  return 'federation';
+}
+
+export function ententeOwnerKey(ententeId) {
+  return `entente:${ententeId}`;
+}
 
 const META_RE = /\n?<!--FENACOJU_META:([\s\S]*?)-->\s*$/;
 const TEAM_MODE_MARK = '__mode_equipe__';
@@ -303,20 +314,41 @@ function toDbSettings(settings) {
     updated_at: settings.updated_at,
   };
   if (settings.federation_id) row.federation_id = settings.federation_id;
+  if (settings.owner_key) row.owner_key = settings.owner_key;
   return row;
 }
 
-function readSettingsJson() {
+function readSettingsStore() {
   if (!fs.existsSync(settingsPath)) {
-    const initial = ensureDefaults();
+    const initial = { scopes: { federation: ensureDefaults({ owner_key: 'federation' }) } };
     fs.writeFileSync(settingsPath, JSON.stringify(initial, null, 2));
     return initial;
   }
-  return ensureDefaults(JSON.parse(fs.readFileSync(settingsPath, 'utf-8')));
+  const raw = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+  if (raw && raw.scopes && typeof raw.scopes === 'object') return raw;
+  // Ancien format singleton → migrer vers scopes.federation
+  return { scopes: { federation: ensureDefaults({ ...raw, owner_key: 'federation' }) } };
 }
 
-function writeSettingsJson(settings) {
-  fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+function writeSettingsStore(store) {
+  fs.writeFileSync(settingsPath, JSON.stringify(store, null, 2));
+}
+
+function readSettingsJson(ownerKey = 'federation') {
+  const store = readSettingsStore();
+  const key = ownerKey || 'federation';
+  if (!store.scopes[key]) {
+    store.scopes[key] = ensureDefaults({ owner_key: key });
+    writeSettingsStore(store);
+  }
+  return ensureDefaults({ ...store.scopes[key], owner_key: key });
+}
+
+function writeSettingsJson(settings, ownerKey = 'federation') {
+  const store = readSettingsStore();
+  const key = ownerKey || settings.owner_key || 'federation';
+  store.scopes[key] = ensureDefaults({ ...settings, owner_key: key });
+  writeSettingsStore(store);
 }
 
 function readRegistrationsJson() {
@@ -352,67 +384,108 @@ export async function getCompetitionSettingsByPublicToken(token) {
   return null;
 }
 
-export async function getCompetitionSettings(federationId = null) {
+export async function getCompetitionSettings(federationId = null, ownerKey = 'federation') {
+  const scope = ownerKey || 'federation';
   if (isSupabaseEnabled()) {
     try {
       let data = null;
       if (federationId) {
-        const byFed = await getSupabase()
+        let q = getSupabase()
           .from('competition_settings')
           .select('*')
           .eq('federation_id', federationId)
-          .maybeSingle();
+          .eq('owner_key', scope);
+        let byFed = await q.maybeSingle();
+        if (byFed.error && /owner_key|column|schema cache/i.test(byFed.error.message || '')) {
+          // Migration non appliquée : fallback ancienne ligne fédération uniquement pour scope federation
+          if (scope === 'federation') {
+            byFed = await getSupabase()
+              .from('competition_settings')
+              .select('*')
+              .eq('federation_id', federationId)
+              .maybeSingle();
+          } else {
+            byFed = { data: null, error: null };
+          }
+        }
         if (!byFed.error) data = byFed.data;
       }
-      if (!data) {
+      if (!data && scope === 'federation') {
         const byId = await getSupabase()
           .from('competition_settings')
           .select('*')
           .eq('id', 1)
           .maybeSingle();
-        if (byId.error) throw byId.error;
-        data = byId.data;
-        // Si on demande une autre fédération et qu'on n'a que le singleton judo, créer une ligne vide
-        if (federationId && data && data.federation_id && data.federation_id !== federationId) {
-          data = null;
+        if (!byId.error) {
+          data = byId.data;
+          if (federationId && data && data.federation_id && data.federation_id !== federationId) {
+            data = null;
+          }
         }
       }
       if (!data) {
-        const initial = ensureDefaults({ federation_id: federationId || undefined });
+        const initial = ensureDefaults({
+          federation_id: federationId || undefined,
+          owner_key: scope,
+        });
         const row = toDbSettings({
           ...initial,
-          id: federationId ? Math.floor(Math.random() * 2_000_000_000) + 2 : 1,
+          id: Math.floor(Math.random() * 2_000_000_000) + 2,
           federation_id: federationId || undefined,
+          owner_key: scope,
         });
         const { error: insertErr } = await getSupabase().from('competition_settings').upsert(row);
+        if (insertErr && /owner_key|column|schema cache/i.test(insertErr.message || '')) {
+          if (scope !== 'federation') {
+            // Sans colonne owner_key, stocker en JSON local pour les ententes
+            writeSettingsJson(initial, scope);
+            return { ...initial, federation_id: federationId || null };
+          }
+          const { owner_key: _ok, ...withoutOwner } = row;
+          const retry = await getSupabase().from('competition_settings').upsert(withoutOwner);
+          if (retry.error) throw retry.error;
+          return { ...initial, federation_id: federationId || null, id: withoutOwner.id };
+        }
         if (insertErr) throw insertErr;
         return { ...initial, federation_id: federationId || null, id: row.id };
       }
-      return ensureDefaults(data);
+      return ensureDefaults({ ...data, owner_key: data.owner_key || scope });
     } catch (err) {
       console.warn('Lecture competition_settings impossible:', err.message);
-      return readSettingsJson();
+      return readSettingsJson(scope);
     }
   }
-  const settings = readSettingsJson();
+  const settings = readSettingsJson(scope);
   if (federationId && settings.federation_id && settings.federation_id !== federationId) {
-    return ensureDefaults({ federation_id: federationId });
+    return ensureDefaults({ federation_id: federationId, owner_key: scope });
   }
   return settings;
 }
 
-export async function updateCompetitionSettings(patch, federationId = null) {
-  const current = await getCompetitionSettings(federationId || patch?.federation_id || null);
+export async function updateCompetitionSettings(patch, federationId = null, ownerKey = 'federation') {
+  const scope = ownerKey || patch?.owner_key || 'federation';
+  const current = await getCompetitionSettings(federationId || patch?.federation_id || null, scope);
   const next = ensureDefaults({
     ...current,
     ...patch,
     federation_id: federationId || patch?.federation_id || current.federation_id || null,
+    owner_key: scope,
     updated_at: new Date().toISOString(),
   });
 
   if (isSupabaseEnabled()) {
     try {
       const { error } = await getSupabase().from('competition_settings').upsert(toDbSettings(next));
+      if (error && /owner_key|column|schema cache/i.test(error.message || '')) {
+        if (scope !== 'federation') {
+          writeSettingsJson(next, scope);
+          return next;
+        }
+        const { owner_key: _ok, ...withoutOwner } = toDbSettings(next);
+        const retry = await getSupabase().from('competition_settings').upsert(withoutOwner);
+        if (retry.error) throw retry.error;
+        return next;
+      }
       if (error) throw error;
       return next;
     } catch (err) {
@@ -420,7 +493,7 @@ export async function updateCompetitionSettings(patch, federationId = null) {
     }
   }
 
-  writeSettingsJson(next);
+  writeSettingsJson(next, scope);
   return next;
 }
 
@@ -466,11 +539,13 @@ function withRegistrationMode(list) {
   }));
 }
 
-export async function getCompetitionRegistrations(federationId = null) {
-  const filterFed = (list) => {
-    if (!federationId) return list;
-    return (list || []).filter((r) => !r.federation_id || r.federation_id === federationId);
-  };
+export async function getCompetitionRegistrations(federationId = null, ownerKey = 'federation') {
+  const scope = ownerKey || 'federation';
+  const filterScope = (list) => (list || []).filter((r) => {
+    if (federationId && r.federation_id && r.federation_id !== federationId) return false;
+    const rowKey = r.owner_key || 'federation';
+    return rowKey === scope;
+  });
 
   if (isSupabaseEnabled()) {
     try {
@@ -479,13 +554,13 @@ export async function getCompetitionRegistrations(federationId = null) {
         .select('*')
         .order('created_at', { ascending: false });
       if (federationId) q = q.eq('federation_id', federationId);
+      q = q.eq('owner_key', scope);
       const { data, error } = await q;
       if (error) {
-        // Colonne absente → fallback sans filtre SQL
-        if (/federation_id|column|schema cache/i.test(error.message || '')) {
+        if (/owner_key|federation_id|column|schema cache/i.test(error.message || '')) {
           const all = await getSupabase().from('competition_registrations').select('*').order('created_at', { ascending: false });
           if (all.error) throw all.error;
-          return withRegistrationMode(filterFed(all.data || []));
+          return withRegistrationMode(filterScope(all.data || []));
         }
         throw error;
       }
@@ -493,12 +568,12 @@ export async function getCompetitionRegistrations(federationId = null) {
     } catch (err) {
       console.warn('Lecture competition_registrations impossible:', err.message);
       return withRegistrationMode(
-        filterFed(readRegistrationsJson().sort((a, b) => new Date(b.created_at) - new Date(a.created_at)))
+        filterScope(readRegistrationsJson().sort((a, b) => new Date(b.created_at) - new Date(a.created_at)))
       );
     }
   }
   return withRegistrationMode(
-    filterFed(readRegistrationsJson().sort((a, b) => new Date(b.created_at) - new Date(a.created_at)))
+    filterScope(readRegistrationsJson().sort((a, b) => new Date(b.created_at) - new Date(a.created_at)))
   );
 }
 
@@ -515,7 +590,10 @@ function normDate(value) {
 }
 
 export async function findDuplicateCompetitionRegistration(payload) {
-  const list = await getCompetitionRegistrations();
+  const list = await getCompetitionRegistrations(
+    payload.federation_id || null,
+    payload.owner_key || 'federation'
+  );
   const mode = payload.mode_inscription === 'equipe' ? 'equipe' : 'individuel';
   const sameMode = list.filter((r) => getRegistrationMode(r) === mode);
 
@@ -578,6 +656,8 @@ export async function createCompetitionRegistration(payload) {
     paiement_statut: payload.paiement_statut === 'paye' ? 'paye' : (payload.paiement_statut || 'en_attente'),
     montant_paye: Math.max(0, Number(payload.montant_paye) || 0),
     mode_paiement: String(payload.mode_paiement || '').trim(),
+    federation_id: payload.federation_id || null,
+    owner_key: payload.owner_key || 'federation',
     created_at: new Date().toISOString(),
   };
 
@@ -987,36 +1067,64 @@ export async function updateCompetitionRegistrationWeight(id, poids) {
   return list[index];
 }
 
-export async function clearCompetitionRegistrations() {
+export async function clearCompetitionRegistrations(federationId = null, ownerKey = 'federation') {
+  const scope = ownerKey || 'federation';
   if (isSupabaseEnabled()) {
     try {
-      const { error } = await getSupabase()
+      let q = getSupabase()
         .from('competition_registrations')
         .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000');
-      if (error) throw error;
+        .eq('owner_key', scope);
+      if (federationId) q = q.eq('federation_id', federationId);
+      const { error } = await q;
+      if (error && /owner_key|column|schema cache/i.test(error.message || '')) {
+        // fallback : filtrer en mémoire via JSON
+        throw error;
+      } else if (error) {
+        throw error;
+      } else {
+        // aussi nettoyer JSON local pour ce scope
+        const kept = readRegistrationsJson().filter((r) => {
+          const rowKey = r.owner_key || 'federation';
+          if (rowKey !== scope) return true;
+          if (federationId && r.federation_id && r.federation_id !== federationId) return true;
+          return false;
+        });
+        writeRegistrationsJson(kept);
+        return true;
+      }
     } catch (err) {
-      if (!/relation|does not exist|schema cache/i.test(err.message || '')) {
+      if (!/relation|does not exist|schema cache|owner_key|column/i.test(err.message || '')) {
         console.warn('Suppression inscriptions compétition fallback JSON:', err.message);
       }
     }
   }
-  writeRegistrationsJson([]);
+  const kept = readRegistrationsJson().filter((r) => {
+    const rowKey = r.owner_key || 'federation';
+    if (rowKey !== scope) return true;
+    if (federationId && r.federation_id && r.federation_id !== federationId) return true;
+    return false;
+  });
+  writeRegistrationsJson(kept);
   return true;
 }
 
-export async function deleteCompetitionPublicLink() {
-  await clearCompetitionRegistrations();
+export async function deleteCompetitionPublicLink(federationId = null, ownerKey = 'federation') {
+  await clearCompetitionRegistrations(federationId, ownerKey);
   const settings = await updateCompetitionSettings({
     public_enabled: false,
     public_token: uuidv4().replace(/-/g, '').slice(0, 16),
-  });
+  }, federationId, ownerKey);
   return settings;
 }
 
-/** Efface toute la compétition (params, inscriptions, lien) — utilisé quand Admin/Coordon passe Off. */
-export async function resetCompetitionCompletely({ access_enabled = false } = {}) {
-  await clearCompetitionRegistrations();
+/** Efface toute la compétition (params, inscriptions, lien) pour une portée donnée. */
+export async function resetCompetitionCompletely({
+  access_enabled = false,
+  federationId = null,
+  ownerKey = 'federation',
+} = {}) {
+  await clearCompetitionRegistrations(federationId, ownerKey);
   return updateCompetitionSettings({
     access_enabled: Boolean(access_enabled),
     nom: '',
@@ -1029,7 +1137,7 @@ export async function resetCompetitionCompletely({ access_enabled = false } = {}
     categories_poids: [],
     categories_poids_individuel: [],
     competition_clubs: [],
-  });
+  }, federationId, ownerKey);
 }
 
 export function toPublicRegistration(row) {

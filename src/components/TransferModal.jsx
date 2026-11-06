@@ -101,9 +101,6 @@ export default function TransferModal({
                 {judoka.prenom} {judoka.nom} · Club actuel : <strong>{judoka.club || '—'}</strong>
               </p>
             )}
-            {mode === 'inbox' && (
-              <p className="form-hint">Validation Ligue puis confirmation Fédération (Secrétaire Général / Coordon).</p>
-            )}
           </div>
           <button type="button" className="btn btn-outline btn-sm" onClick={onClose}>Fermer</button>
         </header>

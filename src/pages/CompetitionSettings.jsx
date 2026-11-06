@@ -827,7 +827,9 @@ export default function CompetitionSettings({ onBack, onToast }) {
     try {
       const data = await fetchCompetition();
       if (!data.access_ok && !data.can_toggle_access) {
-        setError('Le bouton Compétition n\'est pas encore activé par Admin / Coordon.');
+        setError(settings?.scope_entente
+          ? 'Le bouton Compétition n\'est pas encore activé par votre Ligue.'
+          : 'Le bouton Compétition n\'est pas encore activé par Admin / Coordon.');
         setSettings(data);
         return;
       }
@@ -2096,7 +2098,12 @@ export default function CompetitionSettings({ onBack, onToast }) {
       <header className="competition-hero">
         <div className="competition-hero-main">
           <div>
-            <p className="competition-kicker">FENACOJU · Directeur Compétition</p>
+            <p className="competition-kicker">
+              {settings?.scope_label
+                || (settings?.scope_entente
+                  ? 'ENTENTE'
+                  : 'FENACOJU · Directeur Compétition')}
+            </p>
             <h2>Compétition</h2>
             <p className="subtitle">
               Paramétrez l&apos;événement, publiez l&apos;inscription et suivez les athlètes en direct.
@@ -2160,7 +2167,11 @@ export default function CompetitionSettings({ onBack, onToast }) {
       {accessBlocked ? (
         <div className="empty-state">
           <h3>Compétition non activée</h3>
-          <p>Attendez qu&apos;un Admin ou Coordon active le bouton Compétition.</p>
+          <p>
+            {settings?.scope_entente
+              ? 'Attendez que votre Ligue active la compétition pour cette Entente.'
+              : 'Attendez qu\'un Admin ou Coordon active le bouton Compétition.'}
+          </p>
         </div>
       ) : (
         <>
