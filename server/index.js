@@ -1871,7 +1871,7 @@ app.delete('/api/users/:id', async (req, res) => {
 
 app.post('/api/users/:id/validate', async (req, res) => {
   try {
-    if (!canValidateAccounts(req.user)) {
+    if (!canValidateAccounts(req.user) && req.user.type !== 'admin') {
       return res.status(403).json({ error: 'Validation non autorisée' });
     }
     const user = await setUserAccountStatut(req.params.id, 'actif', req.user);
@@ -1883,7 +1883,7 @@ app.post('/api/users/:id/validate', async (req, res) => {
 
 app.post('/api/users/:id/reject', async (req, res) => {
   try {
-    if (!canValidateAccounts(req.user)) {
+    if (!canValidateAccounts(req.user) && req.user.type !== 'admin') {
       return res.status(403).json({ error: 'Rejet non autorisé' });
     }
     const user = await setUserAccountStatut(req.params.id, 'rejete', req.user);

@@ -317,6 +317,7 @@ export function getPermissions(user, settings = null) {
       export: false,
       deleteJudokas: false,
       manageUsers: false,
+      validateAccounts: true,
       validateTransfersLigue: true,
       createTypes: ['entente'],
       dashboardTabs: ['ententes', 'clubs', 'entraineurs', 'judokas'],
@@ -613,6 +614,38 @@ export function canViewJudokaCard(user) {
 
 export function canValidateAccounts(user) {
   return getPermissions(user).validateAccounts === true;
+}
+
+/**
+ * Qui peut valider quel compte :
+ * - Club créé par une Entente → uniquement la Ligue parente de cette Entente
+ * - Entente créée par une Ligue → Admin ou Coordon de la fédération
+ * - Autres (Ligue, Club hors Entente, Entraineur) → Admin / Coordon
+ */
+export function canValidateTargetAccount(editor, target, allUsers = []) {
+  if (!editor || !target) return false;
+  if (!['ligue', 'entente', 'club', 'entraineur'].includes(target.type)) return false;
+  if (!canValidateAccounts(editor) && editor.type !== 'admin') return false;
+
+  const editorFed = getUserFederationId(editor);
+  const targetFed = getUserFederationId(target);
+  if (editorFed && targetFed && editorFed !== targetFed) return false;
+
+  if (target.type === 'entente') {
+    return editor.type === 'admin' || isCoordon(editor);
+  }
+
+  if (target.type === 'club') {
+    const parent = (allUsers || []).find((u) => u.id === target.parent_id);
+    if (parent?.type === 'entente') {
+      // Club d'une Entente : réservé à la Ligue liée à cette Entente
+      return editor.type === 'ligue' && editor.id === parent.parent_id;
+    }
+    return editor.type === 'admin' || isCoordon(editor);
+  }
+
+  // Ligue / Entraineur
+  return editor.type === 'admin' || isCoordon(editor);
 }
 
 export function canMessageUser(sender, recipient) {

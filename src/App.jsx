@@ -298,6 +298,25 @@ export default function App() {
   const canManageUsers = perms.manageUsers || perms.createUsers;
   const canResetPassword = perms.manageUsers === true;
   const canValidateAccounts = perms.validateAccounts === true;
+  const canValidateTargetUser = useCallback((target) => {
+    if (!user || !target || !canValidateAccounts) return false;
+    if (user.type === 'ligue') {
+      // Ligue : uniquement les clubs des Ententes qui lui sont liées
+      if (target.type !== 'club') return false;
+      const parent = users.find((u) => u.id === target.parent_id);
+      return parent?.type === 'entente' && parent.parent_id === user.id;
+    }
+    if (user.type === 'admin' || (user.type === 'federation' && user.fonction === 'Coordon')) {
+      if (target.type === 'entente') return true;
+      if (target.type === 'club') {
+        const parent = users.find((u) => u.id === target.parent_id);
+        // Clubs d'Entente : réservés à la Ligue
+        return parent?.type !== 'entente';
+      }
+      return ['ligue', 'entraineur'].includes(target.type);
+    }
+    return false;
+  }, [user, users, canValidateAccounts]);
   const canViewClubDetails = perms.viewClubDetails === true;
   const canViewCards = perms.viewCards === true;
   const readOnlyJudokas = perms.readOnlyJudokas === true;
@@ -1443,6 +1462,7 @@ export default function App() {
                         }
                         canManage={canManageUsers}
                         canValidate={canValidateAccounts && ['ligues', 'ententes', 'clubs', 'entraineurs'].includes(dashboardTab)}
+                        canValidateUser={canValidateTargetUser}
                         onView={(u) => {
                           if (u.type === 'club' && canViewClubDetails) {
                             setViewClub(u);

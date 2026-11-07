@@ -4,7 +4,7 @@ import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import {
   enforceCreateUser,
-  canValidateAccounts,
+  canValidateTargetAccount,
   getAccountStatut,
   isAccountActive,
   canLoginAs,
@@ -556,9 +556,6 @@ export async function setUserAccountStatut(id, statut, editor) {
   if (!['pending', 'actif', 'rejete'].includes(statut)) {
     throw new Error('Statut invalide');
   }
-  if (!canValidateAccounts(editor) && editor.type !== 'admin') {
-    throw new Error('Vous n\'êtes pas autorisé à valider les comptes');
-  }
 
   const users = await readUsers();
   const index = users.findIndex((u) => u.id === id);
@@ -567,6 +564,15 @@ export async function setUserAccountStatut(id, statut, editor) {
   const target = users[index];
   if (!needsValidation(target.type)) {
     throw new Error('Ce type de compte ne nécessite pas de validation');
+  }
+  if (!canValidateTargetAccount(editor, target, users)) {
+    if (target.type === 'club') {
+      throw new Error('Ce club doit être validé par la Ligue de son Entente');
+    }
+    if (target.type === 'entente') {
+      throw new Error('Cette Entente doit être validée par l\'Admin ou le Coordon de la fédération');
+    }
+    throw new Error('Vous n\'êtes pas autorisé à valider ce compte');
   }
 
   const updated = { ...target, statut };

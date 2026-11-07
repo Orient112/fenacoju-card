@@ -418,6 +418,7 @@ function ParamsFormFields({
   onCategoriesChange,
   onIndividualCategoriesChange,
   onAgeThresholdsChange,
+  onHorsSystemeToggle,
   onLogoSelected,
   onLogoRemoved,
   logoUploading = false,
@@ -428,6 +429,7 @@ function ParamsFormFields({
   const logoSrc = form.logo_url ? resolveMediaUrl(form.logo_url) : '/fenacoju-logo.png';
   const hasCustomLogo = Boolean(form.logo_url);
   const horsSystemeOn = Boolean(form.allow_hors_systeme);
+  const horsBusy = Boolean(form._horsBusy);
 
   const updateAgeCat = (index, field, value) => {
     const next = ageCats.map((c, i) => (i === index ? { ...c, [field]: value } : c));
@@ -613,16 +615,21 @@ function ParamsFormFields({
         </div>
         <div className="transfer-row" style={{ padding: '0.5rem 0' }}>
           <div>
-            <strong>{horsSystemeOn ? 'Activé' : 'Désactivé'}</strong>
+            <strong>{horsBusy ? '…' : (horsSystemeOn ? 'Activé' : 'Désactivé')}</strong>
           </div>
           <label className={`competition-access-toggle ${horsSystemeOn ? 'is-on' : ''}`}>
             <input
               type="checkbox"
               name="allow_hors_systeme"
               checked={horsSystemeOn}
-              onChange={(e) => onChange?.({
-                target: { name: 'allow_hors_systeme', value: e.target.checked, type: 'checkbox' },
-              })}
+              disabled={horsBusy}
+              onChange={(e) => {
+                const next = e.target.checked;
+                if (onHorsSystemeToggle) onHorsSystemeToggle(next);
+                else onChange?.({
+                  target: { name: 'allow_hors_systeme', type: 'checkbox', checked: next },
+                });
+              }}
             />
             <span className="toggle-slider" aria-hidden="true" />
           </label>
@@ -1045,6 +1052,30 @@ export default function CompetitionSettings({ onBack, onToast }) {
     setForm((prev) => ({ ...prev, categories_age: next }));
   };
 
+  const handleHorsSystemeToggle = async (enabled) => {
+    const next = Boolean(enabled);
+    setForm((prev) => ({ ...prev, allow_hors_systeme: next, _horsBusy: true }));
+    setSaving(true);
+    try {
+      const updated = await updateCompetition({ allow_hors_systeme: next });
+      setSettings((prev) => ({ ...prev, ...updated, allow_hors_systeme: Boolean(updated.allow_hors_systeme) }));
+      setForm((prev) => ({
+        ...prev,
+        allow_hors_systeme: Boolean(updated.allow_hors_systeme ?? next),
+        _horsBusy: false,
+      }));
+      onToast?.(next
+        ? 'Athlètes hors système activés — bouton « Pas encore dans le Système » disponible'
+        : 'Athlètes hors système désactivés');
+    } catch (err) {
+      setForm((prev) => ({ ...prev, allow_hors_systeme: !next, _horsBusy: false }));
+      setError(err.message);
+      onToast?.(err.message || 'Impossible de modifier Athlètes Hors Système', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleLogoSelected = async (file) => {
     if (!file) return;
     setLogoUploading(true);
@@ -1083,8 +1114,11 @@ export default function CompetitionSettings({ onBack, onToast }) {
     setSaving(true);
     setError('');
     try {
+      const { _horsBusy, ...formFields } = form;
       const payload = {
-        ...form,
+        ...formFields,
+        allow_hors_systeme: Boolean(form.allow_hors_systeme),
+        categories_age: Array.isArray(form.categories_age) ? form.categories_age : [],
         frais_monnaie: String(form.frais_monnaie || '').toUpperCase() === 'USD' ? 'USD' : 'CDF',
         frais_individuel_cdf: Math.max(0, Number(form.frais_individuel_cdf) || 0),
         frais_individuel_usd: Math.max(0, Number(form.frais_individuel_usd) || 0),
@@ -2338,6 +2372,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
                   onCategoriesChange={handleCategoriesChange}
                   onIndividualCategoriesChange={handleIndividualCategoriesChange}
                   onAgeThresholdsChange={handleAgeThresholdsChange}
+                  onHorsSystemeToggle={handleHorsSystemeToggle}
                   onLogoSelected={handleLogoSelected}
                   onLogoRemoved={handleLogoRemoved}
                   logoUploading={logoUploading}
@@ -2548,6 +2583,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
                 onCategoriesChange={handleCategoriesChange}
                 onIndividualCategoriesChange={handleIndividualCategoriesChange}
                 onAgeThresholdsChange={handleAgeThresholdsChange}
+                onHorsSystemeToggle={handleHorsSystemeToggle}
                 onLogoSelected={handleLogoSelected}
                 onLogoRemoved={handleLogoRemoved}
                 logoUploading={logoUploading}

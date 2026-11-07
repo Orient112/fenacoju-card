@@ -20,6 +20,7 @@ export default function UserList({
   showClub = false,
   canManage = false,
   canValidate = false,
+  canValidateUser = null,
   detailColumnLabel = 'Détails',
   hideFonctionUnderName = false,
   hideTypeColumn = false,
@@ -121,7 +122,8 @@ export default function UserList({
                         <IconEye />
                       </button>
                     )}
-                    {canValidate && needsValidation && onValidate && (
+                    {canValidate && needsValidation && onValidate
+                      && (!canValidateUser || canValidateUser(u)) && (
                       <button
                         type="button"
                         className="btn btn-primary btn-sm"
@@ -131,7 +133,8 @@ export default function UserList({
                         Valider
                       </button>
                     )}
-                    {canValidate && needsValidation && onReject && (
+                    {canValidate && needsValidation && onReject
+                      && (!canValidateUser || canValidateUser(u)) && (
                       <button
                         type="button"
                         className="btn btn-outline btn-sm"
