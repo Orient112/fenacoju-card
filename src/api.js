@@ -1087,6 +1087,38 @@ export async function toggleFederationActive(id, actif) {
   return res.json();
 }
 
+export async function fetchFederationPaymentAccounts(federationId) {
+  const res = await apiFetch(`/api/federations/${federationId}/payment-accounts`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Impossible de charger les comptes paiement');
+  }
+  return res.json();
+}
+
+export async function saveFederationPaymentAccount(federationId, userId, payload) {
+  const res = await apiFetch(`/api/federations/${federationId}/payment-accounts/${userId}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Enregistrement impossible');
+  }
+  return res.json();
+}
+
+export async function deleteFederationPaymentAccount(federationId, userId) {
+  const res = await apiFetch(`/api/federations/${federationId}/payment-accounts/${userId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Suppression impossible');
+  }
+  return res.json();
+}
+
 export async function uploadFederationLogo(id, file) {
   const formData = new FormData();
   formData.append('logo', file);

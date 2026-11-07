@@ -43,6 +43,10 @@ import {
   resetUserPassword,
   setUserAccountStatut,
   setUserCompetitionAccess,
+  listFederationPaymentAccounts,
+  setUserPaymentCredentials,
+  clearUserPaymentCredentials,
+  resolveCompetitionPaymentCredentials,
   getRegisteredClubs,
   isClubRegistered,
   ensureRegisteredClub,
@@ -331,6 +335,10 @@ function publicCompetitionScope(settings) {
   };
 }
 
+async function competitionPaymentCredentials(settings) {
+  return resolveCompetitionPaymentCredentials(settings);
+}
+
 app.get('/api/public/competition/:token', async (req, res) => {
   try {
     const settings = await resolvePublicCompetition(req.params.token);
@@ -524,9 +532,10 @@ app.post('/api/public/competition/:token/pay/initiate', async (req, res) => {
     if (!settings || !settings.public_enabled) {
       return res.status(404).json({ error: 'Formulaire de compétition indisponible' });
     }
-    if (!isSimplyPayConfigured()) {
+    const credentials = await competitionPaymentCredentials(settings);
+    if (!isSimplyPayConfigured(credentials)) {
       return res.status(503).json({
-        error: 'Paiement indisponible : configurez SIMPLY_PAY_MERCHANT_CODE sur le serveur',
+        error: 'Paiement indisponible : configurez le short code et la clé API du gestionnaire de compétition',
       });
     }
 
@@ -549,6 +558,7 @@ app.post('/api/public/competition/:token/pay/initiate', async (req, res) => {
       amount,
       currency,
       reference,
+      credentials,
     });
 
     res.json({
@@ -571,11 +581,12 @@ app.get('/api/public/competition/:token/pay/status/:orderNumber', async (req, re
     if (!settings || !settings.public_enabled) {
       return res.status(404).json({ error: 'Formulaire de compétition indisponible' });
     }
-    if (!isSimplyPayConfigured()) {
+    const credentials = await competitionPaymentCredentials(settings);
+    if (!isSimplyPayConfigured(credentials)) {
       return res.status(503).json({ error: 'Paiement indisponible' });
     }
 
-    const status = await checkSimplyPayStatus(req.params.orderNumber);
+    const status = await checkSimplyPayStatus(req.params.orderNumber, credentials);
     res.json({
       success: status.success,
       pending: status.pending,
@@ -600,6 +611,7 @@ app.post('/api/public/competition/:token/register', async (req, res) => {
 
     const { federationId, ownerKey } = publicCompetitionScope(settings);
     const scopeMeta = { federation_id: federationId, owner_key: ownerKey };
+    const paymentCredentials = await competitionPaymentCredentials(settings);
     const body = req.body || {};
     const modeInscription = body.mode_inscription === 'equipe' ? 'equipe' : 'individuel';
 
@@ -658,16 +670,16 @@ app.post('/api/public/competition/:token/register', async (req, res) => {
         if (!phone) {
           return res.status(400).json({ error: 'Saisissez un numéro Mobile Money valide' });
         }
-        if (!isSimplyPayConfigured()) {
+        if (!isSimplyPayConfigured(paymentCredentials)) {
           return res.status(503).json({
-            error: 'Paiement indisponible : configurez SIMPLY_PAY_MERCHANT_CODE sur le serveur',
+            error: 'Paiement indisponible : configurez le short code et la clé API du gestionnaire',
           });
         }
 
         const existingOrder = String(body.paiement.orderNumber || body.paiement.order_number || '').trim();
         let paid;
         if (existingOrder) {
-          const status = await checkSimplyPayStatus(existingOrder);
+          const status = await checkSimplyPayStatus(existingOrder, paymentCredentials);
           if (!status.success) {
             return res.status(402).json({
               error: status.message || 'Paiement non confirmé. Validez le push PIN puis réessayez.',
@@ -680,6 +692,7 @@ app.post('/api/public/competition/:token/register', async (req, res) => {
             amount: totalDue,
             currency: payCurrency,
             reference: `COMP-IND-${settings.public_token || 'fenacoju'}-${Date.now()}`.slice(0, 64),
+            credentials: paymentCredentials,
           });
         }
 
@@ -733,16 +746,16 @@ app.post('/api/public/competition/:token/register', async (req, res) => {
         if (!phone) {
           return res.status(400).json({ error: 'Saisissez un numéro Mobile Money valide' });
         }
-        if (!isSimplyPayConfigured()) {
+        if (!isSimplyPayConfigured(paymentCredentials)) {
           return res.status(503).json({
-            error: 'Paiement indisponible : configurez SIMPLY_PAY_MERCHANT_CODE sur le serveur',
+            error: 'Paiement indisponible : configurez le short code et la clé API du gestionnaire',
           });
         }
 
         const existingOrder = String(body.paiement.orderNumber || body.paiement.order_number || '').trim();
         let paid;
         if (existingOrder) {
-          const status = await checkSimplyPayStatus(existingOrder);
+          const status = await checkSimplyPayStatus(existingOrder, paymentCredentials);
           if (!status.success) {
             return res.status(402).json({
               error: status.message || 'Paiement non confirmé. Validez le push PIN puis réessayez.',
@@ -755,6 +768,7 @@ app.post('/api/public/competition/:token/register', async (req, res) => {
             amount: defaultTeamFee,
             currency: payCurrency,
             reference: `COMP-EQ-${String(body.club || 'club').slice(0, 20)}-${Date.now()}`.slice(0, 64),
+            credentials: paymentCredentials,
           });
         }
 
@@ -1171,6 +1185,64 @@ app.put('/api/federations/:id', async (req, res) => {
       return res.status(403).json({ error: 'Réservé au SuperAdmin' });
     }
     const updated = await updateFederation(req.params.id, req.body || {});
+    res.json(updated);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+/** SuperAdmin : comptes compétition + credentials SimplyPaye */
+app.get('/api/federations/:id/payment-accounts', async (req, res) => {
+  try {
+    if (req.user.type !== 'superadmin') {
+      return res.status(403).json({ error: 'Réservé au SuperAdmin' });
+    }
+    const fed = await getFederationById(req.params.id);
+    if (!fed) return res.status(404).json({ error: 'Fédération introuvable' });
+    const accounts = await listFederationPaymentAccounts(req.params.id);
+    res.json({ federation: { id: fed.id, nom: fed.nom }, accounts });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/federations/:id/payment-accounts/:userId', async (req, res) => {
+  try {
+    if (req.user.type !== 'superadmin') {
+      return res.status(403).json({ error: 'Réservé au SuperAdmin' });
+    }
+    const fed = await getFederationById(req.params.id);
+    if (!fed) return res.status(404).json({ error: 'Fédération introuvable' });
+    const target = await getUserById(req.params.userId);
+    if (!target || target.federation_id !== fed.id) {
+      return res.status(404).json({ error: 'Compte introuvable dans cette fédération' });
+    }
+    const updated = await setUserPaymentCredentials(
+      req.params.userId,
+      {
+        merchantCode: req.body?.payment_merchant_code ?? req.body?.merchant_code,
+        apiKey: req.body?.payment_api_key ?? req.body?.api_key,
+      },
+      req.user
+    );
+    res.json(updated);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.delete('/api/federations/:id/payment-accounts/:userId', async (req, res) => {
+  try {
+    if (req.user.type !== 'superadmin') {
+      return res.status(403).json({ error: 'Réservé au SuperAdmin' });
+    }
+    const fed = await getFederationById(req.params.id);
+    if (!fed) return res.status(404).json({ error: 'Fédération introuvable' });
+    const target = await getUserById(req.params.userId);
+    if (!target || target.federation_id !== fed.id) {
+      return res.status(404).json({ error: 'Compte introuvable dans cette fédération' });
+    }
+    const updated = await clearUserPaymentCredentials(req.params.userId, req.user);
     res.json(updated);
   } catch (err) {
     res.status(400).json({ error: err.message });

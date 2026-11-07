@@ -58,13 +58,188 @@ function normalizeComites(raw) {
     .filter((c) => c.nom || c.titre);
 }
 
+function maskSecret(value) {
+  const raw = String(value || '');
+  if (!raw) return '';
+  if (raw.length <= 4) return '••••';
+  return `••••${raw.slice(-4)}`;
+}
+
 export function sanitizeUser(user) {
   if (!user) return null;
-  const { password, ...safe } = user;
+  const { password, payment_api_key, ...safe } = user;
   if (safe.comites !== undefined) {
     safe.comites = normalizeComites(safe.comites);
   }
+  // Ne jamais exposer la clé API en clair hors endpoints SuperAdmin dédiés
+  if (payment_api_key) {
+    safe.payment_api_key_set = true;
+    safe.payment_api_key_hint = maskSecret(payment_api_key);
+  } else {
+    safe.payment_api_key_set = false;
+    safe.payment_api_key_hint = '';
+  }
+  if (safe.payment_merchant_code != null) {
+    safe.payment_merchant_code = String(safe.payment_merchant_code || '').trim();
+  }
   return safe;
+}
+
+/** Comptes susceptibles de gérer une compétition (paiement dédié). */
+export function isCompetitionPaymentAccount(user) {
+  if (!user) return false;
+  if (user.type === 'entente') return true;
+  if (user.type === 'federation' && user.fonction === 'Directeur Compétition') return true;
+  return false;
+}
+
+export async function listFederationPaymentAccounts(federationId) {
+  const fedId = String(federationId || '').trim();
+  if (!fedId) throw new Error('federation_id requis');
+  const users = await readUsers();
+  return users
+    .filter((u) => u.federation_id === fedId && isCompetitionPaymentAccount(u))
+    .map((u) => {
+      const safe = sanitizeUser(u);
+      return {
+        id: safe.id,
+        type: safe.type,
+        nom: safe.nom_organisation || safe.nom || safe.responsable || `${safe.prenom || ''} ${safe.nom || ''}`.trim(),
+        fonction: safe.fonction || '',
+        org_code: safe.org_code || '',
+        payment_merchant_code: safe.payment_merchant_code || '',
+        payment_api_key_set: Boolean(safe.payment_api_key_set),
+        payment_api_key_hint: safe.payment_api_key_hint || '',
+      };
+    })
+    .sort((a, b) => {
+      const rank = { federation: 0, entente: 1 };
+      return (rank[a.type] ?? 9) - (rank[b.type] ?? 9) || a.nom.localeCompare(b.nom, 'fr');
+    });
+}
+
+export async function setUserPaymentCredentials(userId, { merchantCode, apiKey } = {}, editor) {
+  if (editor?.type !== 'superadmin') {
+    throw new Error('Réservé au SuperAdmin');
+  }
+  const users = await readUsers();
+  const index = users.findIndex((u) => u.id === userId);
+  if (index === -1) throw new Error('Compte introuvable');
+  const target = users[index];
+  if (!isCompetitionPaymentAccount(target)) {
+    throw new Error('Ce compte ne gère pas de compétition');
+  }
+
+  const code = String(merchantCode ?? target.payment_merchant_code ?? '').trim();
+  const keyRaw = apiKey === undefined ? target.payment_api_key : String(apiKey || '').trim();
+  if (!code) throw new Error('Le short code marchand est obligatoire');
+  if (!keyRaw) throw new Error('La clé API est obligatoire');
+
+  const updated = {
+    ...target,
+    payment_merchant_code: code,
+    payment_api_key: keyRaw,
+  };
+
+  if (isSupabaseEnabled()) {
+    const { error } = await getSupabase()
+      .from('users')
+      .update({
+        payment_merchant_code: code,
+        payment_api_key: keyRaw,
+      })
+      .eq('id', userId);
+    if (error) {
+      if (/payment_merchant_code|payment_api_key|column|schema cache/i.test(error.message || '')) {
+        users[index] = updated;
+        writeUsersJson(users);
+        console.warn('Colonnes paiement absentes — exécutez migration_payment_credentials.sql');
+        return sanitizeUser(updated);
+      }
+      throw new Error(error.message);
+    }
+  } else {
+    users[index] = updated;
+    writeUsersJson(users);
+  }
+  return sanitizeUser(updated);
+}
+
+export async function clearUserPaymentCredentials(userId, editor) {
+  if (editor?.type !== 'superadmin') {
+    throw new Error('Réservé au SuperAdmin');
+  }
+  const users = await readUsers();
+  const index = users.findIndex((u) => u.id === userId);
+  if (index === -1) throw new Error('Compte introuvable');
+  const target = users[index];
+  if (!isCompetitionPaymentAccount(target)) {
+    throw new Error('Ce compte ne gère pas de compétition');
+  }
+
+  const updated = {
+    ...target,
+    payment_merchant_code: '',
+    payment_api_key: '',
+  };
+
+  if (isSupabaseEnabled()) {
+    const { error } = await getSupabase()
+      .from('users')
+      .update({ payment_merchant_code: '', payment_api_key: '' })
+      .eq('id', userId);
+    if (error) {
+      if (/payment_merchant_code|payment_api_key|column|schema cache/i.test(error.message || '')) {
+        users[index] = updated;
+        writeUsersJson(users);
+        return sanitizeUser(updated);
+      }
+      throw new Error(error.message);
+    }
+  } else {
+    users[index] = updated;
+    writeUsersJson(users);
+  }
+  return sanitizeUser(updated);
+}
+
+/** Credentials bruts (serveur uniquement) pour SimplyPaye. */
+export async function getUserPaymentCredentialsRaw(userId) {
+  const users = await readUsers();
+  const user = users.find((u) => u.id === userId);
+  if (!user) return null;
+  const merchantCode = String(user.payment_merchant_code || '').trim();
+  const apiKey = String(user.payment_api_key || '').trim();
+  if (!merchantCode || !apiKey) return null;
+  return { merchantCode, apiKey, userId: user.id };
+}
+
+export async function resolveCompetitionPaymentCredentials(settings) {
+  const ownerKey = String(settings?.owner_key || 'federation');
+  const fedId = settings?.federation_id || null;
+
+  if (ownerKey.startsWith('entente:')) {
+    const ententeId = ownerKey.slice('entente:'.length);
+    const creds = await getUserPaymentCredentialsRaw(ententeId);
+    if (creds) return creds;
+  } else if (fedId) {
+    const users = await readUsers();
+    const directeur = users.find((u) => (
+      u.federation_id === fedId
+      && u.type === 'federation'
+      && u.fonction === 'Directeur Compétition'
+      && String(u.payment_merchant_code || '').trim()
+      && String(u.payment_api_key || '').trim()
+    ));
+    if (directeur) {
+      return {
+        merchantCode: String(directeur.payment_merchant_code).trim(),
+        apiKey: String(directeur.payment_api_key).trim(),
+        userId: directeur.id,
+      };
+    }
+  }
+  return null;
 }
 
 // ─── JSON fallback (dev local sans Supabase) ───

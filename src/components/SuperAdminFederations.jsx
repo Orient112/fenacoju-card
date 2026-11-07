@@ -3,14 +3,17 @@ import {
   createFederation,
   deleteFederation,
   deleteFederationLogo,
+  deleteFederationPaymentAccount,
+  fetchFederationPaymentAccounts,
   fetchFederations,
   resetFederationAdminPassword,
   resolveMediaUrl,
+  saveFederationPaymentAccount,
   toggleFederationActive,
   updateFederation,
   uploadFederationLogo,
 } from '../api';
-import { IconEdit, IconKey, IconPower, IconTrash } from './ActionIcons';
+import { IconEdit, IconKey, IconPayment, IconPower, IconTrash } from './ActionIcons';
 import BrandLoader from './BrandLoader';
 
 function isFedActive(f) {
@@ -81,6 +84,11 @@ export default function SuperAdminFederations({ onToast }) {
   const logoInputRef = useRef(null);
   const createLogoRef = useRef(null);
   const [logoTargetId, setLogoTargetId] = useState(null);
+  const [paymentTarget, setPaymentTarget] = useState(null);
+  const [paymentAccounts, setPaymentAccounts] = useState([]);
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [paymentEdit, setPaymentEdit] = useState(null);
+  const [paymentForm, setPaymentForm] = useState({ merchant_code: '', api_key: '' });
 
   const load = async () => {
     setLoading(true);
@@ -269,6 +277,101 @@ export default function SuperAdminFederations({ onToast }) {
     setCreateLogoPreview(URL.createObjectURL(file));
   };
 
+  const openPaymentModal = async (f) => {
+    setPaymentTarget(f);
+    setPaymentAccounts([]);
+    setPaymentEdit(null);
+    setPaymentForm({ merchant_code: '', api_key: '' });
+    setPaymentLoading(true);
+    setError('');
+    try {
+      const data = await fetchFederationPaymentAccounts(f.id);
+      setPaymentAccounts(data.accounts || []);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
+  const closePaymentModal = () => {
+    if (busy) return;
+    setPaymentTarget(null);
+    setPaymentAccounts([]);
+    setPaymentEdit(null);
+    setPaymentForm({ merchant_code: '', api_key: '' });
+  };
+
+  const openPaymentEdit = (account) => {
+    setPaymentEdit(account);
+    setPaymentForm({
+      merchant_code: account.payment_merchant_code || '',
+      api_key: '',
+    });
+    setError('');
+  };
+
+  const reloadPaymentAccounts = async (federationId) => {
+    const data = await fetchFederationPaymentAccounts(federationId);
+    setPaymentAccounts(data.accounts || []);
+  };
+
+  const handlePaymentSave = async (e) => {
+    e.preventDefault();
+    if (!paymentTarget || !paymentEdit) return;
+    const merchant = String(paymentForm.merchant_code || '').trim();
+    const apiKey = String(paymentForm.api_key || '').trim();
+    if (!merchant) {
+      setError('Le short code marchand est obligatoire');
+      return;
+    }
+    if (!paymentEdit.payment_api_key_set && !apiKey) {
+      setError('La clé API est obligatoire');
+      return;
+    }
+    setBusy(true);
+    setError('');
+    try {
+      const payload = { payment_merchant_code: merchant };
+      if (apiKey) payload.payment_api_key = apiKey;
+      await saveFederationPaymentAccount(paymentTarget.id, paymentEdit.id, payload);
+      onToast?.(`Identifiants paiement enregistrés pour ${paymentEdit.nom}`);
+      setPaymentEdit(null);
+      setPaymentForm({ merchant_code: '', api_key: '' });
+      await reloadPaymentAccounts(paymentTarget.id);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handlePaymentClear = async (account) => {
+    if (!paymentTarget || !account) return;
+    if (!window.confirm(`Supprimer le short code et la clé API de « ${account.nom} » ?`)) return;
+    setBusy(true);
+    setError('');
+    try {
+      await deleteFederationPaymentAccount(paymentTarget.id, account.id);
+      onToast?.(`Identifiants paiement retirés pour ${account.nom}`);
+      if (paymentEdit?.id === account.id) {
+        setPaymentEdit(null);
+        setPaymentForm({ merchant_code: '', api_key: '' });
+      }
+      await reloadPaymentAccounts(paymentTarget.id);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const accountTypeLabel = (account) => {
+    if (account?.type === 'entente') return 'Entente';
+    if (account?.fonction) return account.fonction;
+    return 'Directeur Compétition';
+  };
+
   return (
     <div className="superadmin-panel">
       <input
@@ -385,6 +488,16 @@ export default function SuperAdminFederations({ onToast }) {
                       disabled={busy}
                     >
                       <IconTrash />
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-icon btn-sm"
+                      onClick={() => openPaymentModal(f)}
+                      title="Paiement"
+                      aria-label="Paiement"
+                      disabled={busy}
+                    >
+                      <IconPayment />
                     </button>
                     <button
                       type="button"
@@ -646,6 +759,135 @@ export default function SuperAdminFederations({ onToast }) {
               <button type="button" className="btn btn-danger" onClick={handleDelete} disabled={busy}>
                 {busy ? 'Suppression…' : 'Supprimer'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {paymentTarget && (
+        <div className="confirm-overlay sa-fed-overlay" onClick={closePaymentModal}>
+          <div
+            className="sa-fed-modal sa-fed-modal-edit"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-labelledby="sa-payment-modal-title"
+          >
+            <div className="sa-fed-modal-banner sa-fed-modal-banner-edit">
+              <div>
+                <p className="sa-kicker">SimplyPaye</p>
+                <h3 id="sa-payment-modal-title">Paiement — {paymentTarget.nom}</h3>
+              </div>
+              <button type="button" className="sa-fed-modal-close" onClick={closePaymentModal} disabled={busy} aria-label="Fermer">
+                ×
+              </button>
+            </div>
+            <div className="sa-fed-modal-body">
+              <p className="form-hint" style={{ marginTop: 0 }}>
+                Short code marchand et clé API pour chaque compte qui gère une compétition.
+                Les frais d&apos;inscription sont encaissés sur ce compte.
+              </p>
+
+              {paymentLoading ? (
+                <BrandLoader label="Chargement…" />
+              ) : paymentAccounts.length === 0 ? (
+                <div className="empty-state">
+                  <h3>Aucun compte compétition</h3>
+                  <p>Créez un Directeur Compétition ou une Entente dans cette fédération.</p>
+                </div>
+              ) : (
+                <div className="sa-payment-accounts">
+                  {paymentAccounts.map((account) => (
+                    <div key={account.id} className="sa-payment-account-row">
+                      <div>
+                        <strong>{account.nom}</strong>
+                        <div className="judoka-club">
+                          {accountTypeLabel(account)}
+                          {account.org_code ? ` · ${account.org_code}` : ''}
+                        </div>
+                        <div className="judoka-club">
+                          {account.payment_merchant_code
+                            ? `Short code : ${account.payment_merchant_code}`
+                            : 'Short code : —'}
+                          {account.payment_api_key_set
+                            ? ` · Clé API : ${account.payment_api_key_hint || '••••'}`
+                            : ' · Clé API : —'}
+                        </div>
+                      </div>
+                      <div className="row-actions">
+                        <button
+                          type="button"
+                          className="btn btn-outline btn-icon btn-sm"
+                          onClick={() => openPaymentEdit(account)}
+                          title={account.payment_merchant_code ? 'Modifier' : 'Ajouter'}
+                          aria-label={account.payment_merchant_code ? 'Modifier' : 'Ajouter'}
+                          disabled={busy}
+                        >
+                          <IconEdit />
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-outline btn-icon btn-sm"
+                          onClick={() => handlePaymentClear(account)}
+                          title="Supprimer"
+                          aria-label="Supprimer"
+                          disabled={busy || (!account.payment_merchant_code && !account.payment_api_key_set)}
+                        >
+                          <IconTrash />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {paymentEdit && (
+                <form onSubmit={handlePaymentSave} className="sa-payment-edit-form">
+                  <fieldset className="sa-fed-fieldset">
+                    <legend>{paymentEdit.payment_merchant_code ? 'Modifier' : 'Ajouter'} — {paymentEdit.nom}</legend>
+                    <div className="form-group">
+                      <label htmlFor="sa-pay-merchant">Short code marchand *</label>
+                      <input
+                        id="sa-pay-merchant"
+                        value={paymentForm.merchant_code}
+                        onChange={(e) => setPaymentForm((p) => ({ ...p, merchant_code: e.target.value }))}
+                        required
+                        placeholder="Ex. 123456"
+                        autoFocus
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label htmlFor="sa-pay-apikey">
+                        Clé API {paymentEdit.payment_api_key_set ? '(laisser vide pour conserver)' : '*'}
+                      </label>
+                      <input
+                        id="sa-pay-apikey"
+                        type="password"
+                        value={paymentForm.api_key}
+                        onChange={(e) => setPaymentForm((p) => ({ ...p, api_key: e.target.value }))}
+                        required={!paymentEdit.payment_api_key_set}
+                        placeholder={paymentEdit.payment_api_key_set ? '••••••••' : 'Clé API SimplyPaye'}
+                        autoComplete="new-password"
+                      />
+                    </div>
+                  </fieldset>
+                  <div className="sa-fed-modal-actions">
+                    <button
+                      type="button"
+                      className="btn btn-outline"
+                      onClick={() => {
+                        setPaymentEdit(null);
+                        setPaymentForm({ merchant_code: '', api_key: '' });
+                      }}
+                      disabled={busy}
+                    >
+                      Annuler
+                    </button>
+                    <button type="submit" className="btn btn-primary" disabled={busy}>
+                      {busy ? 'Enregistrement…' : 'Enregistrer'}
+                    </button>
+                  </div>
+                </form>
+              )}
             </div>
           </div>
         </div>

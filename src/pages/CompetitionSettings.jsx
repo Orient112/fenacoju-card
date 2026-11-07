@@ -429,7 +429,6 @@ function ParamsFormFields({
   const logoSrc = form.logo_url ? resolveMediaUrl(form.logo_url) : '/fenacoju-logo.png';
   const hasCustomLogo = Boolean(form.logo_url);
   const horsSystemeOn = Boolean(form.allow_hors_systeme);
-  const horsBusy = Boolean(form._horsBusy);
 
   const updateAgeCat = (index, field, value) => {
     const next = ageCats.map((c, i) => (i === index ? { ...c, [field]: value } : c));
@@ -615,24 +614,25 @@ function ParamsFormFields({
         </div>
         <div className="transfer-row" style={{ padding: '0.5rem 0' }}>
           <div>
-            <strong>{horsBusy ? '…' : (horsSystemeOn ? 'Activé' : 'Désactivé')}</strong>
+            <strong>{horsSystemeOn ? 'Activé' : 'Désactivé'}</strong>
           </div>
-          <label className={`competition-access-toggle ${horsSystemeOn ? 'is-on' : ''}`}>
-            <input
-              type="checkbox"
-              name="allow_hors_systeme"
-              checked={horsSystemeOn}
-              disabled={horsBusy}
-              onChange={(e) => {
-                const next = e.target.checked;
-                if (onHorsSystemeToggle) onHorsSystemeToggle(next);
-                else onChange?.({
-                  target: { name: 'allow_hors_systeme', type: 'checkbox', checked: next },
-                });
-              }}
-            />
+          <button
+            type="button"
+            className={`competition-access-toggle ${horsSystemeOn ? 'is-on' : ''}`}
+            aria-pressed={horsSystemeOn}
+            aria-label={horsSystemeOn ? 'Désactiver Athlètes Hors Système' : 'Activer Athlètes Hors Système'}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const next = !horsSystemeOn;
+              if (onHorsSystemeToggle) onHorsSystemeToggle(next);
+              else onChange?.({
+                target: { name: 'allow_hors_systeme', type: 'checkbox', checked: next },
+              });
+            }}
+          >
             <span className="toggle-slider" aria-hidden="true" />
-          </label>
+          </button>
         </div>
         <p className="form-hint" style={{ marginTop: '0.35rem' }}>
           {horsSystemeOn ? 'Désactiver' : 'Activer'}
@@ -898,6 +898,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
   const formRef = useRef(form);
   const savingRef = useRef(false);
   const formDirtyRef = useRef(false);
+  const horsSystemeSavingRef = useRef(false);
   const wasConfiguredRef = useRef(false);
 
   useEffect(() => {
@@ -955,7 +956,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
   }, []);
 
   const refreshSilent = useCallback(async () => {
-    if (savingRef.current || formDirtyRef.current) return;
+    if (savingRef.current || formDirtyRef.current || horsSystemeSavingRef.current) return;
     try {
       const [data, regs] = await Promise.all([
         fetchCompetition(),
@@ -1052,28 +1053,27 @@ export default function CompetitionSettings({ onBack, onToast }) {
     setForm((prev) => ({ ...prev, categories_age: next }));
   };
 
-  const handleHorsSystemeToggle = async (enabled) => {
+  const handleHorsSystemeToggle = (enabled) => {
+    if (horsSystemeSavingRef.current) return;
     const next = Boolean(enabled);
-    setForm((prev) => ({ ...prev, allow_hors_systeme: next, _horsBusy: true }));
-    setSaving(true);
-    try {
-      const updated = await updateCompetition({ allow_hors_systeme: next });
-      setSettings((prev) => ({ ...prev, ...updated, allow_hors_systeme: Boolean(updated.allow_hors_systeme) }));
-      setForm((prev) => ({
-        ...prev,
-        allow_hors_systeme: Boolean(updated.allow_hors_systeme ?? next),
-        _horsBusy: false,
-      }));
-      onToast?.(next
-        ? 'Athlètes hors système activés — bouton « Pas encore dans le Système » disponible'
-        : 'Athlètes hors système désactivés');
-    } catch (err) {
-      setForm((prev) => ({ ...prev, allow_hors_systeme: !next, _horsBusy: false }));
-      setError(err.message);
-      onToast?.(err.message || 'Impossible de modifier Athlètes Hors Système', 'error');
-    } finally {
-      setSaving(false);
-    }
+    // UI instantanée (vitesse de clic) — persistance en arrière-plan
+    horsSystemeSavingRef.current = true;
+    setForm((prev) => ({ ...prev, allow_hors_systeme: next }));
+    setSettings((prev) => (prev ? { ...prev, allow_hors_systeme: next } : prev));
+    updateCompetition({ allow_hors_systeme: next })
+      .then((updated) => {
+        const saved = Boolean(updated?.allow_hors_systeme);
+        setSettings((prev) => (prev ? { ...prev, ...updated, allow_hors_systeme: saved } : prev));
+        setForm((prev) => ({ ...prev, allow_hors_systeme: saved }));
+      })
+      .catch((err) => {
+        setForm((prev) => ({ ...prev, allow_hors_systeme: !next }));
+        setSettings((prev) => (prev ? { ...prev, allow_hors_systeme: !next } : prev));
+        onToast?.(err.message || 'Impossible de modifier Athlètes Hors Système', 'error');
+      })
+      .finally(() => {
+        horsSystemeSavingRef.current = false;
+      });
   };
 
   const handleLogoSelected = async (file) => {

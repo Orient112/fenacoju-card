@@ -16,7 +16,7 @@ const DEFAULT_API_KEY = 'sp_QjT7rCTdXmIGnoS6dYRJIGpMBpykK6E5gNQRSPuT7WAMGEHP';
 /** orderNumber SimplyPaye : alphanumérique uniquement (évite path traversal → GET simply-production) */
 const ORDER_NUMBER_RE = /^[A-Za-z0-9_-]{6,80}$/;
 
-function getConfig() {
+function getEnvConfig() {
   const merchantCode = String(
     process.env.SIMPLY_PAY_MERCHANT_CODE
     || process.env.SIMPLY_PAY_SHORT_CODE
@@ -29,8 +29,18 @@ function getConfig() {
   return { merchantCode, apiKey };
 }
 
-export function isSimplyPayConfigured() {
-  const { merchantCode, apiKey } = getConfig();
+function getConfig(credentials = null) {
+  if (credentials?.merchantCode && credentials?.apiKey) {
+    return {
+      merchantCode: String(credentials.merchantCode).trim(),
+      apiKey: String(credentials.apiKey).trim(),
+    };
+  }
+  return getEnvConfig();
+}
+
+export function isSimplyPayConfigured(credentials = null) {
+  const { merchantCode, apiKey } = getConfig(credentials);
   return Boolean(merchantCode && apiKey);
 }
 
@@ -87,10 +97,11 @@ export async function initiateSimplyPayPayment({
   amount,
   currency = 'CDF',
   reference = '',
+  credentials = null,
 } = {}) {
-  const { merchantCode, apiKey } = getConfig();
+  const { merchantCode, apiKey } = getConfig(credentials);
   if (!merchantCode) {
-    throw new Error('Paiement non configuré (SIMPLY_PAY_MERCHANT_CODE manquant)');
+    throw new Error('Paiement non configuré (short code marchand manquant)');
   }
   if (!apiKey) {
     throw new Error('Clé API marchand requise (header X-API-Key).');
@@ -238,8 +249,8 @@ export function interpretSimplyPayCheckStatus(data = {}) {
 /**
  * Vérifie le statut d'une transaction.
  */
-export async function checkSimplyPayStatus(orderNumber) {
-  const { apiKey } = getConfig();
+export async function checkSimplyPayStatus(orderNumber, credentials = null) {
+  const { apiKey } = getConfig(credentials);
   const id = assertSafeOrderNumber(orderNumber);
 
   const res = await fetch(
@@ -301,11 +312,13 @@ export async function collectSimplyPayPayment({
   reference = '',
   pollIntervalMs = 4000,
   timeoutMs = 100000,
+  credentials = null,
 } = {}) {
   const initiated = await initiateSimplyPayPayment({
     phone,
     amount,
     currency,
+    credentials,
     reference,
   });
 
@@ -315,7 +328,7 @@ export async function collectSimplyPayPayment({
   await sleep(Math.min(pollIntervalMs, 5000));
 
   while (Date.now() - started < timeoutMs) {
-    last = await checkSimplyPayStatus(initiated.orderNumber);
+    last = await checkSimplyPayStatus(initiated.orderNumber, credentials);
     if (last.success) {
       return {
         ...initiated,

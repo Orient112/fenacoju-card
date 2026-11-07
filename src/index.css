@@ -4161,6 +4161,32 @@ tbody tr:last-child td {
   flex-wrap: wrap;
 }
 
+.sa-payment-accounts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.sa-payment-account-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #eef2f7;
+}
+
+.sa-payment-account-row:last-child {
+  border-bottom: none;
+}
+
+.sa-payment-edit-form {
+  margin-top: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #eef2f7;
+}
+
 /* Paramétrage fédération Admin */
 .federation-settings-page {
   display: flex;
@@ -6149,16 +6175,25 @@ tbody tr:last-child td {
   transition: transform 0.2s ease;
 }
 
-.competition-access-toggle input:checked + .toggle-slider {
+.competition-access-toggle input:checked + .toggle-slider,
+.competition-access-toggle.is-on .toggle-slider {
   background: var(--success);
 }
 
-.competition-access-toggle input:checked + .toggle-slider::after {
+.competition-access-toggle input:checked + .toggle-slider::after,
+.competition-access-toggle.is-on .toggle-slider::after {
   transform: translateX(16px);
 }
 
 .competition-access-toggle input:disabled + .toggle-slider {
   opacity: 0.55;
+}
+
+button.competition-access-toggle {
+  width: auto;
+  padding: 0.15rem;
+  border-bottom: none;
+  background: transparent;
 }
 
 /* Competition settings page */

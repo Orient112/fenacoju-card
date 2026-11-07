@@ -1632,7 +1632,11 @@ export default function App() {
               <p>
                 {user.type === 'superadmin'
                   ? 'Console SuperAdmin - gestion des fédérations'
-                  : 'Système intégral de gestion des arts martiaux'}
+                  : user.type === 'ligue'
+                    ? `Ligue / ${user.nom_organisation || user.nom || user.responsable || '—'}`
+                    : user.type === 'entente'
+                      ? `Entente / ${user.nom_organisation || user.nom || user.responsable || '—'}`
+                      : 'Système intégral de gestion des arts martiaux'}
               </p>
             </div>
           </div>
