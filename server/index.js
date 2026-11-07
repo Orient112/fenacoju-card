@@ -340,6 +340,14 @@ async function competitionPaymentCredentials(settings) {
   return resolveCompetitionPaymentCredentials(settings);
 }
 
+function paymentUnavailableMessage(settings) {
+  const ownerKey = String(settings?.owner_key || 'federation');
+  if (ownerKey.startsWith('entente:')) {
+    return 'Paiement indisponible : ajoutez le short code et la clé API de cette Entente (SuperAdmin → Fédérations → Paiement)';
+  }
+  return 'Paiement indisponible : configurez le short code et la clé API du Directeur Compétition (SuperAdmin → Paiement)';
+}
+
 app.get('/api/public/competition/:token', async (req, res) => {
   try {
     const settings = await resolvePublicCompetition(req.params.token);
@@ -535,9 +543,7 @@ app.post('/api/public/competition/:token/pay/initiate', async (req, res) => {
     }
     const credentials = await competitionPaymentCredentials(settings);
     if (!isSimplyPayConfigured(credentials)) {
-      return res.status(503).json({
-        error: 'Paiement indisponible : configurez le short code et la clé API du gestionnaire de compétition',
-      });
+      return res.status(503).json({ error: paymentUnavailableMessage(settings) });
     }
 
     const body = req.body || {};
@@ -584,7 +590,7 @@ app.get('/api/public/competition/:token/pay/status/:orderNumber', async (req, re
     }
     const credentials = await competitionPaymentCredentials(settings);
     if (!isSimplyPayConfigured(credentials)) {
-      return res.status(503).json({ error: 'Paiement indisponible' });
+      return res.status(503).json({ error: paymentUnavailableMessage(settings) });
     }
 
     const status = await checkSimplyPayStatus(req.params.orderNumber, credentials);
@@ -672,9 +678,7 @@ app.post('/api/public/competition/:token/register', async (req, res) => {
           return res.status(400).json({ error: 'Saisissez un numéro Mobile Money valide' });
         }
         if (!isSimplyPayConfigured(paymentCredentials)) {
-          return res.status(503).json({
-            error: 'Paiement indisponible : configurez le short code et la clé API du gestionnaire',
-          });
+          return res.status(503).json({ error: paymentUnavailableMessage(settings) });
         }
 
         const existingOrder = String(body.paiement.orderNumber || body.paiement.order_number || '').trim();
@@ -748,9 +752,7 @@ app.post('/api/public/competition/:token/register', async (req, res) => {
           return res.status(400).json({ error: 'Saisissez un numéro Mobile Money valide' });
         }
         if (!isSimplyPayConfigured(paymentCredentials)) {
-          return res.status(503).json({
-            error: 'Paiement indisponible : configurez le short code et la clé API du gestionnaire',
-          });
+          return res.status(503).json({ error: paymentUnavailableMessage(settings) });
         }
 
         const existingOrder = String(body.paiement.orderNumber || body.paiement.order_number || '').trim();

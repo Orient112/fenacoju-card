@@ -153,14 +153,86 @@ export function isCompetitionPaymentAccount(user) {
   return false;
 }
 
+async function seedDirecteurCredentialsFromEnv(federationId) {
+  const fedId = String(federationId || '').trim();
+  if (!fedId) return;
+  let envCreds;
+  try {
+    const { getEnvSimplyPayCredentials } = await import('./simplyPay.js');
+    envCreds = getEnvSimplyPayCredentials();
+  } catch {
+    return;
+  }
+  const merchantCode = String(envCreds?.merchantCode || '').trim();
+  const apiKey = String(envCreds?.apiKey || '').trim();
+  if (!merchantCode || !apiKey) return;
+
+  const users = await readUsers();
+  const directeurs = users.filter((u) => (
+    String(u.federation_id || '').trim() === fedId
+    && u.type === 'federation'
+    && isCompetitionPaymentAccount(u)
+  ));
+
+  for (const directeur of directeurs) {
+    const withPay = applyPaymentCredentialsOverlay(directeur);
+    const hasCode = String(withPay.payment_merchant_code || '').trim();
+    const hasKey = String(withPay.payment_api_key || '').trim();
+    if (hasCode && hasKey) continue;
+    try {
+      await setUserPaymentCredentials(
+        directeur.id,
+        {
+          merchantCode: hasCode || merchantCode,
+          apiKey: hasKey || apiKey,
+        },
+        { type: 'superadmin' }
+      );
+    } catch (err) {
+      console.warn('Seed credentials Directeur Compétition:', err.message);
+    }
+  }
+}
+
 export async function listFederationPaymentAccounts(federationId) {
   const fedId = String(federationId || '').trim();
   if (!fedId) throw new Error('federation_id requis');
+
+  // Aligne le Directeur Compétition sur les identifiants déjà utilisés par le bouton Payer
+  await seedDirecteurCredentialsFromEnv(fedId);
+
   const users = await readUsers();
+  let envCreds = null;
+  try {
+    const { getEnvSimplyPayCredentials } = await import('./simplyPay.js');
+    envCreds = getEnvSimplyPayCredentials();
+  } catch {
+    envCreds = null;
+  }
+
   return users
     .filter((u) => String(u.federation_id || '').trim() === fedId && isCompetitionPaymentAccount(u))
     .map((u) => {
-      const withPay = applyPaymentCredentialsOverlay(u);
+      let withPay = applyPaymentCredentialsOverlay(u);
+      let source = String(withPay.payment_merchant_code || '').trim() ? 'account' : '';
+      // Affichage : si Directeur sans credentials stockés, montrer ceux du bouton Payer (env)
+      if (
+        u.type === 'federation'
+        && isCompetitionPaymentAccount(u)
+        && (!String(withPay.payment_merchant_code || '').trim() || !String(withPay.payment_api_key || '').trim())
+        && envCreds?.merchantCode
+        && envCreds?.apiKey
+      ) {
+        withPay = {
+          ...withPay,
+          payment_merchant_code: String(withPay.payment_merchant_code || '').trim() || envCreds.merchantCode,
+          payment_api_key: String(withPay.payment_api_key || '').trim() || envCreds.apiKey,
+        };
+        source = 'env';
+      } else if (String(withPay.payment_merchant_code || '').trim()) {
+        source = 'account';
+      }
+
       const safe = sanitizeUser(withPay);
       const displayName = [
         safe.prenom,
@@ -179,8 +251,11 @@ export async function listFederationPaymentAccounts(federationId) {
         email: safe.email || safe.username || '',
         org_code: safe.org_code || '',
         payment_merchant_code: safe.payment_merchant_code || '',
+        // SuperAdmin only endpoint : préremplir les champs du modal
+        payment_api_key: String(withPay.payment_api_key || '').trim(),
         payment_api_key_set: Boolean(safe.payment_api_key_set),
         payment_api_key_hint: safe.payment_api_key_hint || '',
+        payment_source: source || null,
       };
     })
     .sort((a, b) => {
@@ -302,13 +377,17 @@ export async function resolveCompetitionPaymentCredentials(settings) {
   if (ownerKey.startsWith('entente:')) {
     const ententeId = ownerKey.slice('entente:'.length);
     const creds = await getUserPaymentCredentialsRaw(ententeId);
+    // Paiement Entente : uniquement les identifiants du compte Entente
     if (creds) return creds;
-  } else if (fedId) {
+    return null;
+  }
+
+  if (fedId) {
     const users = await readUsers();
     const directeur = users
       .map((u) => applyPaymentCredentialsOverlay(u))
       .find((u) => (
-        u.federation_id === fedId
+        String(u.federation_id || '').trim() === String(fedId).trim()
         && isCompetitionPaymentAccount(u)
         && u.type === 'federation'
         && String(u.payment_merchant_code || '').trim()
@@ -320,6 +399,21 @@ export async function resolveCompetitionPaymentCredentials(settings) {
         apiKey: String(directeur.payment_api_key).trim(),
         userId: directeur.id,
       };
+    }
+    // Compétition Directeur : repli sur les identifiants système du bouton Payer
+    try {
+      const { getEnvSimplyPayCredentials } = await import('./simplyPay.js');
+      const envCreds = getEnvSimplyPayCredentials();
+      if (envCreds?.merchantCode && envCreds?.apiKey) {
+        return {
+          merchantCode: envCreds.merchantCode,
+          apiKey: envCreds.apiKey,
+          userId: null,
+          source: 'env',
+        };
+      }
+    } catch {
+      /* ignore */
     }
   }
   return null;

@@ -306,7 +306,7 @@ export default function SuperAdminFederations({ onToast }) {
     setPaymentEdit(account);
     setPaymentForm({
       merchant_code: account.payment_merchant_code || '',
-      api_key: '',
+      api_key: account.payment_api_key || '',
     });
     setError('');
   };
@@ -325,15 +325,17 @@ export default function SuperAdminFederations({ onToast }) {
       setError('Le short code marchand est obligatoire');
       return;
     }
-    if (!paymentEdit.payment_api_key_set && !apiKey) {
+    if (!apiKey) {
       setError('La clé API est obligatoire');
       return;
     }
     setBusy(true);
     setError('');
     try {
-      const payload = { payment_merchant_code: merchant };
-      if (apiKey) payload.payment_api_key = apiKey;
+      const payload = {
+        payment_merchant_code: merchant,
+        payment_api_key: apiKey,
+      };
       await saveFederationPaymentAccount(paymentTarget.id, paymentEdit.id, payload);
       onToast?.(`Identifiants paiement enregistrés pour ${paymentEdit.nom}`);
       setPaymentEdit(null);
@@ -815,12 +817,15 @@ export default function SuperAdminFederations({ onToast }) {
                           <div>
                             <span className="sa-payment-creds-label">Clé API</span>
                             <strong>
-                              {account.payment_api_key_set
-                                ? (account.payment_api_key_hint || 'Configurée')
+                              {account.payment_api_key_set || account.payment_api_key
+                                ? (account.payment_api_key_hint || account.payment_api_key || 'Configurée')
                                 : '-'}
                             </strong>
                           </div>
                         </div>
+                        {account.payment_source === 'env' ? (
+                          <div className="judoka-club">Identifiants du bouton Payer</div>
+                        ) : null}
                       </div>
                       <div className="row-actions">
                         <button
@@ -853,12 +858,9 @@ export default function SuperAdminFederations({ onToast }) {
                 <form onSubmit={handlePaymentSave} className="sa-payment-edit-form">
                   <fieldset className="sa-fed-fieldset">
                     <legend>{paymentEdit.payment_merchant_code ? 'Modifier' : 'Ajouter'} - {paymentEdit.nom}</legend>
-                    {(paymentEdit.payment_merchant_code || paymentEdit.payment_api_key_set) && (
+                    {paymentEdit.payment_source === 'env' && (
                       <p className="form-hint">
-                        Enregistré : short code <strong>{paymentEdit.payment_merchant_code || '-'}</strong>
-                        {paymentEdit.payment_api_key_set
-                          ? <> · clé API <strong>{paymentEdit.payment_api_key_hint || '••••'}</strong></>
-                          : null}
+                        Identifiants du bouton Payer (compétition Directeur Compétition) préremplis.
                       </p>
                     )}
                     <div className="form-group">
@@ -868,22 +870,21 @@ export default function SuperAdminFederations({ onToast }) {
                         value={paymentForm.merchant_code}
                         onChange={(e) => setPaymentForm((p) => ({ ...p, merchant_code: e.target.value }))}
                         required
-                        placeholder="Ex. 123456"
+                        placeholder="Ex. 30255508"
                         autoFocus
                       />
                     </div>
                     <div className="form-group">
-                      <label htmlFor="sa-pay-apikey">
-                        Clé API {paymentEdit.payment_api_key_set ? '(laisser vide pour conserver)' : '*'}
-                      </label>
+                      <label htmlFor="sa-pay-apikey">Clé API *</label>
                       <input
                         id="sa-pay-apikey"
-                        type="password"
+                        type="text"
                         value={paymentForm.api_key}
                         onChange={(e) => setPaymentForm((p) => ({ ...p, api_key: e.target.value }))}
-                        required={!paymentEdit.payment_api_key_set}
-                        placeholder={paymentEdit.payment_api_key_set ? '••••••••' : 'Clé API SimplyPaye'}
-                        autoComplete="new-password"
+                        required
+                        placeholder="Clé API SimplyPaye"
+                        autoComplete="off"
+                        spellCheck={false}
                       />
                     </div>
                   </fieldset>

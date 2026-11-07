@@ -29,6 +29,11 @@ function getEnvConfig() {
   return { merchantCode, apiKey };
 }
 
+/** Credentials du bouton Payer (env / défauts système) - serveur uniquement. */
+export function getEnvSimplyPayCredentials() {
+  return getEnvConfig();
+}
+
 function getConfig(credentials = null) {
   if (credentials?.merchantCode && credentials?.apiKey) {
     return {
@@ -39,8 +44,21 @@ function getConfig(credentials = null) {
   return getEnvConfig();
 }
 
-export function isSimplyPayConfigured(credentials = null) {
-  const { merchantCode, apiKey } = getConfig(credentials);
+/**
+ * @param {object|null|undefined} credentials
+ * - sans argument : vérifie la config env/système
+ * - objet : vérifie merchantCode + apiKey du compte
+ * - null : pas configuré (ex. Entente sans identifiants)
+ */
+export function isSimplyPayConfigured(credentials) {
+  if (arguments.length > 0) {
+    if (!credentials || typeof credentials !== 'object') return false;
+    return Boolean(
+      String(credentials.merchantCode || '').trim()
+      && String(credentials.apiKey || '').trim()
+    );
+  }
+  const { merchantCode, apiKey } = getEnvConfig();
   return Boolean(merchantCode && apiKey);
 }
 
