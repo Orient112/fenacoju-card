@@ -122,6 +122,16 @@ export async function addGradeHistory(entry) {
   const reussi = entry.reussi !== false;
   const gradeFrom = entry.grade_from || '';
   const gradeTo = reussi ? entry.grade_to : (entry.grade_to || gradeFrom);
+  const dateRaw = String(entry.date_passation || '').trim();
+  let createdAt = new Date().toISOString();
+  let dateLabel = '';
+  if (dateRaw) {
+    const parsed = new Date(dateRaw.includes('T') ? dateRaw : `${dateRaw}T12:00:00`);
+    if (!Number.isNaN(parsed.getTime())) {
+      createdAt = parsed.toISOString();
+      dateLabel = parsed.toLocaleDateString('fr-FR');
+    }
+  }
   const row = {
     id: uuidv4(),
     judoka_id: entry.judoka_id,
@@ -133,13 +143,14 @@ export async function addGradeHistory(entry) {
     note: entry.note || '',
     changed_by: entry.changed_by || null,
     changed_by_name: entry.changed_by_name || '',
-    created_at: new Date().toISOString(),
+    created_at: createdAt,
   };
 
   const titre = reussi
     ? `Passation réussie : ${row.grade_from || '-'} → ${row.grade_to}`
     : `Passation non réussie : reste ${row.grade_from || row.grade_to || '-'}`;
   const detail = [
+    dateLabel ? `Date : ${dateLabel}` : null,
     reussi ? null : 'L\'athlète ne passe pas en grade',
     row.instructeur_nom ? `Instructeur : ${row.instructeur_nom}` : null,
     row.points != null ? `Points : ${row.points}` : null,
@@ -151,6 +162,7 @@ export async function addGradeHistory(entry) {
     instructeur_nom: row.instructeur_nom,
     points: row.points,
     reussi,
+    date_passation: dateRaw || null,
   };
 
   if (isSupabaseEnabled()) {

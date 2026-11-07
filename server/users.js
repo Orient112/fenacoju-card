@@ -16,7 +16,64 @@ import { allocateOrgCode, ensureOrgCodes } from './orgHierarchy.js';
 
 const usersPath = path.join(dataDir, 'users.json');
 const sessionsPath = path.join(dataDir, 'sessions.json');
+const paymentCredentialsPath = path.join(dataDir, 'payment_credentials.json');
 const SESSION_DURATION_MS = 24 * 60 * 60 * 1000;
+
+function readPaymentCredentialsStore() {
+  try {
+    if (!fs.existsSync(paymentCredentialsPath)) return {};
+    const raw = JSON.parse(fs.readFileSync(paymentCredentialsPath, 'utf-8'));
+    return raw && typeof raw === 'object' ? raw : {};
+  } catch {
+    return {};
+  }
+}
+
+function writePaymentCredentialsStore(store) {
+  fs.writeFileSync(paymentCredentialsPath, JSON.stringify(store || {}, null, 2));
+}
+
+function savePaymentCredentialsOverlay(userId, { merchantCode = '', apiKey = '' } = {}) {
+  const id = String(userId || '').trim();
+  if (!id) return;
+  const store = readPaymentCredentialsStore();
+  const code = String(merchantCode || '').trim();
+  const key = String(apiKey || '').trim();
+  if (!code && !key) {
+    delete store[id];
+  } else {
+    store[id] = {
+      payment_merchant_code: code,
+      payment_api_key: key,
+      updated_at: new Date().toISOString(),
+    };
+  }
+  writePaymentCredentialsStore(store);
+}
+
+function applyPaymentCredentialsOverlay(user) {
+  if (!user?.id) return user;
+  const entry = readPaymentCredentialsStore()[user.id];
+  if (!entry) return user;
+  const merchant = String(user.payment_merchant_code || '').trim()
+    || String(entry.payment_merchant_code || '').trim();
+  const apiKey = String(user.payment_api_key || '').trim()
+    || String(entry.payment_api_key || '').trim();
+  return {
+    ...user,
+    payment_merchant_code: merchant,
+    payment_api_key: apiKey,
+  };
+}
+
+function normalizeFonctionKey(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
 
 function hashPassword(password) {
   return crypto.createHash('sha256').update(password).digest('hex');
@@ -89,7 +146,10 @@ export function sanitizeUser(user) {
 export function isCompetitionPaymentAccount(user) {
   if (!user) return false;
   if (user.type === 'entente') return true;
-  if (user.type === 'federation' && user.fonction === 'Directeur Compétition') return true;
+  if (user.type === 'federation') {
+    const key = normalizeFonctionKey(user.fonction);
+    return key === 'directeur competition' || key.includes('directeur competition');
+  }
   return false;
 }
 
@@ -98,14 +158,25 @@ export async function listFederationPaymentAccounts(federationId) {
   if (!fedId) throw new Error('federation_id requis');
   const users = await readUsers();
   return users
-    .filter((u) => u.federation_id === fedId && isCompetitionPaymentAccount(u))
+    .filter((u) => String(u.federation_id || '').trim() === fedId && isCompetitionPaymentAccount(u))
     .map((u) => {
-      const safe = sanitizeUser(u);
+      const withPay = applyPaymentCredentialsOverlay(u);
+      const safe = sanitizeUser(withPay);
+      const displayName = [
+        safe.prenom,
+        safe.nom,
+      ].filter(Boolean).join(' ').trim()
+        || safe.nom_organisation
+        || safe.responsable
+        || safe.email
+        || safe.fonction
+        || 'Compte';
       return {
         id: safe.id,
         type: safe.type,
-        nom: safe.nom_organisation || safe.nom || safe.responsable || `${safe.prenom || ''} ${safe.nom || ''}`.trim(),
-        fonction: safe.fonction || '',
+        nom: displayName,
+        fonction: safe.fonction || (safe.type === 'entente' ? 'Entente' : 'Directeur Compétition'),
+        email: safe.email || safe.username || '',
         org_code: safe.org_code || '',
         payment_merchant_code: safe.payment_merchant_code || '',
         payment_api_key_set: Boolean(safe.payment_api_key_set),
@@ -141,6 +212,9 @@ export async function setUserPaymentCredentials(userId, { merchantCode, apiKey }
     payment_api_key: keyRaw,
   };
 
+  // Toujours conserver une copie locale pour l'affichage SuperAdmin
+  savePaymentCredentialsOverlay(userId, { merchantCode: code, apiKey: keyRaw });
+
   if (isSupabaseEnabled()) {
     const { error } = await getSupabase()
       .from('users')
@@ -158,6 +232,9 @@ export async function setUserPaymentCredentials(userId, { merchantCode, apiKey }
       }
       throw new Error(error.message);
     }
+    // Garde aussi le miroir JSON users (relecture après merge overlay)
+    users[index] = updated;
+    try { writeUsersJson(users); } catch { /* ignore */ }
   } else {
     users[index] = updated;
     writeUsersJson(users);
@@ -183,6 +260,8 @@ export async function clearUserPaymentCredentials(userId, editor) {
     payment_api_key: '',
   };
 
+  savePaymentCredentialsOverlay(userId, { merchantCode: '', apiKey: '' });
+
   if (isSupabaseEnabled()) {
     const { error } = await getSupabase()
       .from('users')
@@ -196,6 +275,8 @@ export async function clearUserPaymentCredentials(userId, editor) {
       }
       throw new Error(error.message);
     }
+    users[index] = updated;
+    try { writeUsersJson(users); } catch { /* ignore */ }
   } else {
     users[index] = updated;
     writeUsersJson(users);
@@ -206,7 +287,7 @@ export async function clearUserPaymentCredentials(userId, editor) {
 /** Credentials bruts (serveur uniquement) pour SimplyPaye. */
 export async function getUserPaymentCredentialsRaw(userId) {
   const users = await readUsers();
-  const user = users.find((u) => u.id === userId);
+  const user = applyPaymentCredentialsOverlay(users.find((u) => u.id === userId));
   if (!user) return null;
   const merchantCode = String(user.payment_merchant_code || '').trim();
   const apiKey = String(user.payment_api_key || '').trim();
@@ -224,13 +305,15 @@ export async function resolveCompetitionPaymentCredentials(settings) {
     if (creds) return creds;
   } else if (fedId) {
     const users = await readUsers();
-    const directeur = users.find((u) => (
-      u.federation_id === fedId
-      && u.type === 'federation'
-      && u.fonction === 'Directeur Compétition'
-      && String(u.payment_merchant_code || '').trim()
-      && String(u.payment_api_key || '').trim()
-    ));
+    const directeur = users
+      .map((u) => applyPaymentCredentialsOverlay(u))
+      .find((u) => (
+        u.federation_id === fedId
+        && isCompetitionPaymentAccount(u)
+        && u.type === 'federation'
+        && String(u.payment_merchant_code || '').trim()
+        && String(u.payment_api_key || '').trim()
+      ));
     if (directeur) {
       return {
         merchantCode: String(directeur.payment_merchant_code).trim(),

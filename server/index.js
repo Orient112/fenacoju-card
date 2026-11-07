@@ -2440,11 +2440,13 @@ async function handleUpdateJudoka(req, res) {
       if (reussi) {
         await updateJudoka(req.params.id, { grade: nextGrade });
       }
+      const datePassation = String(body.date_passation || body.passation_date || '').trim();
       await addGradeHistory({
         judoka_id: existing.id,
         grade_from: existing.grade || '',
         grade_to: reussi ? nextGrade : (existing.grade || nextGrade || ''),
         reussi,
+        date_passation: datePassation || null,
         instructeur_id: body.instructeur_id || null,
         instructeur_nom: String(body.instructeur_nom || '').trim(),
         points: body.points,
@@ -2586,7 +2588,29 @@ app.get('/api/transfers', async (req, res) => {
         return res.status(403).json({ error: 'Accès non autorisé' });
       }
     }
-    res.json(list);
+
+    const judokaIds = [...new Set(list.map((t) => t.judoka_id).filter(Boolean))];
+    const judokaMap = new Map();
+    await Promise.all(judokaIds.map(async (id) => {
+      try {
+        const j = await getJudokaById(id);
+        if (j) judokaMap.set(id, j);
+      } catch {
+        /* ignore */
+      }
+    }));
+    const enriched = list.map((t) => {
+      const j = judokaMap.get(t.judoka_id);
+      return {
+        ...t,
+        judoka_nom: j ? `${j.prenom || ''} ${j.nom || ''}`.trim() : '',
+        judoka_prenom: j?.prenom || '',
+        judoka_name: j ? `${j.prenom || ''} ${j.nom || ''}`.trim() : '',
+        judoka_numero_carte: j?.numero_carte || '',
+        judoka_id_label: j?.numero_carte || t.judoka_id || '',
+      };
+    });
+    res.json(enriched);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

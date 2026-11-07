@@ -61,6 +61,7 @@ const CreateTypeModal = lazy(() => import('./components/CreateTypeModal'));
 const ClubDetailModal = lazy(() => import('./components/ClubDetailModal'));
 const GradePassationModal = lazy(() => import('./components/GradePassationModal'));
 const JudokaFicheModal = lazy(() => import('./components/JudokaFicheModal'));
+const JudokaAthleteSheetModal = lazy(() => import('./components/JudokaAthleteSheetModal'));
 const TransferModal = lazy(() => import('./components/TransferModal'));
 const AccountDetailModal = lazy(() => import('./components/AccountDetailModal'));
 const CompetitionSettings = lazy(() => import('./pages/CompetitionSettings'));
@@ -272,6 +273,7 @@ export default function App() {
   const [viewAccount, setViewAccount] = useState(null);
   const [gradeTarget, setGradeTarget] = useState(null);
   const [ficheTarget, setFicheTarget] = useState(null);
+  const [athleteSheetTarget, setAthleteSheetTarget] = useState(null);
   const [transferTarget, setTransferTarget] = useState(null);
   const [showTransfersInbox, setShowTransfersInbox] = useState(false);
   const [gradeHistoryOpen, setGradeHistoryOpen] = useState(false);
@@ -1403,6 +1405,7 @@ export default function App() {
                         onDelete={!hideJudokaActions && perms.deleteJudokas ? setDeleteTarget : null}
                         onPromoteGrade={canPromoteGrade ? setGradeTarget : null}
                         onRequestTransfer={canRequestTransfers ? setTransferTarget : null}
+                        onViewAthleteSheet={user.type === 'club' ? setAthleteSheetTarget : null}
                         onAddNew={perms.createJudokas ? openNewJudoka : null}
                       />
                     </Suspense>
@@ -1853,7 +1856,12 @@ export default function App() {
         <Suspense fallback={null}>
           <GradePassationModal
             judoka={gradeTarget}
-            mode={canManageClubGrades && !canManageGrades ? 'club' : 'full'}
+            mode={
+              canManageClubGrades && !canManageGrades && !perms.manageBlackBelts
+                ? 'club'
+                : (perms.manageBlackBelts && !canManageGrades && !perms.createJudokas ? 'black' : 'full')
+            }
+            allowBlackBelts={Boolean(canManageGrades || perms.manageBlackBelts || user?.type === 'admin')}
             entraineurs={entraineurs}
             onClose={() => setGradeTarget(null)}
             onSuccess={async (updated, meta) => {
@@ -1880,6 +1888,15 @@ export default function App() {
               setFicheTarget(null);
               setTransferTarget(j);
             } : null}
+          />
+        </Suspense>
+      )}
+
+      {athleteSheetTarget && (
+        <Suspense fallback={null}>
+          <JudokaAthleteSheetModal
+            judoka={athleteSheetTarget}
+            onClose={() => setAthleteSheetTarget(null)}
           />
         </Suspense>
       )}

@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import BrandLoader from './BrandLoader';
-import { fetchJudokaFiche, formatDate } from '../api';
+import { fetchJudokaFiche } from '../api';
 
 const TYPE_LABELS = {
   grade: 'Grade',
@@ -9,6 +9,16 @@ const TYPE_LABELS = {
   note: 'Note',
   autre: 'Mouvement',
 };
+
+function transferClubsLabel(ev) {
+  const from = ev?.meta?.club_from || '';
+  const to = ev?.meta?.club_to || '';
+  if (from && to) return `${from} → ${to}`;
+  const titre = String(ev?.titre || '');
+  const match = titre.match(/:\s*(.+?)\s*→\s*(.+)$/);
+  if (match) return `${match[1].trim()} → ${match[2].trim()}`;
+  return titre || 'Transfert';
+}
 
 export default function JudokaFicheModal({ judoka, onClose, onRequestTransfer }) {
   const [loading, setLoading] = useState(true);
@@ -33,7 +43,15 @@ export default function JudokaFicheModal({ judoka, onClose, onRequestTransfer })
   }, [judoka.id]);
 
   const j = fiche?.judoka || judoka;
-  const events = fiche?.events || [];
+  const events = useMemo(() => {
+    const raw = fiche?.events || [];
+    return raw.filter((ev) => {
+      if (ev.type !== 'transfert') return true;
+      const statut = ev?.meta?.statut;
+      if (statut) return statut === 'accepte';
+      return /confirmé|effectif|accepté/i.test(String(ev.titre || ''));
+    });
+  }, [fiche?.events]);
 
   return (
     <div className="confirm-overlay" onClick={onClose}>
@@ -61,37 +79,29 @@ export default function JudokaFicheModal({ judoka, onClose, onRequestTransfer })
         ) : error ? (
           <div className="form-error">{error}</div>
         ) : (
-          <>
-            <section className="judoka-fiche-identity">
-              <div><span>Sexe</span><strong>{j.sexe === 'F' ? 'Féminin' : 'Masculin'}</strong></div>
-              <div><span>Naissance</span><strong>{formatDate(j.date_naissance) || '-'}</strong></div>
-              <div><span>Catégorie</span><strong>{j.categorie || '-'}</strong></div>
-              <div><span>Licence</span><strong>{j.numero_licence || '-'}</strong></div>
-              <div><span>Inscription</span><strong>{formatDate(j.date_inscription) || '-'}</strong></div>
-              <div><span>Statut</span><strong>{j.statut === 'actif' ? 'Actif' : 'Inactif'}</strong></div>
-            </section>
-
-            <section className="judoka-fiche-history">
-              <h4>Historique des mouvements</h4>
-              {events.length === 0 ? (
-                <p className="form-hint">Aucun mouvement enregistré pour cet athlète.</p>
-              ) : (
-                <ul className="judoka-fiche-timeline">
-                  {events.map((ev) => (
+          <section className="judoka-fiche-history">
+            <h4>Historique des mouvements</h4>
+            {events.length === 0 ? (
+              <p className="form-hint">Aucun mouvement enregistré pour cet athlète.</p>
+            ) : (
+              <ul className="judoka-fiche-timeline">
+                {events.map((ev) => {
+                  const isTransfer = ev.type === 'transfert';
+                  return (
                     <li key={ev.id}>
                       <div className="judoka-fiche-timeline-meta">
                         <span className="badge">{TYPE_LABELS[ev.type] || ev.type}</span>
                         <time>{ev.created_at ? new Date(ev.created_at).toLocaleString('fr-FR') : ''}</time>
                       </div>
-                      <strong>{ev.titre}</strong>
-                      {ev.detail ? <p>{ev.detail}</p> : null}
-                      {ev.created_by_name ? <small>Par {ev.created_by_name}</small> : null}
+                      <strong>{isTransfer ? transferClubsLabel(ev) : ev.titre}</strong>
+                      {!isTransfer && ev.detail ? <p>{ev.detail}</p> : null}
+                      {!isTransfer && ev.created_by_name ? <small>Par {ev.created_by_name}</small> : null}
                     </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-          </>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
         )}
       </div>
     </div>

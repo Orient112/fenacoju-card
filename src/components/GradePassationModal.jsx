@@ -1,18 +1,28 @@
 import { useMemo, useState } from 'react';
 import { GRADES, GRADES_CLUB, isBlackBeltGrade, updateJudoka } from '../api';
 
+function todayInputValue() {
+  const d = new Date();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
 export default function GradePassationModal({
   judoka,
   onClose,
   onSuccess,
   mode = 'full', // full | club | black
   entraineurs = [],
+  allowBlackBelts = false,
 }) {
+  const canUseBlack = allowBlackBelts || mode === 'full' || mode === 'black';
+
   const allowedGrades = useMemo(() => {
-    if (mode === 'club') return GRADES_CLUB;
     if (mode === 'black') return GRADES.filter((g) => isBlackBeltGrade(g));
-    return GRADES;
-  }, [mode]);
+    if (canUseBlack) return GRADES;
+    return GRADES_CLUB;
+  }, [mode, canUseBlack]);
 
   const nextSuggested = useMemo(() => {
     const idx = allowedGrades.indexOf(judoka.grade);
@@ -24,6 +34,7 @@ export default function GradePassationModal({
   const [grade, setGrade] = useState(
     allowedGrades.includes(nextSuggested) ? nextSuggested : (allowedGrades[0] || judoka.grade || 'Blanche')
   );
+  const [datePassation, setDatePassation] = useState(todayInputValue());
   const [instructeurId, setInstructeurId] = useState('');
   const [points, setPoints] = useState('');
   const [note, setNote] = useState('');
@@ -31,18 +42,22 @@ export default function GradePassationModal({
   const [error, setError] = useState('');
 
   const targetGrade = reussi ? grade : (judoka.grade || '');
-  const needsBlackExtras = reussi && (mode === 'black' || isBlackBeltGrade(targetGrade));
+  const needsBlackExtras = reussi && isBlackBeltGrade(targetGrade);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    if (!datePassation) {
+      setError('Indiquez la date de passation');
+      return;
+    }
     if (reussi) {
       if (!grade || grade === judoka.grade) {
         setError('Choisissez une ceinture supérieure différente du grade actuel');
         return;
       }
-      if (mode === 'club' && isBlackBeltGrade(grade)) {
-        setError('Les Clubs ne peuvent attribuer que Blanche à Marron');
+      if (!canUseBlack && isBlackBeltGrade(grade)) {
+        setError('La passation ceinture noire est gérée par la fédération');
         return;
       }
       if (needsBlackExtras && !instructeurId) {
@@ -62,6 +77,7 @@ export default function GradePassationModal({
       formData.append('passation_grade', '1');
       formData.append('passation_reussie', reussi ? '1' : '0');
       formData.append('grade', reussi ? grade : (judoka.grade || ''));
+      formData.append('date_passation', datePassation);
       if (instructeurId) formData.append('instructeur_id', instructeurId);
       if (instructeurNom) formData.append('instructeur_nom', instructeurNom);
       if (points !== '') formData.append('points', points);
@@ -77,27 +93,50 @@ export default function GradePassationModal({
 
   return (
     <div className="confirm-overlay" onClick={onClose}>
-      <div className="grade-passation-modal" onClick={(e) => e.stopPropagation()}>
-        <h3>Passation de grade</h3>
-        <p>
-          Enregistrer la passation de <strong>{judoka.prenom} {judoka.nom}</strong>
-          {judoka.club ? <> · {judoka.club}</> : null}.
-        </p>
-        <p className="grade-passation-current">
-          Grade actuel <span>{judoka.grade || '-'}</span>
-        </p>
-        {mode === 'club' && (
-          <p className="form-hint">Passation Club : ceintures Blanche à Marron uniquement.</p>
-        )}
-        {mode === 'black' && (
-          <p className="form-hint">Ceinture noire : désignation d&apos;un instructeur et points d&apos;examen.</p>
-        )}
+      <div className="grade-passation-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-labelledby="grade-passation-title">
+        <header className="grade-passation-head">
+          <div>
+            <p className="grade-passation-kicker">Grade</p>
+            <h3 id="grade-passation-title">Passation de grade</h3>
+          </div>
+          <button type="button" className="btn btn-outline btn-sm" onClick={onClose} disabled={loading}>
+            Fermer
+          </button>
+        </header>
+
+        <div className="grade-passation-summary">
+          <div>
+            <span>Athlète</span>
+            <strong>{judoka.prenom} {judoka.nom}</strong>
+          </div>
+          <div>
+            <span>Grade actuel</span>
+            <strong>{judoka.grade || '-'}</strong>
+          </div>
+          {judoka.club ? (
+            <div>
+              <span>Club</span>
+              <strong>{judoka.club}</strong>
+            </div>
+          ) : null}
+        </div>
 
         {error && <div className="form-error">{error}</div>}
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} className="grade-passation-form">
           <div className="form-group">
-            <label>Résultat de la passation</label>
+            <label htmlFor="passation-date">Date de passation *</label>
+            <input
+              id="passation-date"
+              type="date"
+              value={datePassation}
+              onChange={(e) => setDatePassation(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Résultat</label>
             <div className="grade-passation-result">
               <label className={`grade-passation-choice ${reussi ? 'is-on' : ''}`}>
                 <input
@@ -106,7 +145,10 @@ export default function GradePassationModal({
                   checked={reussi}
                   onChange={() => setReussi(true)}
                 />
-                Passe en grade (ceinture supérieure)
+                <span>
+                  <strong>Passe en grade</strong>
+                  <small>Ceinture supérieure</small>
+                </span>
               </label>
               <label className={`grade-passation-choice ${!reussi ? 'is-on' : ''}`}>
                 <input
@@ -115,14 +157,17 @@ export default function GradePassationModal({
                   checked={!reussi}
                   onChange={() => setReussi(false)}
                 />
-                Ne passe pas (reste au grade actuel)
+                <span>
+                  <strong>Ne passe pas</strong>
+                  <small>Reste au grade actuel</small>
+                </span>
               </label>
             </div>
           </div>
 
           {reussi && (
             <div className="form-group">
-              <label htmlFor="passation-grade">Ceinture supérieure</label>
+              <label htmlFor="passation-grade">Ceinture supérieure *</label>
               <select id="passation-grade" value={grade} onChange={(e) => setGrade(e.target.value)} required>
                 {allowedGrades.map((g) => (
                   <option key={g} value={g} disabled={g === judoka.grade}>{g}</option>
@@ -132,9 +177,10 @@ export default function GradePassationModal({
           )}
 
           {needsBlackExtras && (
-            <>
+            <div className="grade-passation-black-block">
+              <p className="grade-passation-black-label">Examen ceinture noire</p>
               <div className="form-group">
-                <label htmlFor="passation-instructeur">Instructeur (examen) *</label>
+                <label htmlFor="passation-instructeur">Instructeur *</label>
                 <select
                   id="passation-instructeur"
                   value={instructeurId}
@@ -162,7 +208,7 @@ export default function GradePassationModal({
                   placeholder="Ex. 75"
                 />
               </div>
-            </>
+            </div>
           )}
 
           <div className="form-group">
@@ -170,7 +216,7 @@ export default function GradePassationModal({
             <textarea id="passation-note" rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
           </div>
 
-          <div className="confirm-actions">
+          <div className="grade-passation-actions">
             <button type="button" className="btn btn-outline" onClick={onClose} disabled={loading}>
               Annuler
             </button>

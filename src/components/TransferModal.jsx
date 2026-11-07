@@ -18,6 +18,15 @@ const STATUT_LABELS = {
   annule: 'Annulé',
 };
 
+function athleteLine(t) {
+  const name = t.judoka_name || t.judoka_nom || [t.judoka_prenom, t.judoka_nom].filter(Boolean).join(' ').trim();
+  const id = t.judoka_numero_carte || t.judoka_id_label || t.judoka_id || '';
+  if (name && id) return `${name} · ID ${id}`;
+  if (name) return name;
+  if (id) return `ID ${id}`;
+  return '';
+}
+
 export default function TransferModal({
   mode = 'request', // request | inbox
   judoka = null,
@@ -151,37 +160,43 @@ export default function TransferModal({
           <p className="form-hint">Aucun transfert.</p>
         ) : (
           <ul className="transfer-list">
-            {list.map((t) => (
-              <li key={t.id} className="transfer-row">
-                <div>
-                  <strong>{t.club_from} → {t.club_to}</strong>
-                  <small>{STATUT_LABELS[t.statut] || t.statut}</small>
-                  {t.motif ? <p className="form-hint">{t.motif}</p> : null}
-                </div>
-                <div className="transfer-row-actions">
-                  {t.statut === 'pending_entente' && canValidateEntente && (
-                    <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={() => handleAction(t.id, 'entente')}>
-                      Valider Entente
-                    </button>
-                  )}
-                  {t.statut === 'pending_ligue' && canValidateLigue && (
-                    <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={() => handleAction(t.id, 'ligue')}>
-                      Valider Ligue
-                    </button>
-                  )}
-                  {t.statut === 'pending_federation' && canConfirmFederation && (
-                    <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={() => handleAction(t.id, 'federation')}>
-                      Approuver (SG)
-                    </button>
-                  )}
-                  {['pending_entente', 'pending_ligue', 'pending_federation'].includes(t.statut) && canAct && (
-                    <button type="button" className="btn btn-outline btn-sm" disabled={busy} onClick={() => handleAction(t.id, 'reject')}>
-                      Rejeter
-                    </button>
-                  )}
-                </div>
-              </li>
-            ))}
+            {list.map((t) => {
+              const athlete = athleteLine(t);
+              return (
+                <li key={t.id} className="transfer-row">
+                  <div>
+                    <strong>{t.club_from} → {t.club_to}</strong>
+                    <small>
+                      {STATUT_LABELS[t.statut] || t.statut}
+                      {athlete ? ` - ${athlete}` : ''}
+                    </small>
+                    {t.motif ? <p className="form-hint">{t.motif}</p> : null}
+                  </div>
+                  <div className="transfer-row-actions">
+                    {t.statut === 'pending_entente' && canValidateEntente && (
+                      <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={() => handleAction(t.id, 'entente')}>
+                        Valider
+                      </button>
+                    )}
+                    {t.statut === 'pending_ligue' && canValidateLigue && (
+                      <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={() => handleAction(t.id, 'ligue')}>
+                        Valider
+                      </button>
+                    )}
+                    {t.statut === 'pending_federation' && canConfirmFederation && (
+                      <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={() => handleAction(t.id, 'federation')}>
+                        Approuver
+                      </button>
+                    )}
+                    {['pending_entente', 'pending_ligue', 'pending_federation'].includes(t.statut) && canAct && (
+                      <button type="button" className="btn btn-outline btn-sm" disabled={busy} onClick={() => handleAction(t.id, 'reject')}>
+                        Rejeter
+                      </button>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>

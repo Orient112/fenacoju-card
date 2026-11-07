@@ -29,6 +29,16 @@ export function IconFiche() {
   );
 }
 
+export function IconAthlete() {
+  return (
+    <svg {...svgProps}>
+      <circle cx="12" cy="8" r="3.5" />
+      <path d="M5.5 20a6.5 6.5 0 0 1 13 0" />
+      <rect x="3" y="3" width="18" height="18" rx="3" />
+    </svg>
+  );
+}
+
 export function IconTrash() {
   return (
     <svg {...svgProps}>

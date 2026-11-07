@@ -413,6 +413,7 @@ export default function SuperAdminFederations({ onToast }) {
             <tr>
               <th>Logo</th>
               <th>Fédération</th>
+              <th>Statuts</th>
               <th>Admin (identifiant)</th>
               <th>Créée le</th>
               <th>Actions</th>
@@ -438,8 +439,9 @@ export default function SuperAdminFederations({ onToast }) {
                 </td>
                 <td data-label="Fédération">
                   <strong>{f.nom}</strong>
-                  {f.nom_profil ? <div className="judoka-club">{f.nom_profil}</div> : null}
                   {f.slug ? <div className="judoka-club">{f.slug}</div> : null}
+                </td>
+                <td data-label="Statuts">
                   <div className={`fed-status-chip ${isFedActive(f) ? 'is-on' : 'is-off'}`}>
                     {isFedActive(f) ? 'Activée' : 'Désactivée'}
                   </div>
@@ -802,6 +804,7 @@ export default function SuperAdminFederations({ onToast }) {
                         <strong>{account.nom}</strong>
                         <div className="judoka-club">
                           {accountTypeLabel(account)}
+                          {account.email ? ` · ${account.email}` : ''}
                           {account.org_code ? ` · ${account.org_code}` : ''}
                         </div>
                         <div className={`sa-payment-creds ${account.payment_merchant_code || account.payment_api_key_set ? 'is-set' : ''}`}>
