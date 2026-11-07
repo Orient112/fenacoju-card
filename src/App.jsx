@@ -303,20 +303,20 @@ export default function App() {
     if (user.type === 'ligue') {
       // Ligue : uniquement les clubs des Ententes qui lui sont liées
       if (target.type !== 'club') return false;
-      const parent = users.find((u) => u.id === target.parent_id);
+      const parent = members.find((u) => u.id === target.parent_id);
       return parent?.type === 'entente' && parent.parent_id === user.id;
     }
     if (user.type === 'admin' || (user.type === 'federation' && user.fonction === 'Coordon')) {
       if (target.type === 'entente') return true;
       if (target.type === 'club') {
-        const parent = users.find((u) => u.id === target.parent_id);
+        const parent = members.find((u) => u.id === target.parent_id);
         // Clubs d'Entente : réservés à la Ligue
         return parent?.type !== 'entente';
       }
       return ['ligue', 'entraineur'].includes(target.type);
     }
     return false;
-  }, [user, users, canValidateAccounts]);
+  }, [user, members, canValidateAccounts]);
   const canViewClubDetails = perms.viewClubDetails === true;
   const canViewCards = perms.viewCards === true;
   const readOnlyJudokas = perms.readOnlyJudokas === true;
