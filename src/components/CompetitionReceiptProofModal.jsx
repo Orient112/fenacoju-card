@@ -94,7 +94,7 @@ export default function CompetitionReceiptProofModal({ payload, exportArgs, onCl
 
   const dateLabel = payload.date
     ? new Date(payload.date).toLocaleString('fr-FR')
-    : '—';
+    : '-';
 
   const resolvedMontant = (() => {
     const fee = getCompetitionFeeCdf(
@@ -154,12 +154,12 @@ export default function CompetitionReceiptProofModal({ payload, exportArgs, onCl
           {!isTeam ? (
             <div className="competition-receipt-proof-info">
               <p className="competition-receipt-proof-participant-name">
-                {participants[0]?.name || '—'}
+                {participants[0]?.name || '-'}
               </p>
               <div className="competition-receipt-proof-meta">
                 <div className="competition-receipt-proof-meta-row">
                   <span>Club</span>
-                  <strong>{payload.club || '—'}</strong>
+                  <strong>{payload.club || '-'}</strong>
                 </div>
                 <div className="competition-receipt-proof-meta-row">
                   <span>Montant</span>
@@ -176,7 +176,7 @@ export default function CompetitionReceiptProofModal({ payload, exportArgs, onCl
               <div className="competition-receipt-proof-meta">
                 <div className="competition-receipt-proof-meta-row">
                   <span>Club</span>
-                  <strong className="competition-receipt-proof-club">{payload.club || '—'}</strong>
+                  <strong className="competition-receipt-proof-club">{payload.club || '-'}</strong>
                 </div>
                 <div className="competition-receipt-proof-meta-row">
                   <span>Montant</span>
@@ -206,7 +206,7 @@ export default function CompetitionReceiptProofModal({ payload, exportArgs, onCl
                     ))}
                   </ul>
                 ) : (
-                  <p className="form-hint">Aucun participant listé — vous pouvez quand même télécharger le PDF.</p>
+                  <p className="form-hint">Aucun participant listé - vous pouvez quand même télécharger le PDF.</p>
                 )}
               </div>
             </div>

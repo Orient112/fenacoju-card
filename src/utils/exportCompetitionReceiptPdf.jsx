@@ -62,7 +62,7 @@ async function qrCodePngDataUrl(value, size = 280) {
 }
 
 function clip(pdf, text, maxWidth) {
-  const value = String(text || '—');
+  const value = String(text || '-');
   if (pdf.getTextWidth(value) <= maxWidth) return value;
   let clipped = value;
   while (clipped.length > 1 && pdf.getTextWidth(`${clipped}…`) > maxWidth) {
@@ -144,7 +144,7 @@ export async function exportCompetitionReceiptPdf({
   pdf.text('FENACOJU', margin, 12);
   pdf.setFontSize(10);
   pdf.setFont('helvetica', 'normal');
-  pdf.text('Reçu de paiement — Compétition', margin, 19);
+  pdf.text('Reçu de paiement - Compétition', margin, 19);
   pdf.setFontSize(8);
   pdf.text('Fédération Nationale Congolaise de Judo', margin, 24.5);
 
@@ -200,7 +200,7 @@ export async function exportCompetitionReceiptPdf({
   pdf.text(clip(pdf, amountLabel || '0 CDF', valueW), margin + 4 + labelW, infoY);
   infoY += 9;
 
-  infoY = drawRow(pdf, 'Téléphone', payload.telephone || '—', margin + 4, infoY, labelW, valueW);
+  infoY = drawRow(pdf, 'Téléphone', payload.telephone || '-', margin + 4, infoY, labelW, valueW);
   if (hasClub) {
     drawRow(pdf, 'Club', payload.club, margin + 4, infoY, labelW, valueW);
   }
@@ -244,7 +244,7 @@ export async function exportCompetitionReceiptPdf({
       pdf.setFont('helvetica', 'normal');
       pdf.setFontSize(8);
       pdf.setTextColor(100, 116, 139);
-      pdf.text(clip(pdf, meta || '—', pageW - margin * 2 - 8), margin + 3, y + 9.5);
+      pdf.text(clip(pdf, meta || '-', pageW - margin * 2 - 8), margin + 3, y + 9.5);
       y += 14;
     });
   }

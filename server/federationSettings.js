@@ -394,6 +394,7 @@ export function applySettingsToPermissions(perms, settings) {
   if (f.transfers === false) {
     next.validateTransfers = false;
     next.validateTransfersLigue = false;
+    next.validateTransfersEntente = false;
     next.requestTransfers = false;
   }
   if (f.grades === false) {

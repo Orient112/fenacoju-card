@@ -596,7 +596,7 @@ export default function SuperAdminConfigurations({ onToast }) {
                 <div className="sa-config-toolbar">
                   <div>
                     <h3>{sectionMeta?.label}</h3>
-                    <p className="form-hint">{sectionMeta?.hint} — Ajouter, modifier ou supprimer par fédération.</p>
+                    <p className="form-hint">{sectionMeta?.hint} - Ajouter, modifier ou supprimer par fédération.</p>
                   </div>
                   {section !== 'cards' && (
                     <button
@@ -879,7 +879,7 @@ export default function SuperAdminConfigurations({ onToast }) {
         open={!!modal}
         title={
           modal
-            ? `${modal.mode === 'add' ? 'Ajouter' : 'Modifier'} — ${
+            ? `${modal.mode === 'add' ? 'Ajouter' : 'Modifier'} - ${
               modal.type === 'role' ? 'rôle'
                 : modal.type === 'feature' ? 'paramètre'
                   : modal.type === 'color' ? 'couleur'

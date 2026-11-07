@@ -1,5 +1,5 @@
 /**
- * SimplyPaye — paiement Mobile Money (production)
+ * SimplyPaye - paiement Mobile Money (production)
  * Aligné sur @simplypaye/sdk : header X-API-Key uniquement, pas de Bearer ni apiKey dans le body.
  * Docs: POST /api/simply-production + GET /api/checkstatus-ordernumber/{orderNumber}
  * Succès uniquement si checkstatus.code === "1"
@@ -10,7 +10,7 @@ const INIT_URL = `${SIMPLY_PAY_BASE}/simply-production`;
 
 /** Short code marchand FENACOJU (surchagéable via SIMPLY_PAY_MERCHANT_CODE) */
 const DEFAULT_MERCHANT_CODE = '30255508';
-/** Clé API marchand (surchagéable via SIMPLY_PAY_API_KEY) — header X-API-Key obligatoire */
+/** Clé API marchand (surchagéable via SIMPLY_PAY_API_KEY) - header X-API-Key obligatoire */
 const DEFAULT_API_KEY = 'sp_QjT7rCTdXmIGnoS6dYRJIGpMBpykK6E5gNQRSPuT7WAMGEHP';
 
 /** orderNumber SimplyPaye : alphanumérique uniquement (évite path traversal → GET simply-production) */

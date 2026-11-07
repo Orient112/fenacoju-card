@@ -51,7 +51,7 @@ async function persistMessageUpdate(messageId, patch) {
     const { error } = await getSupabase().from('messages').update(patch).eq('id', messageId);
     if (error) {
       if (/hidden_for|schema cache|column/i.test(error.message || '')) {
-        console.warn('Colonne messages.hidden_for absente — exécutez migration_messages_hidden.sql');
+        console.warn('Colonne messages.hidden_for absente - exécutez migration_messages_hidden.sql');
         throw new Error('Suppression indisponible : migration base de données requise');
       }
       throw new Error(error.message);

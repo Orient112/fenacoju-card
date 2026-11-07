@@ -14,8 +14,15 @@ export default function GradePassationModal({
     return GRADES;
   }, [mode]);
 
+  const nextSuggested = useMemo(() => {
+    const idx = allowedGrades.indexOf(judoka.grade);
+    if (idx >= 0 && idx < allowedGrades.length - 1) return allowedGrades[idx + 1];
+    return allowedGrades.find((g) => g !== judoka.grade) || allowedGrades[0] || judoka.grade || 'Blanche';
+  }, [allowedGrades, judoka.grade]);
+
+  const [reussi, setReussi] = useState(true);
   const [grade, setGrade] = useState(
-    allowedGrades.includes(judoka.grade) ? judoka.grade : (allowedGrades[0] || judoka.grade || 'Blanche')
+    allowedGrades.includes(nextSuggested) ? nextSuggested : (allowedGrades[0] || judoka.grade || 'Blanche')
   );
   const [instructeurId, setInstructeurId] = useState('');
   const [points, setPoints] = useState('');
@@ -23,22 +30,25 @@ export default function GradePassationModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const needsBlackExtras = mode === 'black' || isBlackBeltGrade(grade);
+  const targetGrade = reussi ? grade : (judoka.grade || '');
+  const needsBlackExtras = reussi && (mode === 'black' || isBlackBeltGrade(targetGrade));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    if (!grade || grade === judoka.grade) {
-      setError('Choisissez un grade différent du grade actuel');
-      return;
-    }
-    if (mode === 'club' && isBlackBeltGrade(grade)) {
-      setError('Les Clubs ne peuvent attribuer que Blanche à Marron');
-      return;
-    }
-    if (needsBlackExtras && !instructeurId) {
-      setError('Désignez un instructeur pour l\'examen ceinture noire');
-      return;
+    if (reussi) {
+      if (!grade || grade === judoka.grade) {
+        setError('Choisissez une ceinture supérieure différente du grade actuel');
+        return;
+      }
+      if (mode === 'club' && isBlackBeltGrade(grade)) {
+        setError('Les Clubs ne peuvent attribuer que Blanche à Marron');
+        return;
+      }
+      if (needsBlackExtras && !instructeurId) {
+        setError('Désignez un instructeur pour l\'examen ceinture noire');
+        return;
+      }
     }
 
     const instructeur = entraineurs.find((x) => String(x.id) === String(instructeurId));
@@ -50,13 +60,14 @@ export default function GradePassationModal({
     try {
       const formData = new FormData();
       formData.append('passation_grade', '1');
-      formData.append('grade', grade);
+      formData.append('passation_reussie', reussi ? '1' : '0');
+      formData.append('grade', reussi ? grade : (judoka.grade || ''));
       if (instructeurId) formData.append('instructeur_id', instructeurId);
       if (instructeurNom) formData.append('instructeur_nom', instructeurNom);
       if (points !== '') formData.append('points', points);
       if (note.trim()) formData.append('note', note.trim());
-      const updated = await updateJudoka(athlète.id, formData);
-      await onSuccess(updated);
+      const updated = await updateJudoka(judoka.id, formData);
+      await onSuccess(updated, { reussi });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -69,11 +80,11 @@ export default function GradePassationModal({
       <div className="grade-passation-modal" onClick={(e) => e.stopPropagation()}>
         <h3>Passation de grade</h3>
         <p>
-          Valider le nouveau grade de <strong>{athlète.prenom} {athlète.nom}</strong>
-          {athlète.club ? <> · {athlète.club}</> : null}.
+          Enregistrer la passation de <strong>{judoka.prenom} {judoka.nom}</strong>
+          {judoka.club ? <> · {judoka.club}</> : null}.
         </p>
         <p className="grade-passation-current">
-          Grade actuel <span>{athlète.grade || '—'}</span>
+          Grade actuel <span>{judoka.grade || '-'}</span>
         </p>
         {mode === 'club' && (
           <p className="form-hint">Passation Club : ceintures Blanche à Marron uniquement.</p>
@@ -86,13 +97,39 @@ export default function GradePassationModal({
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label htmlFor="passation-grade">Nouveau grade</label>
-            <select id="passation-grade" value={grade} onChange={(e) => setGrade(e.target.value)} required>
-              {allowedGrades.map((g) => (
-                <option key={g} value={g}>{g}</option>
-              ))}
-            </select>
+            <label>Résultat de la passation</label>
+            <div className="grade-passation-result">
+              <label className={`grade-passation-choice ${reussi ? 'is-on' : ''}`}>
+                <input
+                  type="radio"
+                  name="passation-result"
+                  checked={reussi}
+                  onChange={() => setReussi(true)}
+                />
+                Passe en grade (ceinture supérieure)
+              </label>
+              <label className={`grade-passation-choice ${!reussi ? 'is-on' : ''}`}>
+                <input
+                  type="radio"
+                  name="passation-result"
+                  checked={!reussi}
+                  onChange={() => setReussi(false)}
+                />
+                Ne passe pas (reste au grade actuel)
+              </label>
+            </div>
           </div>
+
+          {reussi && (
+            <div className="form-group">
+              <label htmlFor="passation-grade">Ceinture supérieure</label>
+              <select id="passation-grade" value={grade} onChange={(e) => setGrade(e.target.value)} required>
+                {allowedGrades.map((g) => (
+                  <option key={g} value={g} disabled={g === judoka.grade}>{g}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {needsBlackExtras && (
             <>
@@ -104,7 +141,7 @@ export default function GradePassationModal({
                   onChange={(e) => setInstructeurId(e.target.value)}
                   required
                 >
-                  <option value="">— Sélectionner —</option>
+                  <option value="">- Sélectionner -</option>
                   {entraineurs.map((en) => (
                     <option key={en.id} value={en.id}>
                       {`${en.prenom || ''} ${en.nom || ''}`.trim() || en.email || en.id}
@@ -138,7 +175,7 @@ export default function GradePassationModal({
               Annuler
             </button>
             <button type="submit" className="btn btn-primary" disabled={loading}>
-              {loading ? 'Validation...' : 'Valider le grade'}
+              {loading ? 'Enregistrement...' : 'Enregistrer'}
             </button>
           </div>
         </form>

@@ -94,7 +94,7 @@ canvas {
   50% { opacity: 1; }
 }
 
-/* App shell — bande menus fixe à gauche */
+/* App shell - bande menus fixe à gauche */
 .app-shell {
   display: flex;
   min-height: 100vh;
@@ -115,7 +115,7 @@ canvas {
   width: calc(100% - var(--rail-width));
 }
 
-/* Header / rail gauche fixe — style dashboard clair */
+/* Header / rail gauche fixe - style dashboard clair */
 .header {
   width: var(--rail-width);
   flex-shrink: 0;
@@ -379,7 +379,7 @@ canvas {
   background: #f1f5f9;
 }
 
-/* Layout — Dashboard plein écran (hors bande menus) */
+/* Layout - Dashboard plein écran (hors bande menus) */
 .container {
   width: 100%;
   max-width: none;
@@ -675,7 +675,7 @@ canvas {
 }
 
 /* Buttons */
-/* Buttons square — global */
+/* Buttons square - global */
 .btn,
 .btn-icon,
 .btn-sm,
@@ -1235,7 +1235,7 @@ tbody tr:last-child td {
   margin-top: 1.5rem;
 }
 
-/* Judoka Card Design — format carte bancaire 85 × 55 mm */
+/* Judoka Card Design - format carte bancaire 85 × 55 mm */
 .judoka-card {
   width: 85mm;
   height: 55mm;
@@ -1489,7 +1489,7 @@ tbody tr:last-child td {
   text-align: right;
 }
 
-/* Print styles — carte 85mm × 55mm */
+/* Print styles - carte 85mm × 55mm */
 @media print {
   @page {
     size: 85mm 55mm;
@@ -1558,7 +1558,7 @@ tbody tr:last-child td {
   }
 }
 
-/* Responsive — mobile proche du desktop (scroll horizontal si besoin) */
+/* Responsive - mobile proche du desktop (scroll horizontal si besoin) */
 @media (max-width: 768px) {
   body {
     overflow-x: hidden;
@@ -2879,7 +2879,7 @@ tbody tr:last-child td {
   --stat-value: #122d66;
 }
 
-/* Login page — split modèle */
+/* Login page - split modèle */
 .login-page {
   min-height: 100vh;
   min-height: 100dvh;
@@ -4185,6 +4185,52 @@ tbody tr:last-child td {
   margin-top: 0.5rem;
   padding-top: 0.75rem;
   border-top: 1px solid #eef2f7;
+}
+
+.sa-payment-creds {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem 1rem;
+  margin-top: 0.45rem;
+  font-size: 0.86rem;
+}
+
+.sa-payment-creds.is-set strong {
+  color: var(--primary);
+}
+
+.sa-payment-creds-label {
+  display: block;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+}
+
+.grade-passation-result {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.grade-passation-choice {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.grade-passation-choice.is-on {
+  border-color: var(--primary);
+  background: rgba(29, 67, 147, 0.06);
+}
+
+.grade-passation-choice input {
+  margin: 0;
 }
 
 /* Paramétrage fédération Admin */
@@ -6704,7 +6750,7 @@ button.competition-access-toggle {
   margin-top: 0.75rem;
 }
 
-/* Public competition registration — ultramoderne immersif */
+/* Public competition registration - ultramoderne immersif */
 .competition-public-page {
   min-height: 100vh;
   min-height: 100dvh;
@@ -8566,7 +8612,7 @@ a.competition-action-btn,
   }
 }
 
-/* Responsive — compétition / inscription (tablette + téléphone) */
+/* Responsive - compétition / inscription (tablette + téléphone) */
 @media (max-width: 1024px) {
   .container {
     padding: 1.25rem 1rem;
@@ -8949,7 +8995,7 @@ a.competition-action-btn,
   background-color: #fff;
 }
 
-/* Messages — mobile : contacts masquables / conversation plein largeur */
+/* Messages - mobile : contacts masquables / conversation plein largeur */
 @media (max-width: 768px) {
   .messages-page {
     display: flex;
@@ -9071,7 +9117,7 @@ a.competition-action-btn,
     padding: 0.75rem;
   }
 }
-/* Dashboard — topbar + hero cards (modèle Super Finti adapté) */
+/* Dashboard - topbar + hero cards (modèle Super Finti adapté) */
 .dashboard-topbar {
   display: flex;
   align-items: center;
@@ -9303,7 +9349,7 @@ a.competition-action-btn,
   color: #b91c1c;
 }
 
-/* Receipt scan — camera stable */
+/* Receipt scan - camera stable */
 .receipt-scan-modal {
   overflow: hidden;
 }
@@ -9539,7 +9585,7 @@ a.competition-action-btn,
 }
 
 
-/* Settings / Réglages — immersif */
+/* Settings / Réglages - immersif */
 .settings-page {
   --settings-ink: #f4f7ff;
   --settings-muted: rgba(244, 247, 255, 0.72);

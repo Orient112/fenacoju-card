@@ -210,7 +210,7 @@ function ensureDefaults(raw = {}) {
   settings.competition_clubs = parseCompetitionClubs(settings.competition_clubs);
   settings.logo_url = String(settings.logo_url || '').trim();
   const desc = String(settings.description || '');
-  // META peut être en fin de description (stockage Supabase) — source de vérité des frais
+  // META peut être en fin de description (stockage Supabase) - source de vérité des frais
   const metaMatch = desc.match(META_RE) || desc.match(/<!--FENACOJU_META:([\s\S]*?)-->/);
   let meta = null;
   if (metaMatch) {
@@ -657,7 +657,7 @@ export function isCompetitionConfigured(settings) {
 /**
  * @param {object} settings
  * @param {object} [extras]
- * @param {{ forWeigh?: boolean }} [options] — forWeigh: accessible même si inscriptions clôturées
+ * @param {{ forWeigh?: boolean }} [options] - forWeigh: accessible même si inscriptions clôturées
  */
 export function toPublicCompetition(settings, extras = {}, options = {}) {
   const forWeigh = Boolean(options.forWeigh);
@@ -916,7 +916,7 @@ export async function createCompetitionTeamRoster({
     if (!nom || !prenom) throw new Error('Le nom complet est obligatoire pour chaque judoka');
     const cat = findCategoryForWeight(cats, poidsReel, teamSexe);
     if (!cat) {
-      throw new Error(`Aucun seuil de catégorie ${sexeLabel} ne correspond au poids ${poidsReel || '—'} kg`);
+      throw new Error(`Aucun seuil de catégorie ${sexeLabel} ne correspond au poids ${poidsReel || '-'} kg`);
     }
     if (!byCat.has(cat.key)) byCat.set(cat.key, { cat, principal: null, remplacant: null });
     const bucket = byCat.get(cat.key);

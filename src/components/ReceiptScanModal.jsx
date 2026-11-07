@@ -307,7 +307,7 @@ export default function ReceiptScanModal({
               <div className="qr-scan-details-grid">
                 <div className="qr-scan-detail-item">
                   <span className="qr-scan-detail-label">Compétition</span>
-                  <span className="qr-scan-detail-value">{payload.competitionNom || '—'}</span>
+                  <span className="qr-scan-detail-value">{payload.competitionNom || '-'}</span>
                 </div>
                 <div className="qr-scan-detail-item">
                   <span className="qr-scan-detail-label">Mode</span>
@@ -327,16 +327,16 @@ export default function ReceiptScanModal({
                 </div>
                 <div className="qr-scan-detail-item">
                   <span className="qr-scan-detail-label">Téléphone</span>
-                  <span className="qr-scan-detail-value">{payload.telephone || '—'}</span>
+                  <span className="qr-scan-detail-value">{payload.telephone || '-'}</span>
                 </div>
                 <div className="qr-scan-detail-item">
                   <span className="qr-scan-detail-label">Club</span>
-                  <span className="qr-scan-detail-value">{payload.club || '—'}</span>
+                  <span className="qr-scan-detail-value">{payload.club || '-'}</span>
                 </div>
                 <div className="qr-scan-detail-item">
                   <span className="qr-scan-detail-label">Date</span>
                   <span className="qr-scan-detail-value">
-                    {payload.date ? new Date(payload.date).toLocaleString('fr-FR') : '—'}
+                    {payload.date ? new Date(payload.date).toLocaleString('fr-FR') : '-'}
                   </span>
                 </div>
                 <div className="qr-scan-detail-item">
@@ -347,7 +347,7 @@ export default function ReceiptScanModal({
                         .map((p) => `${p.prenom || ''} ${p.nom || ''}`.trim())
                         .filter(Boolean)
                         .join(', ')
-                      : '—'}
+                      : '-'}
                   </span>
                 </div>
                 {Array.isArray(result.matches) && (

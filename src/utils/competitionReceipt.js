@@ -30,7 +30,7 @@ export function extractOrderNumber(modePaiementOrPaiement) {
 /** Référence affichée sans le numéro de téléphone du payeur (souvent collé en suffixe SimplyPaye). */
 export function displayReceiptReference(orderNumber, telephone = '') {
   let ref = String(orderNumber || '').trim();
-  if (!ref) return '—';
+  if (!ref) return '-';
 
   const digitsPhone = String(telephone || '').replace(/\D/g, '');
   const candidates = new Set();
@@ -372,7 +372,7 @@ export function resolveCompetitionFeesCdf(...sources) {
 }
 
 export function getReceiptDisplayReference(payload) {
-  if (!payload) return '—';
+  if (!payload) return '-';
   return displayReceiptReference(payload.orderNumber, payload.telephone);
 }
 

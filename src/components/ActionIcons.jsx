@@ -70,6 +70,17 @@ export function IconGrade() {
   );
 }
 
+export function IconTransfer() {
+  return (
+    <svg {...svgProps}>
+      <path d="M7 4v12" />
+      <path d="m4 7 3-3 3 3" />
+      <path d="M17 20V8" />
+      <path d="m20 17-3 3-3-3" />
+    </svg>
+  );
+}
+
 export function IconKey() {
   return (
     <svg {...svgProps}>

@@ -153,7 +153,7 @@ export async function setUserPaymentCredentials(userId, { merchantCode, apiKey }
       if (/payment_merchant_code|payment_api_key|column|schema cache/i.test(error.message || '')) {
         users[index] = updated;
         writeUsersJson(users);
-        console.warn('Colonnes paiement absentes — exécutez migration_payment_credentials.sql');
+        console.warn('Colonnes paiement absentes - exécutez migration_payment_credentials.sql');
         return sanitizeUser(updated);
       }
       throw new Error(error.message);
@@ -333,11 +333,35 @@ export async function ensureAdminExists() {
   if (error) console.error('Erreur création admin Supabase:', error.message);
 }
 
+function mergePaymentFieldsFromJson(users) {
+  try {
+    const jsonUsers = readUsersJson();
+    if (!Array.isArray(jsonUsers) || jsonUsers.length === 0) return users;
+    const byId = new Map(jsonUsers.map((u) => [u.id, u]));
+    return (users || []).map((u) => {
+      const local = byId.get(u.id);
+      if (!local) return u;
+      const merchant = String(u.payment_merchant_code || '').trim()
+        || String(local.payment_merchant_code || '').trim();
+      const apiKey = String(u.payment_api_key || '').trim()
+        || String(local.payment_api_key || '').trim();
+      if (!merchant && !apiKey) return u;
+      return {
+        ...u,
+        payment_merchant_code: merchant,
+        payment_api_key: apiKey,
+      };
+    });
+  } catch {
+    return users;
+  }
+}
+
 async function readUsers() {
   if (isSupabaseEnabled()) {
     const { data, error } = await getSupabase().from('users').select('*');
     if (error) throw new Error(error.message);
-    return data || [];
+    return mergePaymentFieldsFromJson(data || []);
   }
   return readUsersJson();
 }
@@ -612,13 +636,13 @@ export async function createUser(data, creator) {
     if (error && /org_code|schema cache|column/i.test(error.message || '')) {
       const { org_code: _org, ...withoutOrg } = user;
       ({ error } = await getSupabase().from('users').insert(withoutOrg));
-      if (!error) console.warn('Colonne users.org_code absente — exécutez migration_org_code.sql');
+      if (!error) console.warn('Colonne users.org_code absente - exécutez migration_org_code.sql');
     }
     if (error && /comites|schema cache|column/i.test(error.message || '')) {
       const { comites: _ignored, org_code: _org2, ...withoutComites } = user;
       const retry = await getSupabase().from('users').insert(withoutComites);
       if (retry.error) throw new Error(retry.error.message);
-      console.warn('Colonne users.comites absente — exécutez migration_club_comites.sql');
+      console.warn('Colonne users.comites absente - exécutez migration_club_comites.sql');
       error = null;
     }
     if (error) throw new Error(error.message);
@@ -714,7 +738,7 @@ export async function updateUser(id, data, editor) {
         const { comites: _ignored, ...withoutComites } = payload;
         const retry = await getSupabase().from('users').update(withoutComites).eq('id', id);
         if (retry.error) throw new Error(retry.error.message);
-        console.warn('Colonne users.comites absente — exécutez migration_club_comites.sql');
+        console.warn('Colonne users.comites absente - exécutez migration_club_comites.sql');
       } else {
         throw new Error(error.message);
       }
@@ -785,7 +809,7 @@ export async function setUserCompetitionAccess(id, enabled) {
         // Migration absente : fallback JSON local
         users[index] = updated;
         writeUsersJson(users);
-        console.warn('Colonne users.competition_access absente — exécutez migration_competition_access.sql');
+        console.warn('Colonne users.competition_access absente - exécutez migration_competition_access.sql');
         return sanitizeUser(updated);
       }
       throw new Error(error.message);
@@ -849,7 +873,7 @@ async function writeUserRecord(updated) {
         const retry = await getSupabase().from('users').update(withoutPhoto).eq('id', updated.id);
         if (retry.error) throw new Error(retry.error.message);
         if (updated.photo) {
-          console.warn('Colonne users.photo absente — exécutez migration_account_settings.sql');
+          console.warn('Colonne users.photo absente - exécutez migration_account_settings.sql');
           throw new Error('Photo de profil indisponible : migration base de données requise');
         }
         return;
@@ -883,7 +907,7 @@ export async function updateOwnProfile(userId, data) {
   }
 
   if (existing.type === 'federation' && data.fonction !== undefined) {
-    // fonction gérée par admin — lecture seule côté réglages
+    // fonction gérée par admin - lecture seule côté réglages
   }
 
   if (existing.type === 'ligue' || existing.type === 'entente') {

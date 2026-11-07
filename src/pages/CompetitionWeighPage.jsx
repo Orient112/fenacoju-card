@@ -18,7 +18,7 @@ function isTeamRegistration(r) {
 function teamCategoryLabel(r) {
   const raw = String(r?.categorie || '').trim();
   if (raw && !/principal|rempl/i.test(raw)) return raw;
-  return String(r?.poids || '').trim() ? `${r.poids} kg` : '—';
+  return String(r?.poids || '').trim() ? `${r.poids} kg` : '-';
 }
 
 function teamJudokaName(r) {
@@ -114,7 +114,7 @@ export default function CompetitionWeighPage({ token }) {
 
   const poidsOptions = useMemo(() => {
     if (isTeamMode) {
-      const fromRegs = chipFiltered.map((r) => teamCategoryLabel(r)).filter((l) => l && l !== '—');
+      const fromRegs = chipFiltered.map((r) => teamCategoryLabel(r)).filter((l) => l && l !== '-');
       return [...new Set(fromRegs)].sort((a, b) => a.localeCompare(b, 'fr', { numeric: true }));
     }
     const set = new Set();
@@ -447,8 +447,8 @@ export default function CompetitionWeighPage({ token }) {
             {filtered.map((r) => {
               const done = Boolean(r.poids);
               const originalIndex = modeRegistrations.findIndex((item) => item.id === r.id);
-              const club = String(r.club || '').trim() || '—';
-              const categorie = String(r.categorie || '').trim() || '—';
+              const club = String(r.club || '').trim() || '-';
+              const categorie = String(r.categorie || '').trim() || '-';
               return (
                 <div key={r.id} className={`competition-weigh-row ${done ? 'is-done' : ''}`}>
                   <div className="competition-weigh-identity">

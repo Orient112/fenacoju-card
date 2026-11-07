@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 
 export function ClubLigueLabel({ nom, ligue }) {
-  const name = String(nom || '').trim() || '—';
+  const name = String(nom || '').trim() || '-';
   const league = String(ligue || '').trim() || '-';
   return (
     <>
@@ -24,7 +24,7 @@ export default function CompetitionClubSelect({
   onChange,
   required = false,
   disabled = false,
-  placeholder = '— Sélectionner un club —',
+  placeholder = '- Sélectionner un club -',
   autoFocus = false,
 }) {
   const listId = useId();

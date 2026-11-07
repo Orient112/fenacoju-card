@@ -5,12 +5,14 @@ import {
   fetchTransfers,
   rejectTransfer,
   requestJudokaTransfer,
+  validateTransferEntente,
   validateTransferLigue,
 } from '../api';
 
 const STATUT_LABELS = {
+  pending_entente: 'En attente Entente',
   pending_ligue: 'En attente Ligue',
-  pending_federation: 'En attente Fédération',
+  pending_federation: 'En attente Secrétaire Général',
   accepte: 'Accepté',
   rejete: 'Rejeté',
   annule: 'Annulé',
@@ -20,6 +22,7 @@ export default function TransferModal({
   mode = 'request', // request | inbox
   judoka = null,
   clubs = [],
+  canValidateEntente = false,
   canValidateLigue = false,
   canConfirmFederation = false,
   onClose,
@@ -77,10 +80,19 @@ export default function TransferModal({
     setBusy(true);
     setError('');
     try {
-      if (action === 'ligue') await validateTransferLigue(id);
+      if (action === 'entente') await validateTransferEntente(id);
+      else if (action === 'ligue') await validateTransferLigue(id);
       else if (action === 'federation') await confirmTransferFederation(id);
       else if (action === 'reject') await rejectTransfer(id);
-      onToast?.('Transfert mis à jour');
+      onToast?.(
+        action === 'entente'
+          ? 'Transfert validé par l\'Entente - alerte Ligue'
+          : action === 'ligue'
+            ? 'Transfert validé par la Ligue - alerte Secrétaire Général'
+            : action === 'federation'
+              ? 'Transfert approuvé - athlète déplacé'
+              : 'Transfert mis à jour'
+      );
       await loadInbox();
       onDone?.();
     } catch (err) {
@@ -90,6 +102,8 @@ export default function TransferModal({
     }
   };
 
+  const canAct = canValidateEntente || canValidateLigue || canConfirmFederation;
+
   return (
     <div className="confirm-overlay" onClick={onClose}>
       <div className="transfer-modal" onClick={(e) => e.stopPropagation()}>
@@ -98,7 +112,7 @@ export default function TransferModal({
             <h3>{mode === 'inbox' ? 'Transferts athlètes' : 'Demande de transfert'}</h3>
             {mode === 'request' && judoka && (
               <p className="form-hint">
-                {judoka.prenom} {judoka.nom} · Club actuel : <strong>{judoka.club || '—'}</strong>
+                {judoka.prenom} {judoka.nom} · Club actuel : <strong>{judoka.club || '-'}</strong>
               </p>
             )}
           </div>
@@ -112,7 +126,7 @@ export default function TransferModal({
             <div className="form-group">
               <label htmlFor="transfer-club-to">Club de destination *</label>
               <select id="transfer-club-to" value={clubTo} onChange={(e) => setClubTo(e.target.value)} required>
-                <option value="">— Sélectionner —</option>
+                <option value="">- Sélectionner -</option>
                 {clubs
                   .filter((c) => String(c).trim().toLowerCase() !== String(judoka?.club || '').trim().toLowerCase())
                   .map((c) => (
@@ -145,6 +159,11 @@ export default function TransferModal({
                   {t.motif ? <p className="form-hint">{t.motif}</p> : null}
                 </div>
                 <div className="transfer-row-actions">
+                  {t.statut === 'pending_entente' && canValidateEntente && (
+                    <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={() => handleAction(t.id, 'entente')}>
+                      Valider Entente
+                    </button>
+                  )}
                   {t.statut === 'pending_ligue' && canValidateLigue && (
                     <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={() => handleAction(t.id, 'ligue')}>
                       Valider Ligue
@@ -152,10 +171,10 @@ export default function TransferModal({
                   )}
                   {t.statut === 'pending_federation' && canConfirmFederation && (
                     <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={() => handleAction(t.id, 'federation')}>
-                      Confirmer Fédération
+                      Approuver (SG)
                     </button>
                   )}
-                  {['pending_ligue', 'pending_federation'].includes(t.statut) && (canValidateLigue || canConfirmFederation) && (
+                  {['pending_entente', 'pending_ligue', 'pending_federation'].includes(t.statut) && canAct && (
                     <button type="button" className="btn btn-outline btn-sm" disabled={busy} onClick={() => handleAction(t.id, 'reject')}>
                       Rejeter
                     </button>

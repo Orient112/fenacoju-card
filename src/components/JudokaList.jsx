@@ -1,5 +1,5 @@
 import { formatDate } from '../api';
-import { IconCard, IconEdit, IconFiche, IconGrade, IconTrash } from './ActionIcons';
+import { IconCard, IconEdit, IconFiche, IconGrade, IconTransfer, IconTrash } from './ActionIcons';
 
 export default function JudokaList({
   judokas,
@@ -7,11 +7,12 @@ export default function JudokaList({
   onEdit,
   onDelete,
   onPromoteGrade,
+  onRequestTransfer,
   onViewFiche,
   onAddNew,
   showActions = true,
 }) {
-  const hasActions = showActions && (onViewCard || onEdit || onDelete || onPromoteGrade || onViewFiche);
+  const hasActions = showActions && (onViewCard || onEdit || onDelete || onPromoteGrade || onRequestTransfer || onViewFiche);
 
   if (judokas.length === 0) {
     return (
@@ -52,11 +53,11 @@ export default function JudokaList({
             </td>
             <td data-label="Nom">
               <div className="judoka-name">{j.nom} {j.prenom}</div>
-              <div className="judoka-club">{j.sexe === 'M' ? '♂' : '♀'} — {formatDate(j.date_naissance)}</div>
+              <div className="judoka-club">{j.sexe === 'M' ? '♂' : '♀'} - {formatDate(j.date_naissance)}</div>
             </td>
             <td data-label="Club">{j.club}</td>
             <td data-label="Grade"><span className="badge grade-badge">{j.grade}</span></td>
-            <td data-label="Catégorie">{j.categorie || '—'}</td>
+            <td data-label="Catégorie">{j.categorie || '-'}</td>
             <td data-label="Inscription">{formatDate(j.date_inscription)}</td>
             <td data-label="Statut">
               <span className={`badge badge-${j.statut}`}>
@@ -84,6 +85,16 @@ export default function JudokaList({
                       title="Passation de grade"
                     >
                       <IconGrade />
+                    </button>
+                  )}
+                  {onRequestTransfer && (
+                    <button
+                      type="button"
+                      className="btn btn-icon btn-icon-transfer"
+                      onClick={() => onRequestTransfer(j)}
+                      title="Transfert"
+                    >
+                      <IconTransfer />
                     </button>
                   )}
                   {onEdit && (

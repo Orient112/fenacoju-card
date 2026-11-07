@@ -84,11 +84,11 @@ export default function UserList({
                   <div className="judoka-club">ID {u.org_code}</div>
                 )}
               </td>
-              {showClub && <td data-label="Club">{u.club || u.nom_club || '—'}</td>}
+              {showClub && <td data-label="Club">{u.club || u.nom_club || '-'}</td>}
               <td data-label="Email">
-                {u.email?.endsWith('@fiche.local') ? '—' : (u.email || '—')}
+                {u.email?.endsWith('@fiche.local') ? '-' : (u.email || '-')}
               </td>
-              <td data-label="Téléphone">{u.telephone || '—'}</td>
+              <td data-label="Téléphone">{u.telephone || '-'}</td>
               <td data-label="Statut">
                 <span className={`badge ${statutClass(statut)}`}>
                   {ACCOUNT_STATUT_LABELS[statut] || statut}
@@ -102,12 +102,12 @@ export default function UserList({
                   <span className="judoka-club">{u.ville}</span>
                 )}
                 {(u.type === 'federation' || u.type === 'membre') && (
-                  <span className="badge badge-actif">{normalizeFederationFonction(u.fonction) || '—'}</span>
+                  <span className="badge badge-actif">{normalizeFederationFonction(u.fonction) || '-'}</span>
                 )}
                 {u.type === 'admin' && (
                   <span className="badge badge-actif">Administrateur</span>
                 )}
-                {!['entraineur', 'club', 'ligue', 'entente', 'federation', 'membre', 'admin'].includes(u.type) && '—'}
+                {!['entraineur', 'club', 'ligue', 'entente', 'federation', 'membre', 'admin'].includes(u.type) && '-'}
               </td>
               {(canManage || showViewAction || canValidate) && (
                 <td data-label="Actions">

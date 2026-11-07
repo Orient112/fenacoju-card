@@ -17,7 +17,7 @@ const SKIP_ROW = /^(fenacoju|fédération|federation|compétition|competition|ca
 
 function normalizeLigue(value) {
   const ligue = String(value || '').trim();
-  if (!ligue || ligue === '—' || ligue === '–' || /^n\/?a$/i.test(ligue)) return '-';
+  if (!ligue || ligue === '-' || ligue === '–' || /^n\/?a$/i.test(ligue)) return '-';
   return ligue;
 }
 

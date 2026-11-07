@@ -4,7 +4,7 @@ function Field({ label, value }) {
   return (
     <div className="club-detail-item">
       <span className="club-detail-label">{label}</span>
-      <span>{value || '—'}</span>
+      <span>{value || '-'}</span>
     </div>
   );
 }
@@ -99,7 +99,7 @@ export default function AccountDetailModal({ account, onClose }) {
                 )}
                 <Field
                   label="Email / Identifiant"
-                  value={account.email?.endsWith('@fiche.local') ? '—' : account.email}
+                  value={account.email?.endsWith('@fiche.local') ? '-' : account.email}
                 />
                 <Field label="Téléphone" value={account.telephone} />
                 <Field
@@ -117,7 +117,7 @@ export default function AccountDetailModal({ account, onClose }) {
                 {account.comites.map((c, idx) => (
                   <li key={`acc-comite-${idx}`} className="club-member-item">
                     <div>
-                      <span className="club-member-name">{c.nom || '—'}</span>
+                      <span className="club-member-name">{c.nom || '-'}</span>
                       {c.titre && <span className="club-member-meta">{c.titre}</span>}
                     </div>
                   </li>

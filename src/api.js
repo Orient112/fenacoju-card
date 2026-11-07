@@ -394,6 +394,15 @@ export async function requestJudokaTransfer({ judoka_id, club_to, motif = '' }) 
   return res.json();
 }
 
+export async function validateTransferEntente(id) {
+  const res = await apiFetch(`/api/transfers/${encodeURIComponent(id)}/validate-entente`, { method: 'POST' });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Validation Entente impossible');
+  }
+  return res.json();
+}
+
 export async function validateTransferLigue(id) {
   const res = await apiFetch(`/api/transfers/${encodeURIComponent(id)}/validate-ligue`, { method: 'POST' });
   if (!res.ok) {
@@ -984,7 +993,7 @@ export function normalizeFederationFonction(fonction) {
 /** Fonctions pour comptes Fédération connectés (sans « Membre ») */
 export const FEDERATION_ACCOUNT_FONCTIONS = FEDERATION_FONCTIONS.filter((f) => f !== 'Membre');
 
-/** Fonctions attribuables aux fiches Membres (sans connexion) — libre désormais via champ Rôle */
+/** Fonctions attribuables aux fiches Membres (sans connexion) - libre désormais via champ Rôle */
 export const MEMBRE_FONCTIONS = FEDERATION_FONCTIONS.filter((f) => f !== 'Coordon');
 
 export const ARBITRE_NIVEAUX = ['National', 'Intercontinental', 'International'];
@@ -1005,7 +1014,7 @@ export const CLUB_DOCUMENT_LABELS = {
 export const USER_TYPES = {
   admin: { label: 'Admin Fédération', description: 'Compte Admin d\'une fédération (créé par SuperAdmin)' },
   federation: { label: 'Compte Fédération', description: 'Compte connecté avec identifiant et mot de passe' },
-  membre: { label: 'Membre Fédération', description: 'Fiche membre sans accès au système — fonction fédérale' },
+  membre: { label: 'Membre Fédération', description: 'Fiche membre sans accès au système - fonction fédérale' },
   ligue: { label: 'Ligue', description: 'Créer un compte Ligue (validé par le Coordon)' },
   entente: { label: 'Entente', description: 'Créer un compte Entente sous une Ligue' },
   club: { label: 'Club', description: 'Enregistrer un club affilié (validé par le Coordon)' },

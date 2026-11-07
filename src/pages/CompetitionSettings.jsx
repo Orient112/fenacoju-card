@@ -132,7 +132,7 @@ function mergeRegisteredTeamClubs(registeredClubs, registrations) {
 }
 
 function formatDateFr(value) {
-  if (!value) return '—';
+  if (!value) return '-';
   try {
     return new Date(value).toLocaleDateString('fr-FR');
   } catch {
@@ -204,7 +204,7 @@ function RegistrationsTable({ registrations, onEdit, onDelete, onShowReceipt, pa
             {pageRows.map((r) => (
               <tr key={r.id}>
                 <td data-label="Nom">{`${r.prenom || ''} ${r.nom || ''}`.trim()}</td>
-                <td data-label="Club">{r.club || '—'}</td>
+                <td data-label="Club">{r.club || '-'}</td>
                 <td data-label="Poids">
                   {r.poids ? (
                     <span className="badge badge-actif">{r.poids} kg</span>
@@ -1056,7 +1056,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
   const handleHorsSystemeToggle = (enabled) => {
     if (horsSystemeSavingRef.current) return;
     const next = Boolean(enabled);
-    // UI instantanée (vitesse de clic) — persistance en arrière-plan
+    // UI instantanée (vitesse de clic) - persistance en arrière-plan
     horsSystemeSavingRef.current = true;
     setForm((prev) => ({ ...prev, allow_hors_systeme: next }));
     setSettings((prev) => (prev ? { ...prev, allow_hors_systeme: next } : prev));
@@ -1100,7 +1100,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
       const updated = await deleteCompetitionLogo();
       setSettings((prev) => ({ ...prev, ...updated, logo_url: '' }));
       setForm((prev) => ({ ...prev, logo_url: '' }));
-      onToast?.('Logo retiré — logo FENACOJU par défaut');
+      onToast?.('Logo retiré - logo FENACOJU par défaut');
     } catch (err) {
       setError(err.message);
       onToast?.(err.message || 'Impossible de retirer le logo', 'error');
@@ -1803,7 +1803,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
           : null,
       ].filter(Boolean).join(' · ');
       onToast?.(
-        `${created.length} licence(s) générée(s)${clubMsg ? ` — ${clubMsg}` : ''}`,
+        `${created.length} licence(s) générée(s)${clubMsg ? ` - ${clubMsg}` : ''}`,
       );
       setShowLicenceModal(false);
       setLicenceSelected(new Set());
@@ -1861,7 +1861,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
       const orderNumber = extractOrderNumber(primary.mode_paiement);
       const receiptMode = isTeam ? 'equipe' : 'individuel';
 
-      // Ouverture immédiate (données locales) — pas d’attente réseau
+      // Ouverture immédiate (données locales) - pas d’attente réseau
       const formSnap = formRef.current || form;
       const feeFields = resolveCompetitionFeesCdf(formSnap, settings);
       const competitionForFees = {
@@ -2339,7 +2339,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
               <span>Inscriptions</span>
             </div>
             <div className="competition-stat">
-              <strong>{settings?.lieu || '—'}</strong>
+              <strong>{settings?.lieu || '-'}</strong>
               <span>{formatDateFr(settings?.date_debut)}</span>
             </div>
           </div>
@@ -2856,7 +2856,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
                     onChange={(e) => setAddIndividuelForm((prev) => ({ ...prev, categorie: e.target.value }))}
                     disabled={Boolean(categoryFromBirthDate(addIndividuelForm.date_naissance))}
                   >
-                    <option value="">— Optionnel —</option>
+                    <option value="">- Optionnel -</option>
                     {(CATEGORIES || []).map((cat) => (
                       <option key={cat} value={cat}>{cat}</option>
                     ))}
@@ -2996,7 +2996,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
                     onChange={(e) => setEditRegForm((prev) => ({ ...prev, categorie: e.target.value }))}
                     disabled={Boolean(categoryFromBirthDate(editRegForm.date_naissance))}
                   >
-                    <option value="">— Sélectionner —</option>
+                    <option value="">- Sélectionner -</option>
                     {(CATEGORIES || []).map((cat) => (
                       <option key={cat} value={cat}>{cat}</option>
                     ))}
@@ -3644,7 +3644,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
                             <span className="competition-draw-vs">vs</span>
                             <strong>{fight.labelB}</strong>
                             <p>
-                              {(fight.a.club || '—')} · {(fight.b.club || '—')}
+                              {(fight.a.club || '-')} · {(fight.b.club || '-')}
                             </p>
                           </li>
                         ))}

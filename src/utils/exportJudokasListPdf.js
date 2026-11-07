@@ -2,7 +2,7 @@ import { jsPDF } from 'jspdf';
 
 function clip(pdf, text, maxWidth) {
   const value = String(text || '');
-  if (!value) return '—';
+  if (!value) return '-';
   if (pdf.getTextWidth(value) <= maxWidth) return value;
   let clipped = value;
   while (clipped.length > 1 && pdf.getTextWidth(`${clipped}…`) > maxWidth) {
@@ -73,7 +73,7 @@ export function exportJudokasListToPdf(judokas = []) {
       j.categorie,
       j.sexe === 'F' ? 'F' : 'M',
       j.date_inscription,
-      j.statut === 'actif' ? 'Actif' : (j.statut || '—'),
+      j.statut === 'actif' ? 'Actif' : (j.statut || '-'),
     ];
     pdf.setFontSize(8);
     let x = marginX + 1.2;

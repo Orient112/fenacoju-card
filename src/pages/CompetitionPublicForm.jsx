@@ -476,7 +476,7 @@ export default function CompetitionPublicForm({ token }) {
       setStep('form');
       setError(
         needsPay && paiement?.orderNumber
-          ? `Paiement reçu, mais l'inscription a échoué : ${err.message || 'erreur'}. Contactez l'organisation — vous ne serez pas débité une seconde fois.`
+          ? `Paiement reçu, mais l'inscription a échoué : ${err.message || 'erreur'}. Contactez l'organisation - vous ne serez pas débité une seconde fois.`
           : (err.message || 'Inscription impossible')
       );
     } finally {
@@ -721,7 +721,7 @@ export default function CompetitionPublicForm({ token }) {
       setStep('team');
       setError(
         needsPay && paiement?.orderNumber
-          ? `Paiement reçu, mais l'inscription équipe a échoué : ${err.message || 'erreur'}. Contactez l'organisation — vous ne serez pas débité une seconde fois.`
+          ? `Paiement reçu, mais l'inscription équipe a échoué : ${err.message || 'erreur'}. Contactez l'organisation - vous ne serez pas débité une seconde fois.`
           : (err.message || 'Inscription équipe impossible')
       );
     } finally {
@@ -1052,7 +1052,7 @@ export default function CompetitionPublicForm({ token }) {
                       onChange={handleChange}
                       disabled={Boolean(resolveAgeCategory(form.date_naissance))}
                     >
-                      <option value="">— Sélectionner —</option>
+                      <option value="">- Sélectionner -</option>
                       {categoryOptions.map((c) => (
                         <option key={c} value={c}>{c}</option>
                       ))}
@@ -1171,7 +1171,7 @@ export default function CompetitionPublicForm({ token }) {
                             ? 'Chargement…'
                             : !teamClub
                               ? 'Choisissez d\'abord un club'
-                              : '— Sélectionner un athlète —'}
+                              : '- Sélectionner un athlète -'}
                         </option>
                         {clubJudokas
                           .filter((j) => (j.sexe === 'F' ? 'F' : 'M') === (teamSexe === 'F' ? 'F' : 'M'))

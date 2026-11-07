@@ -2,7 +2,7 @@ import { jsPDF } from 'jspdf';
 import { findCategoryForWeight, parseCategoriesPoids } from './weightCategories';
 
 function fullName(r) {
-  return `${r.prenom || ''} ${r.nom || ''}`.trim() || '—';
+  return `${r.prenom || ''} ${r.nom || ''}`.trim() || '-';
 }
 
 function clubName(r) {
@@ -165,9 +165,9 @@ function exportTeamListToPdf(registrations, competition = {}) {
         const row = [
           String(idx + 1),
           fullName(r),
-          r.categorie || '—',
+          r.categorie || '-',
           roleLabel(r),
-          r.poids ? `${r.poids} kg` : '—',
+          r.poids ? `${r.poids} kg` : '-',
         ];
         let x = marginX + 1;
         pdf.setFont('helvetica', 'normal');
@@ -196,7 +196,7 @@ function exportTeamListToPdf(registrations, competition = {}) {
  * Export PDF des clubs Individuel et de leurs judokas.
  * N’inclut que les clubs ayant au moins 1 judoka inscrit.
  * @param {object} [options]
- * @param {string} [options.clubName] — si défini, n’exporte que ce club
+ * @param {string} [options.clubName] - si défini, n’exporte que ce club
  */
 export function exportCompetitionClubsIndividuelPdf(registrations, competition = {}, options = {}) {
   const filterClub = String(options.clubName || '').trim().toLowerCase();
@@ -300,10 +300,10 @@ export function exportCompetitionClubsIndividuelPdf(registrations, competition =
       const row = [
         String(idx + 1),
         fullName(r),
-        r.categorie || '—',
+        r.categorie || '-',
         r.sexe === 'F' ? 'F' : 'M',
-        r.poids ? `${r.poids} kg` : '—',
-        r.numero_carte || '—',
+        r.poids ? `${r.poids} kg` : '-',
+        r.numero_carte || '-',
       ];
       let x = marginX + 1;
       pdf.setFont('helvetica', 'normal');

@@ -247,7 +247,7 @@ export default function JudokaForm({ judoka, lockedClub, registeredClubs = [], e
 
         {judoka
 
-          ? `Modification de ${judoka.prenom} ${judoka.nom} — Carte ${judoka.numero_carte}`
+          ? `Modification de ${judoka.prenom} ${judoka.nom} - Carte ${judoka.numero_carte}`
 
           : 'Remplissez le formulaire pour enregistrer un nouvel athlète et générer sa carte'}
 
@@ -292,7 +292,7 @@ export default function JudokaForm({ judoka, lockedClub, registeredClubs = [], e
 
                 <h4>Depuis l'ordinateur</h4>
 
-                <p>Choisir une image dans vos dossiers (JPG, PNG — max 5 Mo)</p>
+                <p>Choisir une image dans vos dossiers (JPG, PNG - max 5 Mo)</p>
 
                 <input
 
@@ -459,7 +459,7 @@ export default function JudokaForm({ judoka, lockedClub, registeredClubs = [], e
 
               <select name="club" value={form.club} onChange={handleChange} required>
 
-                <option value="">— Sélectionner un club —</option>
+                <option value="">- Sélectionner un club -</option>
 
                 {registeredClubs.map((c) => (
 
@@ -505,7 +505,7 @@ export default function JudokaForm({ judoka, lockedClub, registeredClubs = [], e
 
                 placeholder="Rechercher par nom..."
 
-                emptyLabel="— Aucun entraineur —"
+                emptyLabel="- Aucun entraineur -"
 
               />
 
@@ -540,7 +540,7 @@ export default function JudokaForm({ judoka, lockedClub, registeredClubs = [], e
               disabled={Boolean(categoryFromBirthDate(form.date_naissance))}
             >
 
-              <option value="">— Sélectionner —</option>
+              <option value="">- Sélectionner -</option>
 
               {CATEGORIES.map((c) => (
 

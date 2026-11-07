@@ -38,9 +38,9 @@ export default function ArbitreList({ arbitres, canManage = false, showViewActio
             <td data-label="Niveau">
               <span className="badge grade-badge">{a.niveau}</span>
             </td>
-            <td data-label="Club">{a.club || '—'}</td>
-            <td data-label="Grade">{a.grade || '—'}</td>
-            <td data-label="Téléphone">{a.telephone || '—'}</td>
+            <td data-label="Club">{a.club || '-'}</td>
+            <td data-label="Grade">{a.grade || '-'}</td>
+            <td data-label="Téléphone">{a.telephone || '-'}</td>
             {(canManage || showViewAction) && (
               <td data-label="Actions">
                 <div className="actions-cell">

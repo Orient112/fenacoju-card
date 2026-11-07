@@ -5,7 +5,7 @@ export default function SearchableSelect({
   value,
   onChange,
   placeholder = 'Rechercher...',
-  emptyLabel = '— Sélectionner —',
+  emptyLabel = '- Sélectionner -',
 }) {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);

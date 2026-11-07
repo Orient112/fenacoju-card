@@ -37,22 +37,22 @@ function JudokaFoundView({ judoka }) {
       fields: [
         { label: 'Club', value: judoka.club },
         { label: 'Grade', value: judoka.grade },
-        { label: 'Catégorie', value: judoka.categorie || '—' },
-        { label: 'Entraîneur', value: judoka.entraineur_nom || '—' },
+        { label: 'Catégorie', value: judoka.categorie || '-' },
+        { label: 'Entraîneur', value: judoka.entraineur_nom || '-' },
       ],
     },
     {
       title: 'Contact',
       fields: [
-        { label: 'Téléphone', value: judoka.telephone || '—' },
-        { label: 'Email', value: judoka.email || '—' },
+        { label: 'Téléphone', value: judoka.telephone || '-' },
+        { label: 'Email', value: judoka.email || '-' },
       ],
     },
     {
       title: 'Carte & licence',
       fields: [
         { label: 'N° Carte', value: judoka.numero_carte, highlight: true },
-        { label: 'N° Licence', value: judoka.numero_licence || '—' },
+        { label: 'N° Licence', value: judoka.numero_licence || '-' },
         { label: 'Date inscription', value: formatDate(judoka.date_inscription) },
         { label: 'Validité carte', value: `Jusqu'à ${getCardValidityYear(judoka)}` },
       ],

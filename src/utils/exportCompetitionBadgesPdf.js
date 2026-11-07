@@ -5,7 +5,7 @@ function fullName(r) {
 }
 
 function clip(pdf, text, maxWidth) {
-  const value = String(text || '—');
+  const value = String(text || '-');
   if (pdf.getTextWidth(value) <= maxWidth) return value;
   let clipped = value;
   while (clipped.length > 1 && pdf.getTextWidth(`${clipped}…`) > maxWidth) {
@@ -73,10 +73,10 @@ export function exportCompetitionBadgesToPdf(registrations, competition = {}, ca
     pdf.text(name, pageW / 2, 68, { align: 'center' });
 
     const rows = [
-      ['Club', r.club || '—'],
-      ['Catégorie', r.categorie || '—'],
+      ['Club', r.club || '-'],
+      ['Catégorie', r.categorie || '-'],
       ['Sexe', r.sexe === 'F' ? 'Fille' : 'Garçon'],
-      ['Poids', r.poids ? `${r.poids} kg` : '—'],
+      ['Poids', r.poids ? `${r.poids} kg` : '-'],
     ];
     if (isTeam) rows.push(['Rôle', roleLabel(r)]);
 

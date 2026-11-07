@@ -41,7 +41,7 @@ function buildDisplayTypes(allowedTypes, includeArbitre, groupFederation) {
       display.push({
         key: 'arbitre',
         label: 'Arbitre',
-        description: 'Fiche arbitre (National, Intercontinental, International) — sans connexion',
+        description: 'Fiche arbitre (National, Intercontinental, International) - sans connexion',
       });
       continue;
     }

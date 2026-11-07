@@ -445,13 +445,13 @@ export default function SuperAdminFederations({ onToast }) {
                   </div>
                 </td>
                 <td data-label="Admin">
-                  {f.admin?.email || f.admin?.username || '—'}
+                  {f.admin?.email || f.admin?.username || '-'}
                   {f.admin ? (
                     <div className="judoka-club">{f.admin.prenom || ''} {f.admin.nom || ''}</div>
                   ) : null}
                 </td>
                 <td data-label="Créée le">
-                  {f.created_at ? new Date(f.created_at).toLocaleString('fr-FR') : '—'}
+                  {f.created_at ? new Date(f.created_at).toLocaleString('fr-FR') : '-'}
                 </td>
                 <td data-label="Actions">
                   <div className="row-actions">
@@ -775,7 +775,7 @@ export default function SuperAdminFederations({ onToast }) {
             <div className="sa-fed-modal-banner sa-fed-modal-banner-edit">
               <div>
                 <p className="sa-kicker">SimplyPaye</p>
-                <h3 id="sa-payment-modal-title">Paiement — {paymentTarget.nom}</h3>
+                <h3 id="sa-payment-modal-title">Paiement - {paymentTarget.nom}</h3>
               </div>
               <button type="button" className="sa-fed-modal-close" onClick={closePaymentModal} disabled={busy} aria-label="Fermer">
                 ×
@@ -804,13 +804,19 @@ export default function SuperAdminFederations({ onToast }) {
                           {accountTypeLabel(account)}
                           {account.org_code ? ` · ${account.org_code}` : ''}
                         </div>
-                        <div className="judoka-club">
-                          {account.payment_merchant_code
-                            ? `Short code : ${account.payment_merchant_code}`
-                            : 'Short code : —'}
-                          {account.payment_api_key_set
-                            ? ` · Clé API : ${account.payment_api_key_hint || '••••'}`
-                            : ' · Clé API : —'}
+                        <div className={`sa-payment-creds ${account.payment_merchant_code || account.payment_api_key_set ? 'is-set' : ''}`}>
+                          <div>
+                            <span className="sa-payment-creds-label">Short code</span>
+                            <strong>{account.payment_merchant_code || '-'}</strong>
+                          </div>
+                          <div>
+                            <span className="sa-payment-creds-label">Clé API</span>
+                            <strong>
+                              {account.payment_api_key_set
+                                ? (account.payment_api_key_hint || 'Configurée')
+                                : '-'}
+                            </strong>
+                          </div>
                         </div>
                       </div>
                       <div className="row-actions">
@@ -843,7 +849,15 @@ export default function SuperAdminFederations({ onToast }) {
               {paymentEdit && (
                 <form onSubmit={handlePaymentSave} className="sa-payment-edit-form">
                   <fieldset className="sa-fed-fieldset">
-                    <legend>{paymentEdit.payment_merchant_code ? 'Modifier' : 'Ajouter'} — {paymentEdit.nom}</legend>
+                    <legend>{paymentEdit.payment_merchant_code ? 'Modifier' : 'Ajouter'} - {paymentEdit.nom}</legend>
+                    {(paymentEdit.payment_merchant_code || paymentEdit.payment_api_key_set) && (
+                      <p className="form-hint">
+                        Enregistré : short code <strong>{paymentEdit.payment_merchant_code || '-'}</strong>
+                        {paymentEdit.payment_api_key_set
+                          ? <> · clé API <strong>{paymentEdit.payment_api_key_hint || '••••'}</strong></>
+                          : null}
+                      </p>
+                    )}
                     <div className="form-group">
                       <label htmlFor="sa-pay-merchant">Short code marchand *</label>
                       <input

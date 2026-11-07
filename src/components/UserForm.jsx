@@ -83,7 +83,7 @@ const FORM_COPY = {
     editTitle: 'Modifier - Membre',
     newTitle: 'Nouveau - Membre de la Fédération',
     editSubtitle: 'Modifiez la fiche membre',
-    newSubtitle: 'Fiche sans accès au système — indiquez le rôle fédéral',
+    newSubtitle: 'Fiche sans accès au système - indiquez le rôle fédéral',
     createLabel: 'Créer Membre',
   },
   ligue: {
@@ -387,7 +387,7 @@ export default function UserForm({ type, editingUser, currentUser, registeredClu
                 <div className="form-group">
                   <label>Fonction <span className="required">*</span></label>
                   <select name="fonction" value={form.fonction} onChange={handleChange} required>
-                    <option value="">— Sélectionner une fonction —</option>
+                    <option value="">- Sélectionner une fonction -</option>
                     {federationRoleOptions.map((f) => (
                       <option key={f.key} value={f.key}>{f.label}</option>
                     ))}
@@ -506,7 +506,7 @@ export default function UserForm({ type, editingUser, currentUser, registeredClu
                   </p>
                 ) : (
                   <select name="club" value={form.club} onChange={handleChange} required>
-                    <option value="">— Sélectionner un club —</option>
+                    <option value="">- Sélectionner un club -</option>
                     {registeredClubs.map((c) => (
                       <option key={c} value={c}>{c}</option>
                     ))}

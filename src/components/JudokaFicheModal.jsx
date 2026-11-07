@@ -43,7 +43,7 @@ export default function JudokaFicheModal({ judoka, onClose, onRequestTransfer })
             <p className="judoka-fiche-kicker">Fiche de suivi</p>
             <h3>{j.prenom} {j.nom}</h3>
             <p className="form-hint">
-              {j.numero_carte || '—'} · {j.club || 'Sans club'} · {j.grade || '—'}
+              {j.numero_carte || '-'} · {j.club || 'Sans club'} · {j.grade || '-'}
             </p>
           </div>
           <div className="judoka-fiche-head-actions">
@@ -64,10 +64,10 @@ export default function JudokaFicheModal({ judoka, onClose, onRequestTransfer })
           <>
             <section className="judoka-fiche-identity">
               <div><span>Sexe</span><strong>{j.sexe === 'F' ? 'Féminin' : 'Masculin'}</strong></div>
-              <div><span>Naissance</span><strong>{formatDate(j.date_naissance) || '—'}</strong></div>
-              <div><span>Catégorie</span><strong>{j.categorie || '—'}</strong></div>
-              <div><span>Licence</span><strong>{j.numero_licence || '—'}</strong></div>
-              <div><span>Inscription</span><strong>{formatDate(j.date_inscription) || '—'}</strong></div>
+              <div><span>Naissance</span><strong>{formatDate(j.date_naissance) || '-'}</strong></div>
+              <div><span>Catégorie</span><strong>{j.categorie || '-'}</strong></div>
+              <div><span>Licence</span><strong>{j.numero_licence || '-'}</strong></div>
+              <div><span>Inscription</span><strong>{formatDate(j.date_inscription) || '-'}</strong></div>
               <div><span>Statut</span><strong>{j.statut === 'actif' ? 'Actif' : 'Inactif'}</strong></div>
             </section>
 

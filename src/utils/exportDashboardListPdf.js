@@ -8,7 +8,7 @@ const STATUT_LABELS = {
 
 function clip(pdf, text, maxWidth) {
   const value = String(text ?? '');
-  if (!value) return '—';
+  if (!value) return '-';
   if (pdf.getTextWidth(value) <= maxWidth) return value;
   let clipped = value;
   while (clipped.length > 1 && pdf.getTextWidth(`${clipped}…`) > maxWidth) {
@@ -18,20 +18,20 @@ function clip(pdf, text, maxWidth) {
 }
 
 function statutLabel(value) {
-  return STATUT_LABELS[value] || value || '—';
+  return STATUT_LABELS[value] || value || '-';
 }
 
 function displayEmail(email) {
-  if (!email || String(email).endsWith('@fiche.local')) return '—';
+  if (!email || String(email).endsWith('@fiche.local')) return '-';
   return email;
 }
 
 function orgName(u) {
-  return u.nom_organisation || u.nom || u.nom_club || '—';
+  return u.nom_organisation || u.nom || u.nom_club || '-';
 }
 
 function personName(u) {
-  return `${u.prenom || ''} ${u.nom || ''}`.trim() || '—';
+  return `${u.prenom || ''} ${u.nom || ''}`.trim() || '-';
 }
 
 const TAB_CONFIG = {
@@ -49,7 +49,7 @@ const TAB_CONFIG = {
       j.categorie,
       j.sexe === 'F' ? 'F' : 'M',
       j.date_inscription,
-      j.statut === 'actif' ? 'Actif' : (j.statut || '—'),
+      j.statut === 'actif' ? 'Actif' : (j.statut || '-'),
     ],
   },
   ligues: {

@@ -11,11 +11,11 @@ export default function ClubInfoPanel({
       <div className="club-info-grid">
         <div className="club-info-item">
           <span className="club-info-label">{responsableLabel}</span>
-          <span className="club-info-value">{responsable || '—'}</span>
+          <span className="club-info-value">{responsable || '-'}</span>
         </div>
         <div className="club-info-item">
           <span className="club-info-label">{villeLabel}</span>
-          <span className="club-info-value">{ville || '—'}</span>
+          <span className="club-info-value">{ville || '-'}</span>
         </div>
       </div>
     </div>

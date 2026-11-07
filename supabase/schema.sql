@@ -1,4 +1,4 @@
--- FENACOJU Card — Schéma Supabase
+-- FENACOJU Card - Schéma Supabase
 -- Exécutez ce script dans Supabase → SQL Editor
 
 create extension if not exists "uuid-ossp";

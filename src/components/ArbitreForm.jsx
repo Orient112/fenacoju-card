@@ -61,7 +61,7 @@ export default function ArbitreForm({ arbitre, registeredClubs = [], onSubmit, o
       <p className="subtitle">
         {isEdit
           ? 'Modifiez la fiche arbitre'
-          : 'Fiche arbitre simple — sans identifiant ni mot de passe'}
+          : 'Fiche arbitre simple - sans identifiant ni mot de passe'}
       </p>
 
       {error && <div className="form-error">{error}</div>}
@@ -88,7 +88,7 @@ export default function ArbitreForm({ arbitre, registeredClubs = [], onSubmit, o
             <label>Club</label>
             {registeredClubs.length > 0 ? (
               <select name="club" value={form.club} onChange={handleChange}>
-                <option value="">— Optionnel —</option>
+                <option value="">- Optionnel -</option>
                 {registeredClubs.map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
@@ -100,7 +100,7 @@ export default function ArbitreForm({ arbitre, registeredClubs = [], onSubmit, o
           <div className="form-group">
             <label>Grade</label>
             <select name="grade" value={form.grade} onChange={handleChange}>
-              <option value="">— Optionnel —</option>
+              <option value="">- Optionnel -</option>
               {GRADES.filter((g) => g.startsWith('Noire')).map((g) => (
                 <option key={g} value={g}>{g}</option>
               ))}

@@ -29,6 +29,7 @@ import {
   isBlackBeltGrade,
   isClubAllowedGrade,
   rejectTransfer,
+  validateTransferByEntente,
   validateTransferByLigue,
 } from './judokaLifecycle.js';
 import {
@@ -525,7 +526,7 @@ app.get('/api/public/competition/:token/judoka/:cardId', async (req, res) => {
   }
 });
 
-/** Initie un push Mobile Money SimplyPaye (requête courte — adapté Vercel). */
+/** Initie un push Mobile Money SimplyPaye (requête courte - adapté Vercel). */
 app.post('/api/public/competition/:token/pay/initiate', async (req, res) => {
   try {
     const settings = await resolvePublicCompetition(req.params.token);
@@ -2409,38 +2410,41 @@ async function handleUpdateJudoka(req, res) {
       && req.user.type !== 'admin';
     const isGradePassation = String(body.passation_grade || '') === '1' || gradeOnly;
     if (gradeOnly || (isGradePassation && (perms.manageGrades || perms.manageClubGrades || perms.createJudokas))) {
-      const nextGrade = String(body.grade || '').trim();
-      if (!nextGrade) {
-        return res.status(400).json({ error: 'Le nouveau grade est requis' });
+      const reussi = String(body.passation_reussie ?? '1') !== '0';
+      const nextGrade = String(body.grade || '').trim() || String(existing.grade || '').trim();
+      if (reussi) {
+        if (!nextGrade) {
+          return res.status(400).json({ error: 'Le nouveau grade est requis' });
+        }
+        if (nextGrade === existing.grade) {
+          return res.status(400).json({ error: 'Choisissez un grade différent du grade actuel' });
+        }
       }
-      if (nextGrade === existing.grade) {
-        return res.status(400).json({ error: 'Choisissez un grade différent du grade actuel' });
-      }
-      const toBlack = isBlackBeltGrade(nextGrade);
+      const toBlack = reussi && isBlackBeltGrade(nextGrade);
       const fromBlack = isBlackBeltGrade(existing.grade);
-      if ((toBlack || fromBlack) && !perms.manageBlackBelts && !perms.manageGrades && req.user.type !== 'admin') {
+      if (reussi && (toBlack || fromBlack) && !perms.manageBlackBelts && !perms.manageGrades && req.user.type !== 'admin') {
         return res.status(403).json({
           error: 'La passation vers/depuis la ceinture noire est réservée au Responsable Grade',
         });
       }
-      if (!toBlack && !isClubAllowedGrade(nextGrade) && req.user.type === 'club') {
+      if (reussi && !toBlack && !isClubAllowedGrade(nextGrade) && req.user.type === 'club') {
         return res.status(400).json({ error: 'Grade non autorisé pour une passation Club' });
       }
-      if (req.user.type === 'club' && toBlack) {
+      if (reussi && req.user.type === 'club' && toBlack) {
         return res.status(403).json({ error: 'Les Clubs ne peuvent pas attribuer la ceinture noire' });
-      }
-      if (toBlack && !body.instructeur_nom?.trim() && !body.instructeur_id) {
-        // Instructeur recommandé pour ceinture noire ; obligatoire côté UI Responsable Grade
       }
       if (toBlack && (perms.manageBlackBelts || perms.manageGrades) && !String(body.instructeur_nom || '').trim()) {
         return res.status(400).json({ error: 'Désignez un instructeur pour l\'examen ceinture noire' });
       }
 
-      await updateJudoka(req.params.id, { grade: nextGrade });
+      if (reussi) {
+        await updateJudoka(req.params.id, { grade: nextGrade });
+      }
       await addGradeHistory({
         judoka_id: existing.id,
         grade_from: existing.grade || '',
-        grade_to: nextGrade,
+        grade_to: reussi ? nextGrade : (existing.grade || nextGrade || ''),
+        reussi,
         instructeur_id: body.instructeur_id || null,
         instructeur_nom: String(body.instructeur_nom || '').trim(),
         points: body.points,
@@ -2618,6 +2622,19 @@ app.post('/api/transfers', async (req, res) => {
   }
 });
 
+app.post('/api/transfers/:id/validate-entente', async (req, res) => {
+  try {
+    const perms = getPermissions(req.user);
+    if (!perms.validateTransfersEntente && req.user.type !== 'admin') {
+      return res.status(403).json({ error: 'Validation Entente non autorisée' });
+    }
+    const transfer = await validateTransferByEntente(req.params.id, req.user);
+    res.json(transfer);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 app.post('/api/transfers/:id/validate-ligue', async (req, res) => {
   try {
     const perms = getPermissions(req.user);
@@ -2651,7 +2668,10 @@ app.post('/api/transfers/:id/confirm-federation', async (req, res) => {
 app.post('/api/transfers/:id/reject', async (req, res) => {
   try {
     const perms = getPermissions(req.user);
-    const canReject = perms.validateTransfersLigue || perms.validateTransfers || req.user.type === 'admin';
+    const canReject = perms.validateTransfersEntente
+      || perms.validateTransfersLigue
+      || perms.validateTransfers
+      || req.user.type === 'admin';
     if (!canReject) return res.status(403).json({ error: 'Rejet non autorisé' });
     const transfer = await rejectTransfer(req.params.id, req.user, req.body?.motif || '');
     res.json(transfer);

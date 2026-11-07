@@ -325,6 +325,7 @@ export default function App() {
   const canManageClubGrades = perms.manageClubGrades === true;
   const canPromoteGrade = canManageGrades || canManageClubGrades;
   const canRequestTransfers = perms.requestTransfers === true || user?.type === 'admin';
+  const canValidateTransfersEntente = perms.validateTransfersEntente === true;
   const canValidateTransfersLigue = perms.validateTransfersLigue === true;
   const canConfirmTransfersFederation = perms.validateTransfers === true;
   const canViewGradeHistory = perms.viewGradeHistory === true || canManageGrades;
@@ -509,8 +510,8 @@ export default function App() {
       await setCompetitionAccess(next);
       setCompetitionAccessState(next);
       showToast(next
-        ? 'Bouton Compétition activé — le Directeur peut créer une nouvelle compétition'
-        : 'Compétition désactivée — données et lien d\'inscription effacés');
+        ? 'Bouton Compétition activé - le Directeur peut créer une nouvelle compétition'
+        : 'Compétition désactivée - données et lien d\'inscription effacés');
     } catch (err) {
       showToast(err.message || 'Erreur', 'error');
     } finally {
@@ -540,7 +541,7 @@ export default function App() {
       )));
       showToast(next
         ? 'Compétition activée pour cette Entente'
-        : 'Compétition désactivée pour cette Entente — données effacées');
+        : 'Compétition désactivée pour cette Entente - données effacées');
     } catch (err) {
       showToast(err.message || 'Erreur', 'error');
     } finally {
@@ -575,7 +576,7 @@ export default function App() {
         configured: enable ? e.configured : false,
       })));
       showToast(enable
-        ? `Compétition activée pour ${targets.length} Entente(s) — chacune gère la sienne indépendamment`
+        ? `Compétition activée pour ${targets.length} Entente(s) - chacune gère la sienne indépendamment`
         : `Compétition désactivée pour ${targets.length} Entente(s)`);
     } catch (err) {
       showToast(err.message || 'Erreur', 'error');
@@ -676,7 +677,7 @@ export default function App() {
 
   const handleCreate = async (formData) => {
     const newJudoka = await createJudoka(formData);
-    showToast(`${newJudoka.prenom} ${newJudoka.nom} enregistré — Carte ${newJudoka.numero_carte}`);
+    showToast(`${newJudoka.prenom} ${newJudoka.nom} enregistré - Carte ${newJudoka.numero_carte}`);
     setView('list');
     setEditing(null);
     if (canViewCards) setCardJudoka(newJudoka);
@@ -700,9 +701,9 @@ export default function App() {
         if (fresh) setUser(fresh);
       }
     } else if (savedUser.statut === 'pending') {
-      showToast(`${label} créé — en attente de validation Coordon`);
+      showToast(`${label} créé - en attente de validation Coordon`);
     } else {
-      showToast(`${label} créé — ${savedUser.email}`);
+      showToast(`${label} créé - ${savedUser.email}`);
     }
     setCreateType(null);
     setEditingUser(null);
@@ -713,7 +714,7 @@ export default function App() {
   const handleValidateUser = async (u) => {
     try {
       await validateUser(u.id);
-      showToast(`${USER_TYPES[u.type]?.label || 'Compte'} validé — compte actif`);
+      showToast(`${USER_TYPES[u.type]?.label || 'Compte'} validé - compte actif`);
       await loadData();
     } catch (err) {
       showToast(err.message, 'error');
@@ -897,7 +898,7 @@ export default function App() {
   };
 
   const handleArbitreSaved = async (saved) => {
-    showToast(editingArbitre ? 'Arbitre mis à jour' : `Arbitre créé — ${saved.prenom} ${saved.nom}`);
+    showToast(editingArbitre ? 'Arbitre mis à jour' : `Arbitre créé - ${saved.prenom} ${saved.nom}`);
     setEditingArbitre(null);
     setView('list');
     setDashboardTab('arbitres');
@@ -950,12 +951,12 @@ export default function App() {
             <div className="server-banner">
               {import.meta.env.PROD ? (
                 <>
-                  Serveur temporairement indisponible — le backend Render peut mettre jusqu&apos;à une minute à démarrer.
+                  Serveur temporairement indisponible - le backend Render peut mettre jusqu&apos;à une minute à démarrer.
                   Actualisez la page dans quelques secondes.
                 </>
               ) : (
                 <>
-                  Serveur hors ligne — Dans le terminal, lancez <code>npm run dev</code> et ouvrez <code>http://localhost:5173</code>
+                  Serveur hors ligne - Dans le terminal, lancez <code>npm run dev</code> et ouvrez <code>http://localhost:5173</code>
                 </>
               )}
             </div>
@@ -1401,6 +1402,7 @@ export default function App() {
                         onViewFiche={setFicheTarget}
                         onDelete={!hideJudokaActions && perms.deleteJudokas ? setDeleteTarget : null}
                         onPromoteGrade={canPromoteGrade ? setGradeTarget : null}
+                        onRequestTransfer={canRequestTransfers ? setTransferTarget : null}
                         onAddNew={perms.createJudokas ? openNewJudoka : null}
                       />
                     </Suspense>
@@ -1633,10 +1635,12 @@ export default function App() {
                 {user.type === 'superadmin'
                   ? 'Console SuperAdmin - gestion des fédérations'
                   : user.type === 'ligue'
-                    ? `Ligue / ${user.nom_organisation || user.nom || user.responsable || '—'}`
+                    ? `Ligue / ${user.nom_organisation || user.nom || user.responsable || '-'}`
                     : user.type === 'entente'
-                      ? `Entente / ${user.nom_organisation || user.nom || user.responsable || '—'}`
-                      : 'Système intégral de gestion des arts martiaux'}
+                      ? `Entente / ${user.nom_organisation || user.nom || user.responsable || '-'}`
+                      : user.type === 'club'
+                        ? `Club / ${user.nom_club || user.nom || user.responsable || '-'}`
+                        : 'Système intégral de gestion des arts martiaux'}
               </p>
             </div>
           </div>
@@ -1742,7 +1746,7 @@ export default function App() {
                 {M('competition', 'Compétition')}
               </button>
             )}
-            {(canValidateTransfersLigue || canConfirmTransfersFederation) && (
+            {(canValidateTransfersEntente || canValidateTransfersLigue || canConfirmTransfersFederation) && (
               <button
                 className="nav-btn"
                 type="button"
@@ -1852,9 +1856,15 @@ export default function App() {
             mode={canManageClubGrades && !canManageGrades ? 'club' : 'full'}
             entraineurs={entraineurs}
             onClose={() => setGradeTarget(null)}
-            onSuccess={async (updated) => {
-              showToast(`Grade mis à jour : ${updated.prenom} ${updated.nom} · ${updated.grade}`);
+            onSuccess={async (updated, meta) => {
+              const ok = meta?.reussi !== false;
+              showToast(
+                ok
+                  ? `Passation réussie : ${updated.prenom} ${updated.nom} · ${updated.grade}`
+                  : `Passation enregistrée (non réussie) : ${updated.prenom} ${updated.nom}`
+              );
               setGradeTarget(null);
+              setFicheTarget(updated);
               await loadData();
             }}
           />
@@ -1891,6 +1901,7 @@ export default function App() {
         <Suspense fallback={null}>
           <TransferModal
             mode="inbox"
+            canValidateEntente={canValidateTransfersEntente}
             canValidateLigue={canValidateTransfersLigue}
             canConfirmFederation={canConfirmTransfersFederation}
             onClose={() => setShowTransfersInbox(false)}
@@ -1990,13 +2001,13 @@ export default function App() {
                 {gradeHistory.map((h) => (
                   <li key={h.id} className="transfer-row">
                     <div>
-                      <strong>{h.grade_from || '—'} → {h.grade_to}</strong>
+                      <strong>{h.grade_from || '-'} → {h.grade_to}</strong>
                       <small>
                         {h.instructeur_nom ? `Instructeur : ${h.instructeur_nom}` : 'Sans instructeur'}
                         {h.points != null ? ` · Points : ${h.points}` : ''}
                       </small>
                       <p className="form-hint">
-                        {h.changed_by_name || '—'}
+                        {h.changed_by_name || '-'}
                         {h.created_at ? ` · ${new Date(h.created_at).toLocaleString('fr-FR')}` : ''}
                       </p>
                     </div>

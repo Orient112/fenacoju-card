@@ -119,11 +119,14 @@ export async function getJudokaEvents(judokaId) {
 }
 
 export async function addGradeHistory(entry) {
+  const reussi = entry.reussi !== false;
+  const gradeFrom = entry.grade_from || '';
+  const gradeTo = reussi ? entry.grade_to : (entry.grade_to || gradeFrom);
   const row = {
     id: uuidv4(),
     judoka_id: entry.judoka_id,
-    grade_from: entry.grade_from || '',
-    grade_to: entry.grade_to,
+    grade_from: gradeFrom,
+    grade_to: gradeTo,
     instructeur_id: entry.instructeur_id || null,
     instructeur_nom: entry.instructeur_nom || '',
     points: entry.points == null || entry.points === '' ? null : Number(entry.points),
@@ -133,6 +136,23 @@ export async function addGradeHistory(entry) {
     created_at: new Date().toISOString(),
   };
 
+  const titre = reussi
+    ? `Passation réussie : ${row.grade_from || '-'} → ${row.grade_to}`
+    : `Passation non réussie : reste ${row.grade_from || row.grade_to || '-'}`;
+  const detail = [
+    reussi ? null : 'L\'athlète ne passe pas en grade',
+    row.instructeur_nom ? `Instructeur : ${row.instructeur_nom}` : null,
+    row.points != null ? `Points : ${row.points}` : null,
+    row.note || null,
+  ].filter(Boolean).join(' · ');
+  const meta = {
+    grade_from: row.grade_from,
+    grade_to: row.grade_to,
+    instructeur_nom: row.instructeur_nom,
+    points: row.points,
+    reussi,
+  };
+
   if (isSupabaseEnabled()) {
     try {
       const { data, error } = await getSupabase().from('judoka_grade_history').insert(row).select('*').maybeSingle();
@@ -140,18 +160,9 @@ export async function addGradeHistory(entry) {
       await addJudokaEvent({
         judoka_id: row.judoka_id,
         type: 'grade',
-        titre: `Passation de grade : ${row.grade_from || '—'} → ${row.grade_to}`,
-        detail: [
-          row.instructeur_nom ? `Instructeur : ${row.instructeur_nom}` : null,
-          row.points != null ? `Points : ${row.points}` : null,
-          row.note || null,
-        ].filter(Boolean).join(' · '),
-        meta: {
-          grade_from: row.grade_from,
-          grade_to: row.grade_to,
-          instructeur_nom: row.instructeur_nom,
-          points: row.points,
-        },
+        titre,
+        detail,
+        meta,
         created_by: row.changed_by,
         created_by_name: row.changed_by_name,
       });
@@ -168,18 +179,9 @@ export async function addGradeHistory(entry) {
   await addJudokaEvent({
     judoka_id: row.judoka_id,
     type: 'grade',
-    titre: `Passation de grade : ${row.grade_from || '—'} → ${row.grade_to}`,
-    detail: [
-      row.instructeur_nom ? `Instructeur : ${row.instructeur_nom}` : null,
-      row.points != null ? `Points : ${row.points}` : null,
-      row.note || null,
-    ].filter(Boolean).join(' · '),
-    meta: {
-      grade_from: row.grade_from,
-      grade_to: row.grade_to,
-      instructeur_nom: row.instructeur_nom,
-      points: row.points,
-    },
+    titre,
+    detail,
+    meta,
     created_by: row.changed_by,
     created_by_name: row.changed_by_name,
   });
@@ -225,51 +227,81 @@ export async function createTransfer({
     judoka_id,
     club_from: from,
     club_to: to,
-    statut: 'pending_ligue',
+    statut: 'pending_entente',
     requested_by,
     requested_by_name,
+    entente_validated_by: null,
+    entente_validated_by_name: '',
     ligue_validated_by: null,
     ligue_validated_by_name: '',
     federation_validated_by: null,
     federation_validated_by_name: '',
     motif: String(motif || '').trim(),
     created_at: new Date().toISOString(),
+    entente_validated_at: null,
     ligue_validated_at: null,
     federation_validated_at: null,
   };
+
+  const createEvent = async () => addJudokaEvent({
+    judoka_id,
+    type: 'transfert',
+    titre: `Demande de transfert : ${from} → ${to}`,
+    detail: row.motif || 'En attente de validation Entente',
+    meta: { transfer_id: row.id, statut: row.statut, club_from: from, club_to: to },
+    created_by: requested_by,
+    created_by_name: requested_by_name,
+  });
 
   if (isSupabaseEnabled()) {
     try {
       const { data, error } = await getSupabase().from('judoka_transfers').insert(row).select('*').maybeSingle();
       if (error) throw error;
-      await addJudokaEvent({
-        judoka_id,
-        type: 'transfert',
-        titre: `Demande de transfert : ${from} → ${to}`,
-        detail: row.motif || 'En attente de validation Ligue',
-        meta: { transfer_id: row.id, statut: row.statut, club_from: from, club_to: to },
-        created_by: requested_by,
-        created_by_name: requested_by_name,
-      });
+      await createEvent();
       return data || row;
     } catch (err) {
-      if (!/relation|does not exist|schema cache/i.test(err.message || '')) throw err;
-      console.warn('judoka_transfers fallback JSON:', err.message);
+      // Colonnes / contrainte Entente absentes : repli pending_ligue
+      if (/pending_entente|entente_validated|check|constraint|column|schema cache/i.test(err.message || '')) {
+        const legacy = {
+          ...row,
+          statut: 'pending_ligue',
+          entente_validated_by: undefined,
+          entente_validated_by_name: undefined,
+          entente_validated_at: undefined,
+        };
+        delete legacy.entente_validated_by;
+        delete legacy.entente_validated_by_name;
+        delete legacy.entente_validated_at;
+        try {
+          const { data, error } = await getSupabase().from('judoka_transfers').insert(legacy).select('*').maybeSingle();
+          if (error) throw error;
+          await addJudokaEvent({
+            judoka_id,
+            type: 'transfert',
+            titre: `Demande de transfert : ${from} → ${to}`,
+            detail: legacy.motif || 'En attente de validation Ligue (migration Entente non appliquée)',
+            meta: { transfer_id: legacy.id, statut: 'pending_ligue', club_from: from, club_to: to },
+            created_by: requested_by,
+            created_by_name: requested_by_name,
+          });
+          console.warn('judoka_transfers: exécutez migration_transfer_entente.sql');
+          return data || legacy;
+        } catch (err2) {
+          if (!/relation|does not exist|schema cache/i.test(err2.message || '')) throw err2;
+          console.warn('judoka_transfers fallback JSON:', err2.message);
+        }
+      } else if (!/relation|does not exist|schema cache/i.test(err.message || '')) {
+        throw err;
+      } else {
+        console.warn('judoka_transfers fallback JSON:', err.message);
+      }
     }
   }
 
   const list = readJson(transfersPath);
   list.unshift(row);
   writeJson(transfersPath, list);
-  await addJudokaEvent({
-    judoka_id,
-    type: 'transfert',
-    titre: `Demande de transfert : ${from} → ${to}`,
-    detail: row.motif || 'En attente de validation Ligue',
-    meta: { transfer_id: row.id, statut: row.statut, club_from: from, club_to: to },
-    created_by: requested_by,
-    created_by_name: requested_by_name,
-  });
+  await createEvent();
   return row;
 }
 
@@ -323,6 +355,32 @@ async function saveTransfer(updated) {
   return updated;
 }
 
+export async function validateTransferByEntente(id, user) {
+  const transfer = await getTransferById(id);
+  if (!transfer) throw new Error('Transfert introuvable');
+  if (transfer.statut !== 'pending_entente') {
+    throw new Error('Ce transfert n\'attend pas la validation Entente');
+  }
+  const updated = {
+    ...transfer,
+    statut: 'pending_ligue',
+    entente_validated_by: user?.id || null,
+    entente_validated_by_name: actorLabel(user),
+    entente_validated_at: new Date().toISOString(),
+  };
+  const saved = await saveTransfer(updated);
+  await addJudokaEvent({
+    judoka_id: transfer.judoka_id,
+    type: 'transfert',
+    titre: `Transfert validé par l'Entente : ${transfer.club_from} → ${transfer.club_to}`,
+    detail: 'En attente de validation Ligue',
+    meta: { transfer_id: id, statut: 'pending_ligue' },
+    created_by: user?.id || null,
+    created_by_name: actorLabel(user),
+  });
+  return saved;
+}
+
 export async function validateTransferByLigue(id, user) {
   const transfer = await getTransferById(id);
   if (!transfer) throw new Error('Transfert introuvable');
@@ -339,7 +397,7 @@ export async function validateTransferByLigue(id, user) {
     judoka_id: transfer.judoka_id,
     type: 'transfert',
     titre: `Transfert validé par la Ligue : ${transfer.club_from} → ${transfer.club_to}`,
-    detail: 'En attente de confirmation Fédération (Secrétaire Général / Coordon)',
+    detail: 'En attente d\'approbation du Secrétaire Général',
     meta: { transfer_id: id, statut: 'pending_federation' },
     created_by: user?.id || null,
     created_by_name: actorLabel(user),
@@ -379,7 +437,7 @@ export async function confirmTransferByFederation(id, user, { applyClubChange })
 export async function rejectTransfer(id, user, reason = '') {
   const transfer = await getTransferById(id);
   if (!transfer) throw new Error('Transfert introuvable');
-  if (!['pending_ligue', 'pending_federation'].includes(transfer.statut)) {
+  if (!['pending_entente', 'pending_ligue', 'pending_federation'].includes(transfer.statut)) {
     throw new Error('Ce transfert ne peut plus être rejeté');
   }
   const updated = {
@@ -394,6 +452,10 @@ export async function rejectTransfer(id, user, reason = '') {
     ligue_validated_by_name: transfer.statut === 'pending_ligue'
       ? actorLabel(user)
       : transfer.ligue_validated_by_name,
+    entente_validated_by: transfer.statut === 'pending_entente' ? (user?.id || null) : transfer.entente_validated_by,
+    entente_validated_by_name: transfer.statut === 'pending_entente'
+      ? actorLabel(user)
+      : transfer.entente_validated_by_name,
   };
   const saved = await saveTransfer(updated);
   await addJudokaEvent({

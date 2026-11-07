@@ -62,19 +62,19 @@ export default function ClubDetailModal({ club, judokas = [], entraineurs = [], 
           <div className="club-sheet-info-grid">
             <div className="club-sheet-info-card">
               <span>Province / Ville</span>
-              <strong>{club.ville || '—'}</strong>
+              <strong>{club.ville || '-'}</strong>
             </div>
             <div className="club-sheet-info-card">
               <span>Identifiant</span>
-              <strong>{club.email || '—'}</strong>
+              <strong>{club.email || '-'}</strong>
             </div>
             <div className="club-sheet-info-card">
               <span>Téléphone</span>
-              <strong>{club.telephone || '—'}</strong>
+              <strong>{club.telephone || '-'}</strong>
             </div>
             <div className="club-sheet-info-card">
               <span>Enregistré le</span>
-              <strong>{club.created_at ? new Date(club.created_at).toLocaleDateString('fr-FR') : '—'}</strong>
+              <strong>{club.created_at ? new Date(club.created_at).toLocaleDateString('fr-FR') : '-'}</strong>
             </div>
           </div>
 
@@ -86,7 +86,7 @@ export default function ClubDetailModal({ club, judokas = [], entraineurs = [], 
               <ul className="club-sheet-chips">
                 {comites.map((c, idx) => (
                   <li key={`comite-${idx}`}>
-                    <strong>{c.nom || '—'}</strong>
+                    <strong>{c.nom || '-'}</strong>
                     {c.titre ? <span>{c.titre}</span> : null}
                   </li>
                 ))}
@@ -153,7 +153,7 @@ export default function ClubDetailModal({ club, judokas = [], entraineurs = [], 
                         <td>{j.numero_carte}</td>
                         <td>{j.prenom} {j.nom}</td>
                         <td><span className="club-sheet-grade">{j.grade}</span></td>
-                        <td>{j.categorie || '—'}</td>
+                        <td>{j.categorie || '-'}</td>
                         <td>
                           <span className={`badge badge-${j.statut}`}>
                             {j.statut === 'actif' ? 'Actif' : 'Inactif'}

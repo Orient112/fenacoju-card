@@ -1,0 +1,8 @@
+---
+description: Use ASCII hyphen instead of em dash in UI copy
+alwaysApply: true
+---
+
+# Tiret ASCII
+
+Dans toute l'application (UI, labels, placeholders, exports, messages), utiliser le tiret ASCII `-` et jamais le tiret long `—` (em dash).
