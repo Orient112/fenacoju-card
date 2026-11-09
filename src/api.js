@@ -382,6 +382,12 @@ export async function fetchTransfers(params = {}) {
   return res.json();
 }
 
+export async function fetchPendingTransfersCount() {
+  const res = await apiFetch('/api/transfers/pending-count');
+  if (!res.ok) return { count: 0, by_statut: {} };
+  return res.json();
+}
+
 export async function requestJudokaTransfer({ judoka_id, club_to, motif = '' }) {
   const res = await apiFetch('/api/transfers', {
     method: 'POST',

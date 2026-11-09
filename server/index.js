@@ -2563,6 +2563,72 @@ app.get('/api/grades/history', async (req, res) => {
   }
 });
 
+function filterTransfersForUser(list, user, users, perms) {
+  let scoped = list;
+  if (user.type === 'club') {
+    const club = String(user.nom_club || '').trim().toLowerCase();
+    scoped = scoped.filter((t) =>
+      String(t.club_from || '').toLowerCase() === club
+      || String(t.club_to || '').toLowerCase() === club
+    );
+  } else if (user.type === 'ligue' || user.type === 'entente') {
+    const clubs = new Set(getScopedClubNames(users, user).map((c) => c.toLowerCase()));
+    scoped = scoped.filter((t) =>
+      clubs.has(String(t.club_from || '').toLowerCase())
+      || clubs.has(String(t.club_to || '').toLowerCase())
+    );
+  } else if (user.type === 'federation' || user.type === 'admin') {
+    const fedId = user.federation_id || null;
+    if (fedId && user.type === 'federation') {
+      const clubs = new Set(
+        users
+          .filter((u) => u.type === 'club' && u.federation_id === fedId && u.nom_club)
+          .map((u) => String(u.nom_club).trim().toLowerCase())
+      );
+      scoped = scoped.filter((t) =>
+        clubs.has(String(t.club_from || '').toLowerCase())
+        || clubs.has(String(t.club_to || '').toLowerCase())
+      );
+    }
+  } else if (!perms.validateTransfers && !perms.manageAll && user.type !== 'admin') {
+    if (!perms.requestTransfers) return null;
+  }
+  return scoped;
+}
+
+function pendingTransferStatusesForUser(perms) {
+  const statuses = [];
+  if (perms.validateTransfersEntente) statuses.push('pending_entente');
+  if (perms.validateTransfersLigue) statuses.push('pending_ligue');
+  if (perms.validateTransfers) statuses.push('pending_federation');
+  return statuses;
+}
+
+/** Nombre de transferts en attente d'action pour le compte connecté */
+app.get('/api/transfers/pending-count', async (req, res) => {
+  try {
+    const perms = getPermissions(req.user);
+    const statuses = pendingTransferStatusesForUser(perms);
+    if (statuses.length === 0) {
+      return res.json({ count: 0, by_statut: {} });
+    }
+    const users = await getAllUsers();
+    let list = await getTransfers();
+    const scoped = filterTransfersForUser(list, req.user, users, perms);
+    if (scoped === null) {
+      return res.status(403).json({ error: 'Accès non autorisé' });
+    }
+    const pending = scoped.filter((t) => statuses.includes(t.statut));
+    const byStatut = {};
+    for (const s of statuses) {
+      byStatut[s] = pending.filter((t) => t.statut === s).length;
+    }
+    res.json({ count: pending.length, by_statut: byStatut });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 /** Transferts */
 app.get('/api/transfers', async (req, res) => {
   try {
@@ -2572,24 +2638,11 @@ app.get('/api/transfers', async (req, res) => {
       statut: req.query.statut || null,
       judokaId: req.query.judoka_id || null,
     });
-    // Restreindre au périmètre
-    if (req.user.type === 'club') {
-      const club = String(req.user.nom_club || '').trim().toLowerCase();
-      list = list.filter((t) =>
-        String(t.club_from || '').toLowerCase() === club
-        || String(t.club_to || '').toLowerCase() === club
-      );
-    } else if (req.user.type === 'ligue' || req.user.type === 'entente') {
-      const clubs = new Set(getScopedClubNames(users, req.user).map((c) => c.toLowerCase()));
-      list = list.filter((t) =>
-        clubs.has(String(t.club_from || '').toLowerCase())
-        || clubs.has(String(t.club_to || '').toLowerCase())
-      );
-    } else if (!perms.validateTransfers && !perms.manageAll && req.user.type !== 'admin') {
-      if (!perms.requestTransfers) {
-        return res.status(403).json({ error: 'Accès non autorisé' });
-      }
+    const scoped = filterTransfersForUser(list, req.user, users, perms);
+    if (scoped === null) {
+      return res.status(403).json({ error: 'Accès non autorisé' });
     }
+    list = scoped;
 
     const judokaIds = [...new Set(list.map((t) => t.judoka_id).filter(Boolean))];
     const judokaMap = new Map();

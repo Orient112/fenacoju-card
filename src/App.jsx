@@ -15,6 +15,7 @@ import {
   logoutUser,
   fetchClubs,
   fetchUnreadMessages,
+  fetchPendingTransfersCount,
   fetchCompetition,
   setCompetitionAccess,
   fetchEntenteCompetitionAccess,
@@ -279,6 +280,7 @@ export default function App() {
   const [gradeHistoryOpen, setGradeHistoryOpen] = useState(false);
   const [gradeHistory, setGradeHistory] = useState([]);
   const [unreadMessages, setUnreadMessages] = useState(0);
+  const [pendingTransfersCount, setPendingTransfersCount] = useState(0);
   const [toast, setToast] = useState(null);
   const [loading, setLoading] = useState(true);
   const [serverOnline, setServerOnline] = useState(true);
@@ -455,10 +457,13 @@ export default function App() {
         if (!silent) {
           showToast('Connexion au serveur lente ou indisponible. Réessayez dans un instant.', 'error');
         }
-      } else if (!silent) {
+      } else {
         fetchUnreadMessages()
           .then((r) => setUnreadMessages(r.count || 0))
           .catch(() => {});
+        fetchPendingTransfersCount()
+          .then((r) => setPendingTransfersCount(Number(r.count) || 0))
+          .catch(() => setPendingTransfersCount(0));
       }
     } catch {
       if (!silent) {
@@ -599,6 +604,38 @@ export default function App() {
     }, 2000);
     return () => clearInterval(id);
   }, [user, perms.liveRefresh, loadData]);
+
+  // Badge transferts : compte exact des demandes à traiter pour ce compte
+  useEffect(() => {
+    const canSeeTransfers = canValidateTransfersEntente
+      || canValidateTransfersLigue
+      || canConfirmTransfersFederation;
+    if (!user || !canSeeTransfers) {
+      setPendingTransfersCount(0);
+      return undefined;
+    }
+    let cancelled = false;
+    const refresh = () => {
+      fetchPendingTransfersCount()
+        .then((r) => {
+          if (!cancelled) setPendingTransfersCount(Number(r.count) || 0);
+        })
+        .catch(() => {
+          if (!cancelled) setPendingTransfersCount(0);
+        });
+    };
+    refresh();
+    const id = setInterval(refresh, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [
+    user,
+    canValidateTransfersEntente,
+    canValidateTransfersLigue,
+    canConfirmTransfersFederation,
+  ]);
 
   const searchTerm = searchInput.trim().toLowerCase();
 
@@ -1751,13 +1788,22 @@ export default function App() {
             )}
             {(canValidateTransfersEntente || canValidateTransfersLigue || canConfirmTransfersFederation) && (
               <button
-                className="nav-btn"
+                className={`nav-btn ${showTransfersInbox ? 'active' : ''}`}
                 type="button"
                 onClick={() => setShowTransfersInbox(true)}
                 disabled={!serverOnline}
-                title="Validation des transferts"
+                title={
+                  pendingTransfersCount > 0
+                    ? `${pendingTransfersCount} transfert${pendingTransfersCount > 1 ? 's' : ''} en attente`
+                    : 'Validation des transferts'
+                }
               >
                 Transferts
+                {pendingTransfersCount > 0 && (
+                  <span className="nav-transfer-badge" aria-label={`${pendingTransfersCount} transfert${pendingTransfersCount > 1 ? 's' : ''} en attente`}>
+                    {pendingTransfersCount}
+                  </span>
+                )}
               </button>
             )}
             {canViewGradeHistory && (
@@ -1921,9 +1967,22 @@ export default function App() {
             canValidateEntente={canValidateTransfersEntente}
             canValidateLigue={canValidateTransfersLigue}
             canConfirmFederation={canConfirmTransfersFederation}
-            onClose={() => setShowTransfersInbox(false)}
+            onClose={() => {
+              setShowTransfersInbox(false);
+              fetchPendingTransfersCount()
+                .then((r) => setPendingTransfersCount(Number(r.count) || 0))
+                .catch(() => {});
+            }}
             onToast={showToast}
-            onDone={loadData}
+            onDone={async () => {
+              await loadData();
+              try {
+                const r = await fetchPendingTransfersCount();
+                setPendingTransfersCount(Number(r.count) || 0);
+              } catch {
+                setPendingTransfersCount(0);
+              }
+            }}
           />
         </Suspense>
       )}
