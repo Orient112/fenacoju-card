@@ -428,6 +428,87 @@ export async function rejectGradeRequest(id, motif = '') {
   return res.json();
 }
 
+export function gradeExamTestUrl(token) {
+  return `${window.location.origin}/grade-exam/${encodeURIComponent(token)}`;
+}
+
+export async function createGradeExam(payload) {
+  const res = await apiFetch('/api/grades/exams', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Création de l\'examen impossible');
+  }
+  return res.json();
+}
+
+export async function fetchGradeExams() {
+  const res = await apiFetch('/api/grades/exams');
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Impossible de charger les examens');
+  }
+  return res.json();
+}
+
+export async function fetchGradeExamDetail(id) {
+  const res = await apiFetch(`/api/grades/exams/${encodeURIComponent(id)}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Examen introuvable');
+  }
+  return res.json();
+}
+
+export async function gradeExamSubmission(examId, submissionId, payload) {
+  const res = await apiFetch(
+    `/api/grades/exams/${encodeURIComponent(examId)}/submissions/${encodeURIComponent(submissionId)}/grade`,
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Notation impossible');
+  }
+  return res.json();
+}
+
+export async function lookupGradeExamAthlete(token, numeroCarte) {
+  const res = await fetchWithTimeout(
+    apiUrl(`/api/public/grade-exam/${encodeURIComponent(token)}/lookup`),
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ numero_carte: numeroCarte }),
+    }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Accès au test impossible');
+  }
+  return res.json();
+}
+
+export async function submitGradeExamAnswers(token, payload) {
+  const res = await fetchWithTimeout(
+    apiUrl(`/api/public/grade-exam/${encodeURIComponent(token)}/submit`),
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Envoi des réponses impossible');
+  }
+  return res.json();
+}
+
 export function isMarronOrBlackGrade(grade) {
   const g = String(grade || '').trim();
   return g === 'Marron' || isBlackBeltGrade(g);

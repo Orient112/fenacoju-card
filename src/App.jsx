@@ -19,7 +19,8 @@ import {
   fetchPendingGradeRequestsCount,
   fetchGradeHistory,
   fetchGradeRequests,
-  approveGradeRequest,
+  fetchGradeExams,
+  gradeExamTestUrl,
   rejectGradeRequest,
   fetchCompetition,
   setCompetitionAccess,
@@ -66,6 +67,8 @@ const QrScanModal = lazy(() => import('./components/QrScanModal'));
 const CreateTypeModal = lazy(() => import('./components/CreateTypeModal'));
 const ClubDetailModal = lazy(() => import('./components/ClubDetailModal'));
 const GradePassationModal = lazy(() => import('./components/GradePassationModal'));
+const BlackBeltExamModal = lazy(() => import('./components/BlackBeltExamModal'));
+const GradeExamGradingPanel = lazy(() => import('./components/GradeExamGradingPanel'));
 const JudokaFicheModal = lazy(() => import('./components/JudokaFicheModal'));
 const JudokaAthleteSheetModal = lazy(() => import('./components/JudokaAthleteSheetModal'));
 const TransferModal = lazy(() => import('./components/TransferModal'));
@@ -289,6 +292,10 @@ export default function App() {
   const [pendingGradeRequestsCount, setPendingGradeRequestsCount] = useState(0);
   const [gradeRequests, setGradeRequests] = useState([]);
   const [gradeRequestBusy, setGradeRequestBusy] = useState(false);
+  const [selectedGradeRequestIds, setSelectedGradeRequestIds] = useState(() => new Set());
+  const [blackBeltExamOpen, setBlackBeltExamOpen] = useState(false);
+  const [gradeExams, setGradeExams] = useState([]);
+  const [expandedGradeExamId, setExpandedGradeExamId] = useState(null);
   const [toast, setToast] = useState(null);
   const [loading, setLoading] = useState(true);
   const [serverOnline, setServerOnline] = useState(true);
@@ -1845,12 +1852,16 @@ export default function App() {
                 disabled={!serverOnline}
                 onClick={async () => {
                   try {
-                    const [history, requests] = await Promise.all([
+                    const [history, requests, exams] = await Promise.all([
                       fetchGradeHistory({ blackOnly: true }),
                       fetchGradeRequests({ statut: 'pending' }).catch(() => []),
+                      fetchGradeExams().catch(() => []),
                     ]);
                     setGradeHistory(history);
                     setGradeRequests(requests);
+                    setGradeExams(exams);
+                    setSelectedGradeRequestIds(new Set());
+                    setExpandedGradeExamId(null);
                     setGradeHistoryOpen(true);
                     setPendingGradeRequestsCount(requests.length);
                   } catch (err) {
@@ -2125,91 +2136,178 @@ export default function App() {
           <div className="transfer-modal" onClick={(e) => e.stopPropagation()}>
             <header className="competition-params-modal-head">
               <div>
-                <h3>Historique ceintures noires</h3>
+                <h3>Historique Ceintures Noires</h3>
                 <p className="form-hint">
-                  Demandes en attente et passations validées par le Responsable Grade.
+                  Demandes en attente et Historiques des passations validées
                 </p>
               </div>
               <button type="button" className="btn btn-outline btn-sm" onClick={() => setGradeHistoryOpen(false)}>Fermer</button>
             </header>
 
             <section className="grade-requests-section">
-              <h4>
-                Demandes en attente
-                {gradeRequests.length > 0 ? ` (${gradeRequests.length})` : ''}
-              </h4>
+              <div className="grade-requests-section-head">
+                <h4>
+                  Demandes en attente
+                  {gradeRequests.length > 0 ? ` (${gradeRequests.length})` : ''}
+                </h4>
+                {(perms.manageBlackBelts || canManageGrades || user?.type === 'admin')
+                  && selectedGradeRequestIds.size > 0 && (
+                  <button
+                    type="button"
+                    className="btn btn-demande-grade btn-sm"
+                    onClick={() => setBlackBeltExamOpen(true)}
+                  >
+                    Valider ({selectedGradeRequestIds.size})
+                  </button>
+                )}
+              </div>
               {gradeRequests.length === 0 ? (
                 <p className="form-hint">Aucune demande de passation ceinture noire.</p>
               ) : (
                 <ul className="transfer-list">
-                  {gradeRequests.map((r) => (
-                    <li key={r.id} className="transfer-row">
+                  {gradeRequests.map((r) => {
+                    const canManage = perms.manageBlackBelts || canManageGrades || user?.type === 'admin';
+                    const inOpenExam = gradeExams.some(
+                      (exam) => exam.statut === 'open'
+                        && (exam.request_ids || []).map(String).includes(String(r.id))
+                    );
+                    const checked = selectedGradeRequestIds.has(r.id);
+                    return (
+                      <li key={r.id} className="transfer-row">
+                        <div className="grade-request-select-row">
+                          {canManage && (
+                            <label className="grade-request-checkbox">
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                disabled={inOpenExam}
+                                onChange={() => {
+                                  if (inOpenExam) return;
+                                  setSelectedGradeRequestIds((prev) => {
+                                    const next = new Set(prev);
+                                    if (next.has(r.id)) next.delete(r.id);
+                                    else next.add(r.id);
+                                    return next;
+                                  });
+                                }}
+                              />
+                              <span className="sr-only">Sélectionner</span>
+                            </label>
+                          )}
+                          <div>
+                            <strong>
+                              {r.judoka_prenom} {r.judoka_nom}
+                              {r.judoka_numero_carte ? ` · ID ${r.judoka_numero_carte}` : ''}
+                            </strong>
+                            <small>
+                              {r.grade_from} → {r.grade_to}
+                              {r.judoka_club ? ` · ${r.judoka_club}` : ''}
+                              {inOpenExam ? ' · En examen' : ''}
+                            </small>
+                            <p className="form-hint">
+                              Demande par {r.requested_by_name || '-'}
+                              {r.created_at ? ` · ${new Date(r.created_at).toLocaleString('fr-FR')}` : ''}
+                            </p>
+                            {r.note ? <p className="form-hint">{r.note}</p> : null}
+                          </div>
+                        </div>
+                        {canManage && (
+                          <div className="transfer-row-actions">
+                            <button
+                              type="button"
+                              className="btn btn-outline btn-sm"
+                              disabled={gradeRequestBusy || inOpenExam}
+                              onClick={async () => {
+                                setGradeRequestBusy(true);
+                                try {
+                                  await rejectGradeRequest(r.id);
+                                  showToast('Demande rejetée');
+                                  const requests = await fetchGradeRequests({ statut: 'pending' }).catch(() => []);
+                                  setGradeRequests(requests);
+                                  setPendingGradeRequestsCount(requests.length);
+                                  setSelectedGradeRequestIds((prev) => {
+                                    const next = new Set(prev);
+                                    next.delete(r.id);
+                                    return next;
+                                  });
+                                } catch (err) {
+                                  showToast(err.message || 'Rejet impossible', 'error');
+                                } finally {
+                                  setGradeRequestBusy(false);
+                                }
+                              }}
+                            >
+                              Rejeter
+                            </button>
+                          </div>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </section>
+
+            <section className="grade-requests-section">
+              <h4>Examens / Lien de Test</h4>
+              {gradeExams.length === 0 ? (
+                <p className="form-hint">Aucun examen en cours ou récent.</p>
+              ) : (
+                <ul className="transfer-list">
+                  {gradeExams.map((exam) => (
+                    <li key={exam.id} className="transfer-row grade-exam-list-row">
                       <div>
                         <strong>
-                          {r.judoka_prenom} {r.judoka_nom}
-                          {r.judoka_numero_carte ? ` · ID ${r.judoka_numero_carte}` : ''}
+                          {exam.instructeur_nom || 'Instructeur'}
+                          {' · '}
+                          {(exam.athletes || []).length} athlète{(exam.athletes || []).length > 1 ? 's' : ''}
                         </strong>
                         <small>
-                          {r.grade_from} → {r.grade_to}
-                          {r.judoka_club ? ` · ${r.judoka_club}` : ''}
+                          {exam.statut === 'closed' ? 'Fermé' : 'Ouvert'}
+                          {exam.created_at ? ` · ${new Date(exam.created_at).toLocaleString('fr-FR')}` : ''}
                         </small>
-                        <p className="form-hint">
-                          Demande par {r.requested_by_name || '-'}
-                          {r.created_at ? ` · ${new Date(r.created_at).toLocaleString('fr-FR')}` : ''}
-                        </p>
-                        {r.note ? <p className="form-hint">{r.note}</p> : null}
-                      </div>
-                      {(perms.manageBlackBelts || canManageGrades || user?.type === 'admin') && (
-                        <div className="transfer-row-actions">
-                          <button
-                            type="button"
-                            className="btn btn-demande-grade btn-sm"
-                            disabled={gradeRequestBusy}
-                            onClick={async () => {
-                              setGradeRequestBusy(true);
-                              try {
-                                await approveGradeRequest(r.id);
-                                showToast(`Passation validée : ${r.judoka_prenom} ${r.judoka_nom} → ${r.grade_to}`);
-                                const [history, requests] = await Promise.all([
+                        {exam.statut === 'open' && exam.token && (
+                          <div className="black-belt-exam-actions" style={{ marginTop: '0.5rem' }}>
+                            <a
+                              className="btn btn-lien-test btn-sm"
+                              href={gradeExamTestUrl(exam.token)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              Lien de Test
+                            </a>
+                          </div>
+                        )}
+                        {expandedGradeExamId === exam.id && (
+                          <Suspense fallback={<p className="form-hint">Chargement…</p>}>
+                            <GradeExamGradingPanel
+                              examId={exam.id}
+                              showToast={showToast}
+                              onGraded={async () => {
+                                const [history, requests, exams] = await Promise.all([
                                   fetchGradeHistory({ blackOnly: true }),
                                   fetchGradeRequests({ statut: 'pending' }).catch(() => []),
+                                  fetchGradeExams().catch(() => []),
                                 ]);
                                 setGradeHistory(history);
                                 setGradeRequests(requests);
+                                setGradeExams(exams);
                                 setPendingGradeRequestsCount(requests.length);
                                 await loadData();
-                              } catch (err) {
-                                showToast(err.message || 'Validation impossible', 'error');
-                              } finally {
-                                setGradeRequestBusy(false);
-                              }
-                            }}
-                          >
-                            Valider
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-outline btn-sm"
-                            disabled={gradeRequestBusy}
-                            onClick={async () => {
-                              setGradeRequestBusy(true);
-                              try {
-                                await rejectGradeRequest(r.id);
-                                showToast('Demande rejetée');
-                                const requests = await fetchGradeRequests({ statut: 'pending' }).catch(() => []);
-                                setGradeRequests(requests);
-                                setPendingGradeRequestsCount(requests.length);
-                              } catch (err) {
-                                showToast(err.message || 'Rejet impossible', 'error');
-                              } finally {
-                                setGradeRequestBusy(false);
-                              }
-                            }}
-                          >
-                            Rejeter
-                          </button>
-                        </div>
-                      )}
+                              }}
+                            />
+                          </Suspense>
+                        )}
+                      </div>
+                      <div className="transfer-row-actions">
+                        <button
+                          type="button"
+                          className="btn btn-outline btn-sm"
+                          onClick={() => setExpandedGradeExamId((id) => (id === exam.id ? null : exam.id))}
+                        >
+                          {expandedGradeExamId === exam.id ? 'Masquer' : 'Noter'}
+                        </button>
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -2242,6 +2340,21 @@ export default function App() {
             </section>
           </div>
         </div>
+      )}
+
+      {blackBeltExamOpen && (
+        <Suspense fallback={null}>
+          <BlackBeltExamModal
+            athletes={gradeRequests.filter((r) => selectedGradeRequestIds.has(r.id))}
+            showToast={showToast}
+            onClose={() => setBlackBeltExamOpen(false)}
+            onCreated={async () => {
+              setSelectedGradeRequestIds(new Set());
+              const exams = await fetchGradeExams().catch(() => []);
+              setGradeExams(exams);
+            }}
+          />
+        </Suspense>
       )}
 
       {viewClub && (

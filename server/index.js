@@ -39,6 +39,17 @@ import {
   validateTransferByLigue,
 } from './judokaLifecycle.js';
 import {
+  createGradeExam,
+  getExamSubmissions,
+  getGradeExamById,
+  getGradeExamByToken,
+  gradeExamSubmission,
+  listGradeExams,
+  publicExamLookup,
+  publicExamSubmit,
+  publicExamSummary,
+} from './gradeExams.js';
+import {
   login,
   logout,
   getSessionUser,
@@ -894,6 +905,48 @@ app.post('/api/public/competition/:token/register', async (req, res) => {
     let status = 400;
     if (/déjà inscrit/i.test(msg)) status = 409;
     else if (/paiement|mobile money|push|simply|délai|validez/i.test(msg)) status = 402;
+    res.status(status).json({ error: msg });
+  }
+});
+
+/** Lien de Test — examen ceinture noire (public) */
+app.get('/api/public/grade-exam/:token', async (req, res) => {
+  try {
+    const exam = await getGradeExamByToken(req.params.token);
+    if (!exam) return res.status(404).json({ error: 'Lien de test introuvable' });
+    if (exam.statut === 'closed') {
+      return res.status(410).json({
+        error: 'Ce lien de test n\'est plus accessible : tous les athlètes ont confirmé leur examen',
+        closed: true,
+      });
+    }
+    res.json(publicExamSummary(exam));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/public/grade-exam/:token/lookup', async (req, res) => {
+  try {
+    const data = await publicExamLookup(req.params.token, req.body?.numero_carte);
+    res.json(data);
+  } catch (err) {
+    const msg = err.message || 'Accès impossible';
+    const status = /plus accessible/i.test(msg) ? 410 : 400;
+    res.status(status).json({ error: msg });
+  }
+});
+
+app.post('/api/public/grade-exam/:token/submit', async (req, res) => {
+  try {
+    const submission = await publicExamSubmit(req.params.token, {
+      numero_carte: req.body?.numero_carte,
+      answers: req.body?.answers,
+    });
+    res.status(201).json(submission);
+  } catch (err) {
+    const msg = err.message || 'Envoi impossible';
+    const status = /plus accessible/i.test(msg) ? 410 : 400;
     res.status(status).json({ error: msg });
   }
 });
@@ -2682,6 +2735,85 @@ app.post('/api/grades/requests/:id/reject', async (req, res) => {
       return res.status(403).json({ error: 'Rejet réservé au Responsable Grade' });
     }
     const updated = await rejectGradeRequest(req.params.id, req.user, req.body?.motif || '');
+    res.json(updated);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+/** Examens ceinture noire (Lien de Test) */
+app.get('/api/grades/exams', async (req, res) => {
+  try {
+    const perms = getPermissions(req.user);
+    if (!perms.viewGradeHistory && !perms.manageBlackBelts && !perms.manageGrades && req.user.type !== 'admin') {
+      return res.status(403).json({ error: 'Accès non autorisé' });
+    }
+    const fedId = req.user.type === 'admin' || req.user.type === 'superadmin'
+      ? null
+      : (req.user.federation_id || null);
+    const list = await listGradeExams({ federationId: fedId || undefined });
+    res.json(list);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/grades/exams', async (req, res) => {
+  try {
+    const perms = getPermissions(req.user);
+    if (!perms.manageBlackBelts && !perms.manageGrades && req.user.type !== 'admin') {
+      return res.status(403).json({ error: 'Réservé au Responsable Grade' });
+    }
+    const exam = await createGradeExam({
+      instructeur_nom: req.body?.instructeur_nom,
+      questions: req.body?.questions,
+      athletes: req.body?.athletes,
+      request_ids: req.body?.request_ids,
+      federation_id: req.user.federation_id || null,
+      created_by: req.user.id,
+      created_by_name: actorLabel(req.user),
+    });
+    res.status(201).json(exam);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.get('/api/grades/exams/:id', async (req, res) => {
+  try {
+    const perms = getPermissions(req.user);
+    if (!perms.viewGradeHistory && !perms.manageBlackBelts && !perms.manageGrades && req.user.type !== 'admin') {
+      return res.status(403).json({ error: 'Accès non autorisé' });
+    }
+    const exam = await getGradeExamById(req.params.id);
+    if (!exam) return res.status(404).json({ error: 'Examen introuvable' });
+    const submissions = await getExamSubmissions(exam.id);
+    res.json({ exam, submissions });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/grades/exams/:id/submissions/:submissionId/grade', async (req, res) => {
+  try {
+    const perms = getPermissions(req.user);
+    if (!perms.manageBlackBelts && !perms.manageGrades && req.user.type !== 'admin') {
+      return res.status(403).json({ error: 'Notation réservée au Responsable Grade' });
+    }
+    const updated = await gradeExamSubmission(
+      req.params.id,
+      req.params.submissionId,
+      {
+        scores: req.body?.scores,
+        reussi: req.body?.reussi,
+      },
+      req.user,
+      {
+        applyGradeChange: async (request) => {
+          await updateJudoka(request.judoka_id, { grade: request.grade_to });
+        },
+      }
+    );
     res.json(updated);
   } catch (err) {
     res.status(400).json({ error: err.message });
