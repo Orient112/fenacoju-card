@@ -370,6 +370,84 @@ export async function fetchGradeHistory({ blackOnly = false } = {}) {
   return res.json();
 }
 
+export async function fetchGradeRequests(params = {}) {
+  const q = new URLSearchParams();
+  if (params.statut) q.set('statut', params.statut);
+  const res = await apiFetch(`/api/grades/requests?${q.toString()}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Impossible de charger les demandes de grade');
+  }
+  return res.json();
+}
+
+export async function fetchPendingGradeRequestsCount() {
+  const res = await apiFetch('/api/grades/requests/pending-count');
+  if (!res.ok) return { count: 0 };
+  return res.json();
+}
+
+export async function requestBlackBeltPassation({
+  judoka_id,
+  grade_to,
+  date_passation,
+  note = '',
+}) {
+  const res = await apiFetch('/api/grades/requests', {
+    method: 'POST',
+    body: JSON.stringify({ judoka_id, grade_to, date_passation, note }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Demande impossible');
+  }
+  return res.json();
+}
+
+export async function approveGradeRequest(id, payload = {}) {
+  const res = await apiFetch(`/api/grades/requests/${encodeURIComponent(id)}/approve`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Validation impossible');
+  }
+  return res.json();
+}
+
+export async function rejectGradeRequest(id, motif = '') {
+  const res = await apiFetch(`/api/grades/requests/${encodeURIComponent(id)}/reject`, {
+    method: 'POST',
+    body: JSON.stringify({ motif }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Rejet impossible');
+  }
+  return res.json();
+}
+
+export function isMarronOrBlackGrade(grade) {
+  const g = String(grade || '').trim();
+  return g === 'Marron' || isBlackBeltGrade(g);
+}
+
+export function nextBlackBeltGrade(currentGrade) {
+  const g = String(currentGrade || '').trim();
+  if (g === 'Marron') return 'Noire 1er Dan';
+  if (!isBlackBeltGrade(g)) return null;
+  const idx = GRADES.indexOf(g);
+  if (idx < 0 || idx >= GRADES.length - 1) return null;
+  const next = GRADES[idx + 1];
+  return isBlackBeltGrade(next) ? next : null;
+}
+
+export function gradeRank(grade) {
+  const idx = GRADES.indexOf(String(grade || '').trim());
+  return idx;
+}
+
 export async function fetchTransfers(params = {}) {
   const q = new URLSearchParams();
   if (params.statut) q.set('statut', params.statut);

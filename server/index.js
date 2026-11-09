@@ -21,13 +21,19 @@ import { validateCategoryAge, categoryFromBirthDate, parseCategoriesAge } from '
 import {
   addGradeHistory,
   actorLabel,
+  approveGradeRequest,
   confirmTransferByFederation,
+  createGradeRequest,
   createTransfer,
   getGradeHistory,
+  getGradeRequests,
   getJudokaEvents,
   getTransfers,
   isBlackBeltGrade,
   isClubAllowedGrade,
+  isMarronOrBlackGrade,
+  nextBlackBeltGrade,
+  rejectGradeRequest,
   rejectTransfer,
   validateTransferByEntente,
   validateTransferByLigue,
@@ -2560,6 +2566,125 @@ app.get('/api/grades/history', async (req, res) => {
     res.json(history);
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+/** Demandes de passation ceinture noire */
+app.get('/api/grades/requests', async (req, res) => {
+  try {
+    const perms = getPermissions(req.user);
+    const canView = perms.viewGradeHistory || perms.manageBlackBelts || perms.manageGrades
+      || perms.manageClubGrades || req.user.type === 'admin' || perms.requestTransfers;
+    if (!canView && req.user.type !== 'club') {
+      return res.status(403).json({ error: 'Accès non autorisé' });
+    }
+    const statut = req.query.statut || null;
+    const fedId = req.user.type === 'admin' || req.user.type === 'superadmin'
+      ? null
+      : (req.user.federation_id || null);
+    let list = await getGradeRequests({
+      statut: statut || undefined,
+      federationId: fedId || undefined,
+    });
+    if (req.user.type === 'club') {
+      const club = String(req.user.nom_club || '').trim().toLowerCase();
+      list = list.filter((r) => String(r.judoka_club || '').trim().toLowerCase() === club
+        || String(r.requested_by || '') === String(req.user.id));
+    }
+    res.json(list);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/grades/requests/pending-count', async (req, res) => {
+  try {
+    const perms = getPermissions(req.user);
+    if (!perms.viewGradeHistory && !perms.manageBlackBelts && !perms.manageGrades && req.user.type !== 'admin') {
+      return res.json({ count: 0 });
+    }
+    const fedId = req.user.type === 'admin' || req.user.type === 'superadmin'
+      ? null
+      : (req.user.federation_id || null);
+    const list = await getGradeRequests({
+      statut: 'pending',
+      federationId: fedId || undefined,
+    });
+    res.json({ count: list.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/grades/requests', async (req, res) => {
+  try {
+    const perms = getPermissions(req.user);
+    if (!perms.manageClubGrades && !perms.createJudokas && req.user.type !== 'admin' && !perms.manageGrades) {
+      return res.status(403).json({ error: 'Demande non autorisée' });
+    }
+    const users = await getAllUsers();
+    const judoka = await getJudokaById(req.body?.judoka_id);
+    if (!judoka) return res.status(404).json({ error: 'Athlète introuvable' });
+    if (!canAccessJudoka(req.user, judoka, users)) {
+      return res.status(403).json({ error: 'Accès non autorisé' });
+    }
+    if (!isMarronOrBlackGrade(judoka.grade)) {
+      return res.status(400).json({ error: 'Réservé aux athlètes Marron ou ceinture noire' });
+    }
+    const requestedTo = String(req.body?.grade_to || '').trim() || nextBlackBeltGrade(judoka.grade);
+    if (!requestedTo) {
+      return res.status(400).json({ error: 'Aucune ceinture supérieure disponible' });
+    }
+    const request = await createGradeRequest({
+      judoka_id: judoka.id,
+      grade_from: judoka.grade,
+      grade_to: requestedTo,
+      date_passation: req.body?.date_passation || null,
+      note: req.body?.note || '',
+      requested_by: req.user.id,
+      requested_by_name: actorLabel(req.user),
+      judoka_nom: judoka.nom || '',
+      judoka_prenom: judoka.prenom || '',
+      judoka_club: judoka.club || '',
+      judoka_numero_carte: judoka.numero_carte || '',
+      federation_id: judoka.federation_id || req.user.federation_id || null,
+    });
+    res.status(201).json(request);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/grades/requests/:id/approve', async (req, res) => {
+  try {
+    const perms = getPermissions(req.user);
+    if (!perms.manageBlackBelts && !perms.manageGrades && req.user.type !== 'admin') {
+      return res.status(403).json({ error: 'Validation réservée au Responsable Grade' });
+    }
+    const updated = await approveGradeRequest(req.params.id, req.user, {
+      instructeur_nom: req.body?.instructeur_nom || '',
+      points: req.body?.points,
+      note: req.body?.note || '',
+      applyGradeChange: async (request) => {
+        await updateJudoka(request.judoka_id, { grade: request.grade_to });
+      },
+    });
+    res.json(updated);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/grades/requests/:id/reject', async (req, res) => {
+  try {
+    const perms = getPermissions(req.user);
+    if (!perms.manageBlackBelts && !perms.manageGrades && req.user.type !== 'admin') {
+      return res.status(403).json({ error: 'Rejet réservé au Responsable Grade' });
+    }
+    const updated = await rejectGradeRequest(req.params.id, req.user, req.body?.motif || '');
+    res.json(updated);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
 });
 

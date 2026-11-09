@@ -16,6 +16,11 @@ import {
   fetchClubs,
   fetchUnreadMessages,
   fetchPendingTransfersCount,
+  fetchPendingGradeRequestsCount,
+  fetchGradeHistory,
+  fetchGradeRequests,
+  approveGradeRequest,
+  rejectGradeRequest,
   fetchCompetition,
   setCompetitionAccess,
   fetchEntenteCompetitionAccess,
@@ -281,6 +286,9 @@ export default function App() {
   const [gradeHistory, setGradeHistory] = useState([]);
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [pendingTransfersCount, setPendingTransfersCount] = useState(0);
+  const [pendingGradeRequestsCount, setPendingGradeRequestsCount] = useState(0);
+  const [gradeRequests, setGradeRequests] = useState([]);
+  const [gradeRequestBusy, setGradeRequestBusy] = useState(false);
   const [toast, setToast] = useState(null);
   const [loading, setLoading] = useState(true);
   const [serverOnline, setServerOnline] = useState(true);
@@ -636,6 +644,30 @@ export default function App() {
     canValidateTransfersLigue,
     canConfirmTransfersFederation,
   ]);
+
+  // Badge Grades : demandes ceinture noire pour le Responsable Grade
+  useEffect(() => {
+    if (!user || !canViewGradeHistory) {
+      setPendingGradeRequestsCount(0);
+      return undefined;
+    }
+    let cancelled = false;
+    const refresh = () => {
+      fetchPendingGradeRequestsCount()
+        .then((r) => {
+          if (!cancelled) setPendingGradeRequestsCount(Number(r.count) || 0);
+        })
+        .catch(() => {
+          if (!cancelled) setPendingGradeRequestsCount(0);
+        });
+    };
+    refresh();
+    const id = setInterval(refresh, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [user, canViewGradeHistory]);
 
   const searchTerm = searchInput.trim().toLowerCase();
 
@@ -1808,22 +1840,35 @@ export default function App() {
             )}
             {canViewGradeHistory && (
               <button
-                className="nav-btn"
+                className={`nav-btn ${gradeHistoryOpen ? 'active' : ''}`}
                 type="button"
                 disabled={!serverOnline}
                 onClick={async () => {
                   try {
-                    const { fetchGradeHistory } = await import('./api');
-                    const data = await fetchGradeHistory({ blackOnly: true });
-                    setGradeHistory(data);
+                    const [history, requests] = await Promise.all([
+                      fetchGradeHistory({ blackOnly: true }),
+                      fetchGradeRequests({ statut: 'pending' }).catch(() => []),
+                    ]);
+                    setGradeHistory(history);
+                    setGradeRequests(requests);
                     setGradeHistoryOpen(true);
+                    setPendingGradeRequestsCount(requests.length);
                   } catch (err) {
                     showToast(err.message || 'Historique indisponible', 'error');
                   }
                 }}
-                title="Historique passations ceinture noire"
+                title={
+                  pendingGradeRequestsCount > 0
+                    ? `${pendingGradeRequestsCount} demande${pendingGradeRequestsCount > 1 ? 's' : ''} ceinture noire`
+                    : 'Historique passations ceinture noire'
+                }
               >
                 {M('grades', 'Grades')}
+                {pendingGradeRequestsCount > 0 && (
+                  <span className="nav-transfer-badge" aria-label={`${pendingGradeRequestsCount} demandes en attente`}>
+                    {pendingGradeRequestsCount}
+                  </span>
+                )}
               </button>
             )}
             {perms.export && !showCompetitionButton && (
@@ -1908,8 +1953,23 @@ export default function App() {
                 : (perms.manageBlackBelts && !canManageGrades && !perms.createJudokas ? 'black' : 'full')
             }
             allowBlackBelts={Boolean(canManageGrades || perms.manageBlackBelts || user?.type === 'admin')}
+            canRequestBlackBelt={Boolean(
+              (canManageClubGrades || user?.type === 'club')
+              && !perms.manageBlackBelts
+              && user?.type !== 'admin'
+            )}
             entraineurs={entraineurs}
             onClose={() => setGradeTarget(null)}
+            onRequestSent={async (_request, meta) => {
+              showToast(
+                `Demande envoyée au Responsable Grade : ${gradeTarget.prenom} ${gradeTarget.nom} → ${meta?.grade_to || 'ceinture noire'}`
+              );
+              setGradeTarget(null);
+              try {
+                const r = await fetchPendingGradeRequestsCount();
+                setPendingGradeRequestsCount(Number(r.count) || 0);
+              } catch { /* ignore */ }
+            }}
             onSuccess={async (updated, meta) => {
               const ok = meta?.reussi !== false;
               showToast(
@@ -2066,31 +2126,120 @@ export default function App() {
             <header className="competition-params-modal-head">
               <div>
                 <h3>Historique ceintures noires</h3>
-                <p className="form-hint">Passations enregistrées par le Responsable Grade.</p>
+                <p className="form-hint">
+                  Demandes en attente et passations validées par le Responsable Grade.
+                </p>
               </div>
               <button type="button" className="btn btn-outline btn-sm" onClick={() => setGradeHistoryOpen(false)}>Fermer</button>
             </header>
-            {gradeHistory.length === 0 ? (
-              <p className="form-hint">Aucune passation ceinture noire.</p>
-            ) : (
-              <ul className="transfer-list">
-                {gradeHistory.map((h) => (
-                  <li key={h.id} className="transfer-row">
-                    <div>
-                      <strong>{h.grade_from || '-'} → {h.grade_to}</strong>
-                      <small>
-                        {h.instructeur_nom ? `Instructeur : ${h.instructeur_nom}` : 'Sans instructeur'}
-                        {h.points != null ? ` · Points : ${h.points}` : ''}
-                      </small>
-                      <p className="form-hint">
-                        {h.changed_by_name || '-'}
-                        {h.created_at ? ` · ${new Date(h.created_at).toLocaleString('fr-FR')}` : ''}
-                      </p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
+
+            <section className="grade-requests-section">
+              <h4>
+                Demandes en attente
+                {gradeRequests.length > 0 ? ` (${gradeRequests.length})` : ''}
+              </h4>
+              {gradeRequests.length === 0 ? (
+                <p className="form-hint">Aucune demande de passation ceinture noire.</p>
+              ) : (
+                <ul className="transfer-list">
+                  {gradeRequests.map((r) => (
+                    <li key={r.id} className="transfer-row">
+                      <div>
+                        <strong>
+                          {r.judoka_prenom} {r.judoka_nom}
+                          {r.judoka_numero_carte ? ` · ID ${r.judoka_numero_carte}` : ''}
+                        </strong>
+                        <small>
+                          {r.grade_from} → {r.grade_to}
+                          {r.judoka_club ? ` · ${r.judoka_club}` : ''}
+                        </small>
+                        <p className="form-hint">
+                          Demande par {r.requested_by_name || '-'}
+                          {r.created_at ? ` · ${new Date(r.created_at).toLocaleString('fr-FR')}` : ''}
+                        </p>
+                        {r.note ? <p className="form-hint">{r.note}</p> : null}
+                      </div>
+                      {(perms.manageBlackBelts || canManageGrades || user?.type === 'admin') && (
+                        <div className="transfer-row-actions">
+                          <button
+                            type="button"
+                            className="btn btn-demande-grade btn-sm"
+                            disabled={gradeRequestBusy}
+                            onClick={async () => {
+                              setGradeRequestBusy(true);
+                              try {
+                                await approveGradeRequest(r.id);
+                                showToast(`Passation validée : ${r.judoka_prenom} ${r.judoka_nom} → ${r.grade_to}`);
+                                const [history, requests] = await Promise.all([
+                                  fetchGradeHistory({ blackOnly: true }),
+                                  fetchGradeRequests({ statut: 'pending' }).catch(() => []),
+                                ]);
+                                setGradeHistory(history);
+                                setGradeRequests(requests);
+                                setPendingGradeRequestsCount(requests.length);
+                                await loadData();
+                              } catch (err) {
+                                showToast(err.message || 'Validation impossible', 'error');
+                              } finally {
+                                setGradeRequestBusy(false);
+                              }
+                            }}
+                          >
+                            Valider
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-outline btn-sm"
+                            disabled={gradeRequestBusy}
+                            onClick={async () => {
+                              setGradeRequestBusy(true);
+                              try {
+                                await rejectGradeRequest(r.id);
+                                showToast('Demande rejetée');
+                                const requests = await fetchGradeRequests({ statut: 'pending' }).catch(() => []);
+                                setGradeRequests(requests);
+                                setPendingGradeRequestsCount(requests.length);
+                              } catch (err) {
+                                showToast(err.message || 'Rejet impossible', 'error');
+                              } finally {
+                                setGradeRequestBusy(false);
+                              }
+                            }}
+                          >
+                            Rejeter
+                          </button>
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+
+            <section className="grade-requests-section">
+              <h4>Passations enregistrées</h4>
+              {gradeHistory.length === 0 ? (
+                <p className="form-hint">Aucune passation ceinture noire.</p>
+              ) : (
+                <ul className="transfer-list">
+                  {gradeHistory.map((h) => (
+                    <li key={h.id} className="transfer-row">
+                      <div>
+                        <strong>{h.grade_from || '-'} → {h.grade_to}</strong>
+                        <small>
+                          {h.instructeur_nom ? `Instructeur : ${h.instructeur_nom}` : 'Sans instructeur'}
+                          {h.points != null ? ` · Points : ${h.points}` : ''}
+                        </small>
+                        <p className="form-hint">
+                          {h.changed_by_name || '-'}
+                          {h.created_at ? ` · ${new Date(h.created_at).toLocaleString('fr-FR')}` : ''}
+                        </p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
           </div>
         </div>
       )}

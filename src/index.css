@@ -3857,6 +3857,40 @@ tbody tr:last-child td {
   margin-top: 0.35rem;
 }
 
+.grade-passation-select option:disabled,
+.grade-passation-select option.grade-option-disabled {
+  color: #94a3b8;
+  background: #f1f5f9;
+}
+
+.btn-demande-grade {
+  background: #16a34a;
+  border: 1px solid #16a34a;
+  color: #fff;
+  font-weight: 700;
+}
+
+.btn-demande-grade:hover:not(:disabled) {
+  background: #15803d;
+  border-color: #15803d;
+  color: #fff;
+}
+
+.btn-demande-grade:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.grade-requests-section {
+  margin-bottom: 1.25rem;
+}
+
+.grade-requests-section h4 {
+  margin: 0 0 0.65rem;
+  font-size: 0.95rem;
+  color: var(--primary);
+}
+
 .judoka-athlete-sheet {
   background: #fff;
   border-radius: 16px;

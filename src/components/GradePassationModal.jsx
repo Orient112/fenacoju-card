@@ -1,5 +1,14 @@
 import { useMemo, useState } from 'react';
-import { GRADES, GRADES_CLUB, isBlackBeltGrade, updateJudoka } from '../api';
+import {
+  GRADES,
+  GRADES_CLUB,
+  gradeRank,
+  isBlackBeltGrade,
+  isMarronOrBlackGrade,
+  nextBlackBeltGrade,
+  requestBlackBeltPassation,
+  updateJudoka,
+} from '../api';
 
 function todayInputValue() {
   const d = new Date();
@@ -12,23 +21,37 @@ export default function GradePassationModal({
   judoka,
   onClose,
   onSuccess,
+  onRequestSent,
   mode = 'full', // full | club | black
   entraineurs = [],
   allowBlackBelts = false,
+  canRequestBlackBelt = false,
 }) {
   const canUseBlack = allowBlackBelts || mode === 'full' || mode === 'black';
+  const currentRank = gradeRank(judoka.grade);
 
   const allowedGrades = useMemo(() => {
-    if (mode === 'black') return GRADES.filter((g) => isBlackBeltGrade(g));
-    if (canUseBlack) return GRADES;
-    return GRADES_CLUB;
-  }, [mode, canUseBlack]);
+    let list;
+    if (mode === 'black') list = GRADES.filter((g) => isBlackBeltGrade(g));
+    else if (canUseBlack) list = [...GRADES];
+    else list = [...GRADES_CLUB];
+    // Club Marron/Noir : proposer les ceintures noires supérieures pour la Demande
+    if (canRequestBlackBelt && isMarronOrBlackGrade(judoka.grade)) {
+      GRADES.filter((g) => isBlackBeltGrade(g) && gradeRank(g) > currentRank).forEach((g) => {
+        if (!list.includes(g)) list.push(g);
+      });
+    }
+    return list;
+  }, [mode, canUseBlack, canRequestBlackBelt, judoka.grade, currentRank]);
 
   const nextSuggested = useMemo(() => {
+    if (isMarronOrBlackGrade(judoka.grade)) {
+      return nextBlackBeltGrade(judoka.grade) || judoka.grade;
+    }
     const idx = allowedGrades.indexOf(judoka.grade);
     if (idx >= 0 && idx < allowedGrades.length - 1) return allowedGrades[idx + 1];
-    return allowedGrades.find((g) => g !== judoka.grade) || allowedGrades[0] || judoka.grade || 'Blanche';
-  }, [allowedGrades, judoka.grade]);
+    return allowedGrades.find((g) => gradeRank(g) > currentRank) || allowedGrades[0] || judoka.grade || 'Blanche';
+  }, [allowedGrades, judoka.grade, currentRank]);
 
   const [reussi, setReussi] = useState(true);
   const [grade, setGrade] = useState(
@@ -42,7 +65,19 @@ export default function GradePassationModal({
   const [error, setError] = useState('');
 
   const targetGrade = reussi ? grade : (judoka.grade || '');
-  const needsBlackExtras = reussi && isBlackBeltGrade(targetGrade);
+  const needsBlackExtras = reussi && canUseBlack && isBlackBeltGrade(targetGrade);
+  const showDemande = canRequestBlackBelt
+    && isMarronOrBlackGrade(judoka.grade)
+    && Boolean(nextBlackBeltGrade(judoka.grade));
+  const demandeGrade = isBlackBeltGrade(grade) && gradeRank(grade) > currentRank
+    ? grade
+    : nextBlackBeltGrade(judoka.grade);
+
+  const isLowerOrEqualGrade = (g) => {
+    const rank = gradeRank(g);
+    if (rank < 0 || currentRank < 0) return g === judoka.grade;
+    return rank <= currentRank;
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -52,12 +87,16 @@ export default function GradePassationModal({
       return;
     }
     if (reussi) {
-      if (!grade || grade === judoka.grade) {
+      if (!grade || grade === judoka.grade || isLowerOrEqualGrade(grade) && grade === judoka.grade) {
         setError('Choisissez une ceinture supérieure différente du grade actuel');
         return;
       }
+      if (gradeRank(grade) <= currentRank && currentRank >= 0) {
+        setError('Impossible de sélectionner une ceinture inférieure ou égale');
+        return;
+      }
       if (!canUseBlack && isBlackBeltGrade(grade)) {
-        setError('La passation ceinture noire est gérée par la fédération');
+        setError('Pour la ceinture noire, utilisez le bouton Demande');
         return;
       }
       if (needsBlackExtras && !instructeurId) {
@@ -84,6 +123,33 @@ export default function GradePassationModal({
       if (note.trim()) formData.append('note', note.trim());
       const updated = await updateJudoka(judoka.id, formData);
       await onSuccess(updated, { reussi });
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDemande = async () => {
+    setError('');
+    if (!datePassation) {
+      setError('Indiquez la date de passation');
+      return;
+    }
+    if (!demandeGrade) {
+      setError('Aucune ceinture noire supérieure disponible');
+      return;
+    }
+    setLoading(true);
+    try {
+      const request = await requestBlackBeltPassation({
+        judoka_id: judoka.id,
+        grade_to: demandeGrade,
+        date_passation: datePassation,
+        note: note.trim(),
+      });
+      await onRequestSent?.(request, { grade_to: demandeGrade });
+      onClose?.();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -168,11 +234,28 @@ export default function GradePassationModal({
           {reussi && (
             <div className="form-group">
               <label htmlFor="passation-grade">Ceinture supérieure *</label>
-              <select id="passation-grade" value={grade} onChange={(e) => setGrade(e.target.value)} required>
-                {allowedGrades.map((g) => (
-                  <option key={g} value={g} disabled={g === judoka.grade}>{g}</option>
-                ))}
+              <select
+                id="passation-grade"
+                className="grade-passation-select"
+                value={grade}
+                onChange={(e) => setGrade(e.target.value)}
+                required
+              >
+                {allowedGrades.map((g) => {
+                  const disabled = isLowerOrEqualGrade(g);
+                  return (
+                    <option
+                      key={g}
+                      value={g}
+                      disabled={disabled}
+                      className={disabled ? 'grade-option-disabled' : ''}
+                    >
+                      {disabled ? `${g} (indisponible)` : g}
+                    </option>
+                  );
+                })}
               </select>
+              <p className="form-hint">Les ceintures inférieures ou égales au grade actuel sont inactives.</p>
             </div>
           )}
 
@@ -220,6 +303,17 @@ export default function GradePassationModal({
             <button type="button" className="btn btn-outline" onClick={onClose} disabled={loading}>
               Annuler
             </button>
+            {showDemande && (
+              <button
+                type="button"
+                className="btn btn-demande-grade"
+                onClick={handleDemande}
+                disabled={loading}
+                title={`Demander ${demandeGrade} au Responsable Grade`}
+              >
+                {loading ? 'Envoi...' : 'Demande'}
+              </button>
+            )}
             <button type="submit" className="btn btn-primary" disabled={loading}>
               {loading ? 'Enregistrement...' : 'Enregistrer'}
             </button>

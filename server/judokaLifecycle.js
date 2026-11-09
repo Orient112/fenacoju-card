@@ -7,6 +7,7 @@ import { dataDir } from './paths.js';
 const eventsPath = path.join(dataDir, 'judoka_events.json');
 const gradeHistoryPath = path.join(dataDir, 'judoka_grade_history.json');
 const transfersPath = path.join(dataDir, 'judoka_transfers.json');
+const gradeRequestsPath = path.join(dataDir, 'judoka_grade_requests.json');
 
 function ensureJson(filePath) {
   if (!fs.existsSync(filePath)) fs.writeFileSync(filePath, JSON.stringify([], null, 2));
@@ -14,6 +15,7 @@ function ensureJson(filePath) {
 ensureJson(eventsPath);
 ensureJson(gradeHistoryPath);
 ensureJson(transfersPath);
+ensureJson(gradeRequestsPath);
 
 function readJson(filePath) {
   ensureJson(filePath);
@@ -41,7 +43,32 @@ export const GRADES_ORDER = [
   'Noire 3ème Dan',
   'Noire 4ème Dan',
   'Noire 5ème Dan',
+  'Noire 6ème Dan',
+  'Noire 7ème Dan',
+  'Noire 8ème Dan',
+  'Noire 9ème Dan',
+  'Noire 10ème Dan',
 ];
+
+export function gradeIndex(grade) {
+  const idx = GRADES_ORDER.indexOf(String(grade || '').trim());
+  return idx;
+}
+
+export function isMarronOrBlackGrade(grade) {
+  const g = String(grade || '').trim();
+  return g === 'Marron' || isBlackBeltGrade(g);
+}
+
+export function nextBlackBeltGrade(currentGrade) {
+  const g = String(currentGrade || '').trim();
+  if (g === 'Marron') return 'Noire 1er Dan';
+  if (!isBlackBeltGrade(g)) return null;
+  const idx = gradeIndex(g);
+  if (idx < 0 || idx >= GRADES_ORDER.length - 1) return null;
+  const next = GRADES_ORDER[idx + 1];
+  return isBlackBeltGrade(next) ? next : null;
+}
 
 export function isBlackBeltGrade(grade) {
   return String(grade || '').toLowerCase().startsWith('noire');
@@ -476,6 +503,206 @@ export async function rejectTransfer(id, user, reason = '') {
     titre: `Transfert rejeté : ${transfer.club_from} → ${transfer.club_to}`,
     detail: reason || 'Demande rejetée',
     meta: { transfer_id: id, statut: 'rejete' },
+    created_by: user?.id || null,
+    created_by_name: actorLabel(user),
+  });
+  return saved;
+}
+
+async function saveGradeRequest(updated) {
+  if (isSupabaseEnabled()) {
+    try {
+      const { data, error } = await getSupabase()
+        .from('judoka_grade_requests')
+        .update(updated)
+        .eq('id', updated.id)
+        .select('*')
+        .maybeSingle();
+      if (error) throw error;
+      if (data) return data;
+    } catch (err) {
+      if (!/relation|does not exist|schema cache/i.test(err.message || '')) throw err;
+    }
+  }
+  const list = readJson(gradeRequestsPath);
+  const idx = list.findIndex((r) => r.id === updated.id);
+  if (idx === -1) throw new Error('Demande introuvable');
+  list[idx] = updated;
+  writeJson(gradeRequestsPath, list);
+  return updated;
+}
+
+export async function createGradeRequest({
+  judoka_id,
+  grade_from,
+  grade_to,
+  date_passation = null,
+  note = '',
+  requested_by = null,
+  requested_by_name = '',
+  judoka_nom = '',
+  judoka_prenom = '',
+  judoka_club = '',
+  judoka_numero_carte = '',
+  federation_id = null,
+}) {
+  const from = String(grade_from || '').trim();
+  const to = String(grade_to || '').trim();
+  if (!judoka_id) throw new Error('Athlète requis');
+  if (!isMarronOrBlackGrade(from)) {
+    throw new Error('La demande est réservée aux athlètes Marron ou ceinture noire');
+  }
+  if (!isBlackBeltGrade(to)) {
+    throw new Error('La ceinture demandée doit être une ceinture noire');
+  }
+  const fromIdx = gradeIndex(from);
+  const toIdx = gradeIndex(to);
+  if (fromIdx < 0 || toIdx <= fromIdx) {
+    throw new Error('Choisissez une ceinture supérieure');
+  }
+
+  const existing = await getGradeRequests({ judokaId: judoka_id, statut: 'pending' });
+  if (existing.length > 0) {
+    throw new Error('Une demande de passation est déjà en attente pour cet athlète');
+  }
+
+  const row = {
+    id: uuidv4(),
+    judoka_id,
+    grade_from: from,
+    grade_to: to,
+    statut: 'pending',
+    date_passation: date_passation || null,
+    note: String(note || '').trim(),
+    requested_by,
+    requested_by_name,
+    resolved_by: null,
+    resolved_by_name: '',
+    resolved_at: null,
+    judoka_nom: judoka_nom || '',
+    judoka_prenom: judoka_prenom || '',
+    judoka_club: judoka_club || '',
+    judoka_numero_carte: judoka_numero_carte || '',
+    federation_id: federation_id || null,
+    created_at: new Date().toISOString(),
+  };
+
+  if (isSupabaseEnabled()) {
+    try {
+      const { data, error } = await getSupabase().from('judoka_grade_requests').insert(row).select('*').maybeSingle();
+      if (error) throw error;
+      await addJudokaEvent({
+        judoka_id,
+        type: 'grade',
+        titre: `Demande ceinture noire : ${from} → ${to}`,
+        detail: 'En attente du Responsable Grade',
+        meta: { request_id: row.id, statut: 'pending', grade_from: from, grade_to: to },
+        created_by: requested_by,
+        created_by_name: requested_by_name,
+      });
+      return data || row;
+    } catch (err) {
+      if (!/relation|does not exist|schema cache/i.test(err.message || '')) throw err;
+      console.warn('judoka_grade_requests fallback JSON:', err.message);
+    }
+  }
+
+  const list = readJson(gradeRequestsPath);
+  list.unshift(row);
+  writeJson(gradeRequestsPath, list);
+  await addJudokaEvent({
+    judoka_id,
+    type: 'grade',
+    titre: `Demande ceinture noire : ${from} → ${to}`,
+    detail: 'En attente du Responsable Grade',
+    meta: { request_id: row.id, statut: 'pending', grade_from: from, grade_to: to },
+    created_by: requested_by,
+    created_by_name: requested_by_name,
+  });
+  return row;
+}
+
+export async function getGradeRequests({ judokaId = null, statut = null, federationId = null } = {}) {
+  let list = [];
+  if (isSupabaseEnabled()) {
+    try {
+      let q = getSupabase().from('judoka_grade_requests').select('*').order('created_at', { ascending: false });
+      if (judokaId) q = q.eq('judoka_id', judokaId);
+      if (statut) q = q.eq('statut', statut);
+      if (federationId) q = q.eq('federation_id', federationId);
+      const { data, error } = await q;
+      if (error) throw error;
+      list = data || [];
+    } catch (err) {
+      if (!/relation|does not exist|schema cache/i.test(err.message || '')) throw err;
+      list = readJson(gradeRequestsPath);
+    }
+  } else {
+    list = readJson(gradeRequestsPath);
+  }
+  if (judokaId) list = list.filter((r) => r.judoka_id === judokaId);
+  if (statut) list = list.filter((r) => r.statut === statut);
+  if (federationId) list = list.filter((r) => !r.federation_id || r.federation_id === federationId);
+  return list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+}
+
+export async function getGradeRequestById(id) {
+  const all = await getGradeRequests();
+  return all.find((r) => r.id === id) || null;
+}
+
+export async function approveGradeRequest(id, user, { applyGradeChange, instructeur_nom = '', points = null, note = '' } = {}) {
+  const request = await getGradeRequestById(id);
+  if (!request) throw new Error('Demande introuvable');
+  if (request.statut !== 'pending') throw new Error('Cette demande a déjà été traitée');
+
+  if (typeof applyGradeChange === 'function') {
+    await applyGradeChange(request);
+  }
+
+  await addGradeHistory({
+    judoka_id: request.judoka_id,
+    grade_from: request.grade_from,
+    grade_to: request.grade_to,
+    reussi: true,
+    date_passation: request.date_passation,
+    instructeur_nom: instructeur_nom || '',
+    points,
+    note: note || request.note || '',
+    changed_by: user?.id || null,
+    changed_by_name: actorLabel(user),
+  });
+
+  const updated = {
+    ...request,
+    statut: 'accepte',
+    resolved_by: user?.id || null,
+    resolved_by_name: actorLabel(user),
+    resolved_at: new Date().toISOString(),
+  };
+  return saveGradeRequest(updated);
+}
+
+export async function rejectGradeRequest(id, user, reason = '') {
+  const request = await getGradeRequestById(id);
+  if (!request) throw new Error('Demande introuvable');
+  if (request.statut !== 'pending') throw new Error('Cette demande a déjà été traitée');
+
+  const updated = {
+    ...request,
+    statut: 'rejete',
+    note: reason ? `${request.note || ''}${request.note ? ' · ' : ''}Rejet : ${reason}`.trim() : request.note,
+    resolved_by: user?.id || null,
+    resolved_by_name: actorLabel(user),
+    resolved_at: new Date().toISOString(),
+  };
+  const saved = await saveGradeRequest(updated);
+  await addJudokaEvent({
+    judoka_id: request.judoka_id,
+    type: 'grade',
+    titre: `Demande ceinture noire rejetée : ${request.grade_from} → ${request.grade_to}`,
+    detail: reason || 'Demande rejetée par le Responsable Grade',
+    meta: { request_id: id, statut: 'rejete' },
     created_by: user?.id || null,
     created_by_name: actorLabel(user),
   });
