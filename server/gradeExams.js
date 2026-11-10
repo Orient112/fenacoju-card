@@ -318,7 +318,15 @@ export async function publicExamLookup(token, numeroCarte) {
   };
 }
 
-export async function publicExamSubmit(token, { numero_carte, answers }) {
+export const UNANSWERED_TIMEOUT_MARKER = 'Non répondu - temps écoulé';
+
+export function isUnansweredExamAnswer(answer) {
+  const text = String(answer || '').trim();
+  if (!text) return true;
+  return /non\s*r[eé]pondu|sans\s*r[eé]ponse|temps\s*[eé]coul[eé]/i.test(text);
+}
+
+export async function publicExamSubmit(token, { numero_carte, answers, timed_out = false }) {
   const exam = await getGradeExamByToken(token);
   if (!exam) throw new Error('Lien de test introuvable');
   if (exam.statut === 'closed') {
@@ -335,11 +343,23 @@ export async function publicExamSubmit(token, { numero_carte, answers }) {
   if (existing) throw new Error('Vous avez déjà confirmé cet examen');
 
   const qs = examQuestionsList(exam);
+  const timedOut = Boolean(timed_out);
   const answerMap = new Map((Array.isArray(answers) ? answers : []).map((a) => [String(a.question_id), String(a.answer || '').trim()]));
   const normalized = qs.map((q) => {
-    const answer = answerMap.get(String(q.id)) || '';
-    if (!answer) throw new Error(`Répondez à toutes les questions (${q.text})`);
-    return { question_id: q.id, answer };
+    let answer = answerMap.get(String(q.id)) || '';
+    if (!answer) {
+      if (!timedOut) {
+        throw new Error(`Répondez à toutes les questions (${q.text})`);
+      }
+      answer = UNANSWERED_TIMEOUT_MARKER;
+    } else if (timedOut && isUnansweredExamAnswer(answer)) {
+      answer = UNANSWERED_TIMEOUT_MARKER;
+    }
+    return {
+      question_id: q.id,
+      answer,
+      unanswered: isUnansweredExamAnswer(answer),
+    };
   });
 
   const row = {
@@ -357,6 +377,7 @@ export async function publicExamSubmit(token, { numero_carte, answers }) {
     total_score: null,
     total_max: qs.reduce((sum, q) => sum + (Number(q.max_points) || 0), 0),
     reussi: null,
+    timed_out: timedOut,
     submitted_at: new Date().toISOString(),
     graded_at: null,
     graded_by: null,
@@ -368,10 +389,25 @@ export async function publicExamSubmit(token, { numero_carte, answers }) {
       const { data, error } = await getSupabase().from('judoka_grade_exam_submissions').insert(row).select('*').maybeSingle();
       if (error) throw error;
       await maybeCloseExam(exam);
-      return data || row;
+      return { ...(data || row), timed_out: timedOut };
     } catch (err) {
-      if (!/relation|does not exist|schema cache/i.test(err.message || '')) throw err;
-      console.warn('judoka_grade_exam_submissions fallback JSON:', err.message);
+      if (/timed_out|column|schema cache/i.test(err.message || '')) {
+        try {
+          const slim = { ...row };
+          delete slim.timed_out;
+          const { data, error } = await getSupabase().from('judoka_grade_exam_submissions').insert(slim).select('*').maybeSingle();
+          if (error) throw error;
+          await maybeCloseExam(exam);
+          return { ...(data || slim), timed_out: timedOut };
+        } catch (err2) {
+          if (!/relation|does not exist|schema cache/i.test(err2.message || '')) throw err2;
+          console.warn('judoka_grade_exam_submissions fallback JSON:', err2.message);
+        }
+      } else if (!/relation|does not exist|schema cache/i.test(err.message || '')) {
+        throw err;
+      } else {
+        console.warn('judoka_grade_exam_submissions fallback JSON:', err.message);
+      }
     }
   }
 

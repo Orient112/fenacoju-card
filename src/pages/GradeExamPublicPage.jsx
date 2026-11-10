@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import BrandLoader from '../components/BrandLoader';
 import { fetchPublicGradeExam, lookupGradeExamAthlete, submitGradeExamAnswers } from '../api';
+
+const UNANSWERED_TIMEOUT_MARKER = 'Non répondu - temps écoulé';
 
 function formatTimer(seconds) {
   const s = Math.max(0, Number(seconds) || 0);
@@ -19,6 +21,13 @@ export default function GradeExamPublicPage({ token }) {
   const [answers, setAnswers] = useState({});
   const [federationNomProfil, setFederationNomProfil] = useState('');
   const [secondsLeft, setSecondsLeft] = useState(null);
+  const [timedOut, setTimedOut] = useState(false);
+  const autoSubmitRef = useRef(false);
+  const answersRef = useRef(answers);
+
+  useEffect(() => {
+    answersRef.current = answers;
+  }, [answers]);
 
   const questions = useMemo(() => exam?.questions || [], [exam]);
   const brandLabel = useMemo(() => {
@@ -39,25 +48,44 @@ export default function GradeExamPublicPage({ token }) {
     return () => { cancelled = true; };
   }, [token]);
 
-  const submitAnswers = useCallback(async () => {
-    const payload = questions.map((q) => ({
-      question_id: q.id,
-      answer: String(answers[q.id] || '').trim() || '(Sans réponse - temps écoulé)',
-    }));
+  const buildAnswersPayload = useCallback((forceTimedOut = false) => {
+    const current = answersRef.current || {};
+    return questions.map((q) => {
+      const raw = String(current[q.id] || '').trim();
+      if (forceTimedOut && !raw) {
+        return {
+          question_id: q.id,
+          answer: UNANSWERED_TIMEOUT_MARKER,
+          unanswered: true,
+        };
+      }
+      return {
+        question_id: q.id,
+        answer: raw,
+        unanswered: !raw,
+      };
+    });
+  }, [questions]);
+
+  const submitAnswers = useCallback(async ({ forceTimedOut = false } = {}) => {
     await submitGradeExamAnswers(token, {
       numero_carte: athlete?.judoka_numero_carte || numeroCarte,
-      answers: payload,
+      answers: buildAnswersPayload(forceTimedOut),
+      timed_out: Boolean(forceTimedOut),
     });
+    if (forceTimedOut) setTimedOut(true);
     setStep('done');
-  }, [answers, athlete, numeroCarte, questions, token]);
+  }, [athlete, buildAnswersPayload, numeroCarte, token]);
 
   useEffect(() => {
     if (step !== 'quiz' || !exam?.chronometre_enabled || !exam?.chronometre_minutes) {
       setSecondsLeft(null);
+      autoSubmitRef.current = false;
       return undefined;
     }
     const total = Math.max(1, Number(exam.chronometre_minutes) || 30) * 60;
     setSecondsLeft(total);
+    autoSubmitRef.current = false;
     const id = setInterval(() => {
       setSecondsLeft((prev) => {
         if (prev == null) return prev;
@@ -72,21 +100,29 @@ export default function GradeExamPublicPage({ token }) {
   }, [step, exam?.chronometre_enabled, exam?.chronometre_minutes]);
 
   useEffect(() => {
-    if (secondsLeft !== 0 || step !== 'quiz' || loading) return undefined;
+    if (secondsLeft !== 0 || step !== 'quiz') return undefined;
+    if (autoSubmitRef.current) return undefined;
+    autoSubmitRef.current = true;
+
     let cancelled = false;
     (async () => {
+      setTimedOut(true);
       setLoading(true);
       setError('');
       try {
-        await submitAnswers();
+        await submitAnswers({ forceTimedOut: true });
       } catch (err) {
-        if (!cancelled) setError(err.message || 'Temps écoulé - envoi impossible');
+        if (!cancelled) {
+          autoSubmitRef.current = false;
+          setError(err.message || 'Temps écoulé - envoi impossible');
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
+
     return () => { cancelled = true; };
-  }, [secondsLeft, step, loading, submitAnswers]);
+  }, [secondsLeft, step, submitAnswers]);
 
   const handleLookup = async (e) => {
     e.preventDefault();
@@ -99,6 +135,8 @@ export default function GradeExamPublicPage({ token }) {
       const init = {};
       for (const q of data.exam?.questions || []) init[q.id] = '';
       setAnswers(init);
+      setTimedOut(false);
+      autoSubmitRef.current = false;
       setStep('quiz');
     } catch (err) {
       const msg = err.message || 'Accès impossible';
@@ -118,10 +156,11 @@ export default function GradeExamPublicPage({ token }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (timedOut || loading || autoSubmitRef.current) return;
     setError('');
     setLoading(true);
     try {
-      await submitAnswers();
+      await submitAnswers({ forceTimedOut: false });
     } catch (err) {
       const msg = err.message || 'Envoi impossible';
       if (/déjà confirmé|deja confirme/i.test(msg)) {
@@ -144,14 +183,16 @@ export default function GradeExamPublicPage({ token }) {
       <div className="grade-exam-public-shell">
         {step === 'done' ? (
           <div className="grade-exam-public-card">
-            <div className="grade-exam-public-state is-success">
-              <h1>Réponses envoyées</h1>
+            <div className={`grade-exam-public-state ${timedOut ? 'is-timeout' : 'is-success'}`}>
+              <h1>{timedOut ? 'Temps écoulé - examen terminé' : 'Réponses envoyées'}</h1>
               <p className="grade-exam-done-text">
                 <strong className="grade-exam-done-name">
                   {athlete?.judoka_prenom} {athlete?.judoka_nom}
                 </strong>
                 <span className="grade-exam-done-msg">
-                  Vos réponses ont été transmises au Responsable Grade
+                  {timedOut
+                    ? 'Le temps imparti est terminé. Les questions non répondues sont enregistrées comme non répondues (échec).'
+                    : 'Vos réponses ont été transmises au Responsable Grade'}
                 </span>
               </p>
             </div>
@@ -219,6 +260,11 @@ export default function GradeExamPublicPage({ token }) {
                     Temps restant : {formatTimer(secondsLeft)}
                   </div>
                 )}
+                {timedOut && (
+                  <p className="form-hint grade-exam-timeout-hint">
+                    Temps écoulé - envoi automatique des réponses…
+                  </p>
+                )}
                 <div className="grade-exam-athlete-card is-blue">
                   <p className="grade-exam-athlete-name">
                     {athlete.judoka_prenom} {athlete.judoka_nom}
@@ -248,16 +294,22 @@ export default function GradeExamPublicPage({ token }) {
                         className="grade-exam-quiz-answer is-compact"
                         value={answers[q.id] || ''}
                         onChange={(e) => setAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))}
-                        required
+                        required={!timedOut}
                         rows={2}
                         placeholder="Écrivez votre réponse ici…"
+                        disabled={timedOut || loading}
+                        readOnly={timedOut || loading}
                       />
                     </li>
                   ))}
                 </ul>
 
                 {error ? <p className="form-error">{error}</p> : null}
-                <button type="submit" className="btn btn-demande-grade grade-exam-primary-btn" disabled={loading}>
+                <button
+                  type="submit"
+                  className="btn btn-demande-grade grade-exam-primary-btn"
+                  disabled={loading || timedOut}
+                >
                   {loading ? 'Envoi…' : 'Confirmer et envoyer'}
                 </button>
               </form>

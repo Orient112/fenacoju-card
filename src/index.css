@@ -5387,6 +5387,49 @@ tbody tr:last-child td {
   color: #15803d;
 }
 
+.grade-exam-public-state.is-timeout h1 {
+  color: #b91c1c;
+}
+
+.grade-exam-timeout-hint {
+  margin: 0;
+  padding: 0.55rem 0.75rem;
+  border-radius: 10px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  font-weight: 600;
+  text-align: center;
+}
+
+.grade-exam-timeout-badge {
+  margin: 0.45rem 0 0;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: #fee2e2;
+  color: #b91c1c;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.grade-exam-unanswered-chip {
+  display: inline-flex;
+  margin-top: 0.45rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: #ffedd5;
+  color: #c2410c;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.grade-exam-review-item.is-unanswered {
+  border-color: #fdba74;
+  background: linear-gradient(180deg, #fff7ed 0%, #ffffff 70%);
+}
+
 .grade-exam-id-form,
 .grade-exam-quiz-form {
   display: flex;

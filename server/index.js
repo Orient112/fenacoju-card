@@ -975,6 +975,7 @@ app.post('/api/public/grade-exam/:token/submit', async (req, res) => {
     const submission = await publicExamSubmit(req.params.token, {
       numero_carte: req.body?.numero_carte,
       answers: req.body?.answers,
+      timed_out: Boolean(req.body?.timed_out),
     });
     res.status(201).json(submission);
   } catch (err) {

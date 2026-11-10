@@ -1,6 +1,14 @@
 import { useMemo, useState } from 'react';
 import { gradeExamSubmission } from '../api';
 
+function isUnansweredAnswer(entry) {
+  if (!entry) return true;
+  if (entry.unanswered === true) return true;
+  const text = String(entry.answer || '').trim();
+  if (!text) return true;
+  return /non\s*r[eé]pondu|sans\s*r[eé]ponse|temps\s*[eé]coul[eé]/i.test(text);
+}
+
 export default function GradeExamAnswersModal({
   exam,
   submission,
@@ -14,8 +22,10 @@ export default function GradeExamAnswersModal({
   const [verdicts, setVerdicts] = useState(() => {
     const init = {};
     for (const q of questions) {
+      const answerEntry = (submission?.answers || []).find((a) => String(a.question_id) === String(q.id));
       const existing = (submission?.scores || []).find((s) => String(s.question_id) === String(q.id));
-      if (existing && Number(existing.points) === 0) init[q.id] = 'faux';
+      if (isUnansweredAnswer(answerEntry)) init[q.id] = 'faux';
+      else if (existing && Number(existing.points) === 0) init[q.id] = 'faux';
       else if (existing && existing.points !== '' && existing.points != null) init[q.id] = 'vrai';
       else init[q.id] = null;
     }
@@ -24,8 +34,10 @@ export default function GradeExamAnswersModal({
   const [scores, setScores] = useState(() => {
     const init = {};
     for (const q of questions) {
+      const answerEntry = (submission?.answers || []).find((a) => String(a.question_id) === String(q.id));
       const existing = (submission?.scores || []).find((s) => String(s.question_id) === String(q.id));
-      init[q.id] = existing?.points ?? '';
+      if (isUnansweredAnswer(answerEntry)) init[q.id] = 0;
+      else init[q.id] = existing?.points ?? '';
     }
     return init;
   });
@@ -46,8 +58,12 @@ export default function GradeExamAnswersModal({
     return { total, max, half: max / 2 };
   }, [questions, scores, verdicts]);
 
+  const answerEntryFor = (questionId) => (
+    (submission?.answers || []).find((a) => String(a.question_id) === String(questionId)) || null
+  );
+
   const answerFor = (questionId) => {
-    const found = (submission?.answers || []).find((a) => String(a.question_id) === String(questionId));
+    const found = answerEntryFor(questionId);
     return found?.answer || '';
   };
 
@@ -128,6 +144,9 @@ export default function GradeExamAnswersModal({
             <p className="grade-exam-instructeur">
               Instructeur : <strong>{exam.instructeur_nom}</strong>
             </p>
+            {submission?.timed_out ? (
+              <p className="grade-exam-timeout-badge">Examen clos automatiquement - temps écoulé</p>
+            ) : null}
           </div>
           <button type="button" className="btn btn-outline btn-sm" onClick={onClose}>
             Fermer
@@ -137,8 +156,9 @@ export default function GradeExamAnswersModal({
         <ul className="grade-exam-review-list">
           {questions.map((q, index) => {
             const verdict = verdicts[q.id];
+            const unanswered = isUnansweredAnswer(answerEntryFor(q.id));
             return (
-              <li key={q.id} className="grade-exam-review-item">
+              <li key={q.id} className={`grade-exam-review-item ${unanswered ? 'is-unanswered' : ''}`}>
                 <div className="grade-exam-quiz-item-head">
                   <span className="grade-exam-quiz-index">Question {index + 1}</span>
                   <span className="grade-exam-quiz-points">/{q.max_points} pts</span>
@@ -147,6 +167,9 @@ export default function GradeExamAnswersModal({
                 <div className="grade-exam-review-answer">
                   <span className="grade-exam-review-label">Réponse de l&apos;athlète</span>
                   <p>{answerFor(q.id) || '-'}</p>
+                  {unanswered ? (
+                    <span className="grade-exam-unanswered-chip">Non répondu - considéré comme échec (0 pt)</span>
+                  ) : null}
                 </div>
                 <div className="grade-exam-correction-row">
                   <div className="grade-exam-verdict-btns">
