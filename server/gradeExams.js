@@ -10,6 +10,7 @@ import {
   getGradeRequestById,
   rejectGradeRequest,
 } from './judokaLifecycle.js';
+import { getFederationById } from './federations.js';
 
 const examsPath = path.join(dataDir, 'judoka_grade_exams.json');
 const submissionsPath = path.join(dataDir, 'judoka_grade_exam_submissions.json');
@@ -228,6 +229,16 @@ export async function publicExamLookup(token, numeroCarte) {
     throw new Error('Vous avez déjà confirmé cet examen');
   }
 
+  let federation_nom_profil = 'Fight Management';
+  if (exam.federation_id) {
+    try {
+      const fed = await getFederationById(exam.federation_id);
+      federation_nom_profil = String(fed?.nom_profil || fed?.nom || '').trim() || 'Fight Management';
+    } catch {
+      federation_nom_profil = 'Fight Management';
+    }
+  }
+
   return {
     exam: {
       id: exam.id,
@@ -235,6 +246,7 @@ export async function publicExamLookup(token, numeroCarte) {
       instructeur_nom: exam.instructeur_nom,
       questions: exam.questions,
       statut: exam.statut,
+      federation_nom_profil,
     },
     athlete,
   };
@@ -314,7 +326,7 @@ export async function gradeExamSubmission(
   const exam = await getGradeExamById(examId);
   if (!exam) throw new Error('Examen introuvable');
   const submissions = await getExamSubmissions(examId);
-  const submission = submissions.find((s) => s.id === submissionId);
+  const submission = submissions.find((s) => String(s.id) === String(submissionId));
   if (!submission) throw new Error('Réponses introuvables');
   if (submission.reussi === true || submission.reussi === false) {
     throw new Error('Cette copie a déjà été traitée');
@@ -336,42 +348,52 @@ export async function gradeExamSubmission(
   const scoreNote = `Examen ceinture noire · ${totalScore}/${totalMax}`;
   const finalNote = [scoreNote, graderNote].filter(Boolean).join(' · ');
 
-  const updated = {
-    ...submission,
+  // Payload strict : ne jamais renvoyer des champs UI (ex. exam) vers Supabase
+  const patch = {
     scores: normalizedScores,
     total_score: totalScore,
     total_max: totalMax,
     reussi: passed,
-    grader_note: graderNote,
     graded_at: new Date().toISOString(),
     graded_by: user?.id || null,
     graded_by_name: actorLabel(user),
   };
 
+  let updated = { ...submission, ...patch };
+  delete updated.exam;
+
   if (isSupabaseEnabled()) {
     try {
       const { data, error } = await getSupabase()
         .from('judoka_grade_exam_submissions')
-        .update(updated)
-        .eq('id', submissionId)
+        .update(patch)
+        .eq('id', submission.id)
         .select('*')
         .maybeSingle();
       if (error) throw error;
-      Object.assign(updated, data || {});
+      if (data) updated = data;
     } catch (err) {
       if (!/relation|does not exist|schema cache/i.test(err.message || '')) throw err;
+      console.warn('judoka_grade_exam_submissions grade fallback JSON:', err.message);
       const list = readJson(submissionsPath);
-      const idx = list.findIndex((s) => s.id === submissionId);
-      if (idx === -1) throw new Error('Réponses introuvables');
-      list[idx] = updated;
-      writeJson(submissionsPath, list);
+      const idx = list.findIndex((s) => String(s.id) === String(submission.id));
+      if (idx === -1) {
+        // Soumission déjà en Supabase mais table/colonne partielle : on continue avec le patch mémoire
+        updated = { ...submission, ...patch };
+        delete updated.exam;
+      } else {
+        list[idx] = { ...list[idx], ...patch };
+        writeJson(submissionsPath, list);
+        updated = list[idx];
+      }
     }
   } else {
     const list = readJson(submissionsPath);
-    const idx = list.findIndex((s) => s.id === submissionId);
+    const idx = list.findIndex((s) => String(s.id) === String(submission.id));
     if (idx === -1) throw new Error('Réponses introuvables');
-    list[idx] = updated;
+    list[idx] = { ...list[idx], ...patch };
     writeJson(submissionsPath, list);
+    updated = list[idx];
   }
 
   if (submission.request_id) {
@@ -430,8 +452,17 @@ export async function listGradeExamSubmissionsWithExam({ federationId = null } =
   return out.sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at));
 }
 
-export function publicExamSummary(exam) {
+export async function publicExamSummary(exam) {
   if (!exam) return null;
+  let federation_nom_profil = 'Fight Management';
+  if (exam.federation_id) {
+    try {
+      const fed = await getFederationById(exam.federation_id);
+      federation_nom_profil = String(fed?.nom_profil || fed?.nom || '').trim() || 'Fight Management';
+    } catch {
+      federation_nom_profil = 'Fight Management';
+    }
+  }
   return {
     token: exam.token,
     statut: exam.statut,
@@ -439,5 +470,6 @@ export function publicExamSummary(exam) {
     questions_count: (exam.questions || []).length,
     athletes_count: (exam.athletes || []).length,
     closed: exam.statut === 'closed',
+    federation_nom_profil,
   };
 }

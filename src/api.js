@@ -486,6 +486,17 @@ export async function gradeExamSubmission(examId, submissionId, payload) {
   return res.json();
 }
 
+export async function fetchPublicGradeExam(token) {
+  const res = await fetchWithTimeout(
+    apiUrl(`/api/public/grade-exam/${encodeURIComponent(token)}`)
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Lien de test introuvable');
+  }
+  return res.json();
+}
+
 export async function lookupGradeExamAthlete(token, numeroCarte) {
   const res = await fetchWithTimeout(
     apiUrl(`/api/public/grade-exam/${encodeURIComponent(token)}/lookup`),

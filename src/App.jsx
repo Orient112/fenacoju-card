@@ -2253,10 +2253,13 @@ export default function App() {
                               <button
                                 type="button"
                                 className="btn btn-voir-reponses btn-sm"
-                                onClick={() => setGradeAnswersTarget({
-                                  exam: submissionEntry.exam,
-                                  submission: submissionEntry,
-                                })}
+                                onClick={() => {
+                                  const { exam: examData, ...cleanSubmission } = submissionEntry;
+                                  setGradeAnswersTarget({
+                                    exam: examData || submissionEntry.exam,
+                                    submission: cleanSubmission,
+                                  });
+                                }}
                               >
                                 Voir les réponses
                               </button>

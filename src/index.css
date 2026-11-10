@@ -4139,6 +4139,26 @@ tbody tr:last-child td {
   padding: 1rem 1.1rem;
 }
 
+.grade-exam-athlete-card.is-blue {
+  background: linear-gradient(145deg, #1d4ed8 0%, #2563eb 55%, #3b82f6 100%);
+  border-color: #1e40af;
+  color: #fff;
+  box-shadow: 0 10px 28px rgba(37, 99, 235, 0.28);
+}
+
+.grade-exam-athlete-card.is-blue .grade-exam-athlete-name,
+.grade-exam-athlete-card.is-blue .grade-exam-athlete-belts,
+.grade-exam-athlete-card.is-blue .grade-exam-athlete-id,
+.grade-exam-athlete-card.is-blue .grade-exam-instructeur,
+.grade-exam-athlete-card.is-blue .grade-exam-instructeur strong {
+  color: #fff;
+}
+
+.grade-exam-athlete-card.is-blue .grade-exam-athlete-id,
+.grade-exam-athlete-card.is-blue .grade-exam-instructeur {
+  opacity: 0.92;
+}
+
 .grade-exam-athlete-name {
   margin: 0;
   font-size: 1.15rem;
@@ -4168,6 +4188,35 @@ tbody tr:last-child td {
 .grade-exam-instructeur strong {
   color: #0f172a;
   font-weight: 700;
+}
+
+.grade-exam-done-text {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.grade-exam-done-name {
+  color: #0f172a;
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.grade-exam-done-msg {
+  color: #64748b;
+  font-weight: 400;
+  font-size: 0.95rem;
+}
+
+.grade-exam-access-closed {
+  margin: 0.9rem 0 0;
+  text-align: center;
+  color: #2563eb;
+  font-size: 0.7em;
+  font-weight: 600;
+  letter-spacing: 0.01em;
 }
 
 .grade-exam-quiz-list,
@@ -4233,6 +4282,13 @@ tbody tr:last-child td {
   line-height: 1.45;
 }
 
+.grade-exam-quiz-answer.is-compact {
+  min-height: 3.25rem;
+  padding: 0.45rem 0.65rem;
+  border-radius: 10px;
+  font-size: 0.92rem;
+}
+
 .grade-exam-quiz-answer:focus {
   outline: none;
   border-color: #16a34a;
@@ -4269,6 +4325,135 @@ tbody tr:last-child td {
   width: min(760px, 96vw);
   max-height: 92vh;
   overflow: auto;
+  background: #fff;
+  border-radius: 18px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22);
+  padding: 1.25rem 1.35rem 1.2rem;
+}
+
+.grade-exam-answers-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.grade-exam-answers-kicker {
+  margin: 0 0 0.25rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.grade-exam-answers-head h3 {
+  margin: 0;
+  color: #0f172a;
+}
+
+.grade-exam-answers-meta {
+  margin: 0.35rem 0 0;
+  color: #475569;
+  font-size: 0.9rem;
+}
+
+.grade-exam-correction-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem 0.85rem;
+  margin-top: 0.15rem;
+}
+
+.grade-exam-verdict-btns {
+  display: inline-flex;
+  gap: 0.4rem;
+}
+
+.grade-exam-verdict-btn {
+  min-width: 4.2rem;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #334155;
+  font-weight: 700;
+}
+
+.grade-exam-verdict-btn.is-vrai {
+  background: #16a34a;
+  border-color: #16a34a;
+  color: #fff;
+}
+
+.grade-exam-verdict-btn.is-faux {
+  background: #dc2626;
+  border-color: #dc2626;
+  color: #fff;
+}
+
+.grade-exam-score-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.85rem;
+  color: #334155;
+  font-weight: 600;
+}
+
+.grade-exam-score-field input {
+  width: 5rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 0.35rem 0.5rem;
+}
+
+.grade-exam-score-zero {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #dc2626;
+}
+
+.grade-exam-responsable-note {
+  margin-top: 1rem;
+  background: linear-gradient(180deg, #f8fafc 0%, #fff 100%);
+  border: 1px solid #dbe4f0;
+  border-radius: 14px;
+  padding: 0.95rem 1rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.grade-exam-responsable-note label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.grade-exam-responsable-note span {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #1e3a8a;
+}
+
+.grade-exam-responsable-note textarea {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  padding: 0.8rem 0.9rem;
+  min-height: 6rem;
+  resize: vertical;
+  background: #fff;
+  font: inherit;
+  line-height: 1.45;
+}
+
+.grade-exam-responsable-note textarea:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
 }
 
 .grade-exam-answers-actions {

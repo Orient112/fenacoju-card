@@ -921,7 +921,7 @@ app.get('/api/public/grade-exam/:token', async (req, res) => {
         closed: true,
       });
     }
-    res.json(publicExamSummary(exam));
+    res.json(await publicExamSummary(exam));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
