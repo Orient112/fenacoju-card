@@ -140,7 +140,7 @@ export default function QrScanModal({ onClose }) {
   const fileInputRef = useRef(null);
   const [phase, setPhase] = useState('scanning');
   const [scanSession, setScanSession] = useState(0);
-  const [athlète, setJudoka] = useState(null);
+  const [judoka, setJudoka] = useState(null);
   const [qrPayload, setQrPayload] = useState(null);
   const [notFoundMessage, setNotFoundMessage] = useState('');
   const [error, setError] = useState('');
