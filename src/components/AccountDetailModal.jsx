@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { ACCOUNT_STATUT_LABELS, CLUB_DOCUMENT_LABELS, USER_TYPES, resolveMediaUrl } from '../api';
 
 function Field({ label, value }) {
@@ -9,7 +10,37 @@ function Field({ label, value }) {
   );
 }
 
-export default function AccountDetailModal({ account, onClose }) {
+function orgName(u) {
+  return u?.nom_organisation || u?.nom_club || `${u?.prenom || ''} ${u?.nom || ''}`.trim() || '-';
+}
+
+export default function AccountDetailModal({ account, members = [], onClose }) {
+  const childEntentes = useMemo(() => {
+    if (!account || account.type !== 'ligue') return [];
+    return (members || [])
+      .filter((m) => m.type === 'entente' && String(m.parent_id) === String(account.id))
+      .sort((a, b) => orgName(a).localeCompare(orgName(b), 'fr'));
+  }, [account, members]);
+
+  const childClubs = useMemo(() => {
+    if (!account) return [];
+    if (account.type === 'entente') {
+      return (members || [])
+        .filter((m) => m.type === 'club' && String(m.parent_id) === String(account.id))
+        .sort((a, b) => orgName(a).localeCompare(orgName(b), 'fr'));
+    }
+    if (account.type === 'ligue') {
+      const ententeIds = new Set(childEntentes.map((e) => String(e.id)));
+      return (members || [])
+        .filter((m) => m.type === 'club' && (
+          String(m.parent_id) === String(account.id)
+          || ententeIds.has(String(m.parent_id))
+        ))
+        .sort((a, b) => orgName(a).localeCompare(orgName(b), 'fr'));
+    }
+    return [];
+  }, [account, members, childEntentes]);
+
   if (!account) return null;
 
   const isArbitre = account._kind === 'arbitre' || (!account.type && account.niveau);
@@ -139,6 +170,87 @@ export default function AccountDetailModal({ account, onClose }) {
                   </li>
                 ))}
               </ul>
+            </div>
+          )}
+
+          {!isArbitre && account.type === 'ligue' && (
+            <>
+              <div className="club-detail-section">
+                <h3>Ententes ({childEntentes.length})</h3>
+                {childEntentes.length === 0 ? (
+                  <p className="form-hint">Aucune entente liée à cette ligue.</p>
+                ) : (
+                  <ul className="club-members-list">
+                    {childEntentes.map((e) => (
+                      <li key={e.id} className="club-member-item">
+                        <div>
+                          <span className="club-member-name">{orgName(e)}</span>
+                          <span className="club-member-meta">
+                            {[e.responsable, e.ville].filter(Boolean).join(' · ') || 'Entente'}
+                          </span>
+                        </div>
+                        <span className={`badge ${e.statut === 'pending' ? 'badge-pending' : e.statut === 'rejete' ? 'badge-inactif' : 'badge-actif'}`}>
+                          {ACCOUNT_STATUT_LABELS[e.statut || 'actif'] || e.statut || 'Actif'}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div className="club-detail-section">
+                <h3>Clubs ({childClubs.length})</h3>
+                {childClubs.length === 0 ? (
+                  <p className="form-hint">Aucun club lié à cette ligue.</p>
+                ) : (
+                  <ul className="club-members-list">
+                    {childClubs.map((c) => {
+                      const parentEntente = childEntentes.find((e) => String(e.id) === String(c.parent_id));
+                      return (
+                        <li key={c.id} className="club-member-item">
+                          <div>
+                            <span className="club-member-name">{orgName(c)}</span>
+                            <span className="club-member-meta">
+                              {[
+                                parentEntente ? `Entente : ${orgName(parentEntente)}` : null,
+                                c.responsable,
+                                c.ville,
+                              ].filter(Boolean).join(' · ') || 'Club'}
+                            </span>
+                          </div>
+                          <span className={`badge ${c.statut === 'pending' ? 'badge-pending' : c.statut === 'rejete' ? 'badge-inactif' : 'badge-actif'}`}>
+                            {ACCOUNT_STATUT_LABELS[c.statut || 'actif'] || c.statut || 'Actif'}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            </>
+          )}
+
+          {!isArbitre && account.type === 'entente' && (
+            <div className="club-detail-section">
+              <h3>Clubs ({childClubs.length})</h3>
+              {childClubs.length === 0 ? (
+                <p className="form-hint">Aucun club lié à cette entente.</p>
+              ) : (
+                <ul className="club-members-list">
+                  {childClubs.map((c) => (
+                    <li key={c.id} className="club-member-item">
+                      <div>
+                        <span className="club-member-name">{orgName(c)}</span>
+                        <span className="club-member-meta">
+                          {[c.responsable, c.ville].filter(Boolean).join(' · ') || 'Club'}
+                        </span>
+                      </div>
+                      <span className={`badge ${c.statut === 'pending' ? 'badge-pending' : c.statut === 'rejete' ? 'badge-inactif' : 'badge-actif'}`}>
+                        {ACCOUNT_STATUT_LABELS[c.statut || 'actif'] || c.statut || 'Actif'}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           )}
         </div>

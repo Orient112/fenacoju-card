@@ -453,6 +453,15 @@ export async function fetchGradeExams() {
   return res.json();
 }
 
+export async function fetchGradeExamSubmissions() {
+  const res = await apiFetch('/api/grades/exam-submissions');
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Impossible de charger les réponses d\'examen');
+  }
+  return res.json();
+}
+
 export async function fetchGradeExamDetail(id) {
   const res = await apiFetch(`/api/grades/exams/${encodeURIComponent(id)}`);
   if (!res.ok) {

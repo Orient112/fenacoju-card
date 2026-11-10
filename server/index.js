@@ -45,6 +45,7 @@ import {
   getGradeExamByToken,
   gradeExamSubmission,
   listGradeExams,
+  listGradeExamSubmissionsWithExam,
   publicExamLookup,
   publicExamSubmit,
   publicExamSummary,
@@ -2758,6 +2759,22 @@ app.get('/api/grades/exams', async (req, res) => {
   }
 });
 
+app.get('/api/grades/exam-submissions', async (req, res) => {
+  try {
+    const perms = getPermissions(req.user);
+    if (!perms.viewGradeHistory && !perms.manageBlackBelts && !perms.manageGrades && req.user.type !== 'admin') {
+      return res.status(403).json({ error: 'Accès non autorisé' });
+    }
+    const fedId = req.user.type === 'admin' || req.user.type === 'superadmin'
+      ? null
+      : (req.user.federation_id || null);
+    const list = await listGradeExamSubmissionsWithExam({ federationId: fedId || undefined });
+    res.json(list);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/api/grades/exams', async (req, res) => {
   try {
     const perms = getPermissions(req.user);
@@ -2806,6 +2823,7 @@ app.post('/api/grades/exams/:id/submissions/:submissionId/grade', async (req, re
       {
         scores: req.body?.scores,
         reussi: req.body?.reussi,
+        note: req.body?.note || '',
       },
       req.user,
       {

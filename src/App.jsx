@@ -20,6 +20,7 @@ import {
   fetchGradeHistory,
   fetchGradeRequests,
   fetchGradeExams,
+  fetchGradeExamSubmissions,
   gradeExamTestUrl,
   rejectGradeRequest,
   fetchCompetition,
@@ -68,7 +69,7 @@ const CreateTypeModal = lazy(() => import('./components/CreateTypeModal'));
 const ClubDetailModal = lazy(() => import('./components/ClubDetailModal'));
 const GradePassationModal = lazy(() => import('./components/GradePassationModal'));
 const BlackBeltExamModal = lazy(() => import('./components/BlackBeltExamModal'));
-const GradeExamGradingPanel = lazy(() => import('./components/GradeExamGradingPanel'));
+const GradeExamAnswersModal = lazy(() => import('./components/GradeExamAnswersModal'));
 const JudokaFicheModal = lazy(() => import('./components/JudokaFicheModal'));
 const JudokaAthleteSheetModal = lazy(() => import('./components/JudokaAthleteSheetModal'));
 const TransferModal = lazy(() => import('./components/TransferModal'));
@@ -295,7 +296,8 @@ export default function App() {
   const [selectedGradeRequestIds, setSelectedGradeRequestIds] = useState(() => new Set());
   const [blackBeltExamOpen, setBlackBeltExamOpen] = useState(false);
   const [gradeExams, setGradeExams] = useState([]);
-  const [expandedGradeExamId, setExpandedGradeExamId] = useState(null);
+  const [gradeExamSubmissions, setGradeExamSubmissions] = useState([]);
+  const [gradeAnswersTarget, setGradeAnswersTarget] = useState(null);
   const [toast, setToast] = useState(null);
   const [loading, setLoading] = useState(true);
   const [serverOnline, setServerOnline] = useState(true);
@@ -675,6 +677,32 @@ export default function App() {
       clearInterval(id);
     };
   }, [user, canViewGradeHistory]);
+
+  // Rafraîchir les réponses d'examen tant que l'historique est ouvert
+  useEffect(() => {
+    if (!gradeHistoryOpen || !canViewGradeHistory) return undefined;
+    let cancelled = false;
+    const refresh = () => {
+      Promise.all([
+        fetchGradeRequests({ statut: 'pending' }).catch(() => []),
+        fetchGradeExams().catch(() => []),
+        fetchGradeExamSubmissions().catch(() => []),
+        fetchGradeHistory({ blackOnly: true }).catch(() => []),
+      ]).then(([requests, exams, submissions, history]) => {
+        if (cancelled) return;
+        setGradeRequests(requests);
+        setGradeExams(exams);
+        setGradeExamSubmissions(submissions);
+        setGradeHistory(history);
+        setPendingGradeRequestsCount(requests.length);
+      });
+    };
+    const id = setInterval(refresh, 4000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [gradeHistoryOpen, canViewGradeHistory]);
 
   const searchTerm = searchInput.trim().toLowerCase();
 
@@ -1852,16 +1880,18 @@ export default function App() {
                 disabled={!serverOnline}
                 onClick={async () => {
                   try {
-                    const [history, requests, exams] = await Promise.all([
+                    const [history, requests, exams, submissions] = await Promise.all([
                       fetchGradeHistory({ blackOnly: true }),
                       fetchGradeRequests({ statut: 'pending' }).catch(() => []),
                       fetchGradeExams().catch(() => []),
+                      fetchGradeExamSubmissions().catch(() => []),
                     ]);
                     setGradeHistory(history);
                     setGradeRequests(requests);
                     setGradeExams(exams);
+                    setGradeExamSubmissions(submissions);
                     setSelectedGradeRequestIds(new Set());
-                    setExpandedGradeExamId(null);
+                    setGradeAnswersTarget(null);
                     setGradeHistoryOpen(true);
                     setPendingGradeRequestsCount(requests.length);
                   } catch (err) {
@@ -2171,6 +2201,12 @@ export default function App() {
                       (exam) => exam.statut === 'open'
                         && (exam.request_ids || []).map(String).includes(String(r.id))
                     );
+                    const submissionEntry = gradeExamSubmissions.find(
+                      (s) => String(s.request_id) === String(r.id)
+                        && s.reussi !== true
+                        && s.reussi !== false
+                    );
+                    const hasAnswers = Boolean(submissionEntry);
                     const checked = selectedGradeRequestIds.has(r.id);
                     return (
                       <li key={r.id} className="transfer-row">
@@ -2180,9 +2216,9 @@ export default function App() {
                               <input
                                 type="checkbox"
                                 checked={checked}
-                                disabled={inOpenExam}
+                                disabled={inOpenExam || hasAnswers}
                                 onChange={() => {
-                                  if (inOpenExam) return;
+                                  if (inOpenExam || hasAnswers) return;
                                   setSelectedGradeRequestIds((prev) => {
                                     const next = new Set(prev);
                                     if (next.has(r.id)) next.delete(r.id);
@@ -2202,7 +2238,7 @@ export default function App() {
                             <small>
                               {r.grade_from} → {r.grade_to}
                               {r.judoka_club ? ` · ${r.judoka_club}` : ''}
-                              {inOpenExam ? ' · En examen' : ''}
+                              {hasAnswers ? ' · Réponses reçues' : (inOpenExam ? ' · En examen' : '')}
                             </small>
                             <p className="form-hint">
                               Demande par {r.requested_by_name || '-'}
@@ -2213,32 +2249,45 @@ export default function App() {
                         </div>
                         {canManage && (
                           <div className="transfer-row-actions">
-                            <button
-                              type="button"
-                              className="btn btn-outline btn-sm"
-                              disabled={gradeRequestBusy || inOpenExam}
-                              onClick={async () => {
-                                setGradeRequestBusy(true);
-                                try {
-                                  await rejectGradeRequest(r.id);
-                                  showToast('Demande rejetée');
-                                  const requests = await fetchGradeRequests({ statut: 'pending' }).catch(() => []);
-                                  setGradeRequests(requests);
-                                  setPendingGradeRequestsCount(requests.length);
-                                  setSelectedGradeRequestIds((prev) => {
-                                    const next = new Set(prev);
-                                    next.delete(r.id);
-                                    return next;
-                                  });
-                                } catch (err) {
-                                  showToast(err.message || 'Rejet impossible', 'error');
-                                } finally {
-                                  setGradeRequestBusy(false);
-                                }
-                              }}
-                            >
-                              Rejeter
-                            </button>
+                            {hasAnswers ? (
+                              <button
+                                type="button"
+                                className="btn btn-voir-reponses btn-sm"
+                                onClick={() => setGradeAnswersTarget({
+                                  exam: submissionEntry.exam,
+                                  submission: submissionEntry,
+                                })}
+                              >
+                                Voir les réponses
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                className="btn btn-outline btn-sm"
+                                disabled={gradeRequestBusy || inOpenExam}
+                                onClick={async () => {
+                                  setGradeRequestBusy(true);
+                                  try {
+                                    await rejectGradeRequest(r.id);
+                                    showToast('Demande rejetée');
+                                    const requests = await fetchGradeRequests({ statut: 'pending' }).catch(() => []);
+                                    setGradeRequests(requests);
+                                    setPendingGradeRequestsCount(requests.length);
+                                    setSelectedGradeRequestIds((prev) => {
+                                      const next = new Set(prev);
+                                      next.delete(r.id);
+                                      return next;
+                                    });
+                                  } catch (err) {
+                                    showToast(err.message || 'Rejet impossible', 'error');
+                                  } finally {
+                                    setGradeRequestBusy(false);
+                                  }
+                                }}
+                              >
+                                Rejeter
+                              </button>
+                            )}
                           </div>
                         )}
                       </li>
@@ -2278,35 +2327,6 @@ export default function App() {
                             </a>
                           </div>
                         )}
-                        {expandedGradeExamId === exam.id && (
-                          <Suspense fallback={<p className="form-hint">Chargement…</p>}>
-                            <GradeExamGradingPanel
-                              examId={exam.id}
-                              showToast={showToast}
-                              onGraded={async () => {
-                                const [history, requests, exams] = await Promise.all([
-                                  fetchGradeHistory({ blackOnly: true }),
-                                  fetchGradeRequests({ statut: 'pending' }).catch(() => []),
-                                  fetchGradeExams().catch(() => []),
-                                ]);
-                                setGradeHistory(history);
-                                setGradeRequests(requests);
-                                setGradeExams(exams);
-                                setPendingGradeRequestsCount(requests.length);
-                                await loadData();
-                              }}
-                            />
-                          </Suspense>
-                        )}
-                      </div>
-                      <div className="transfer-row-actions">
-                        <button
-                          type="button"
-                          className="btn btn-outline btn-sm"
-                          onClick={() => setExpandedGradeExamId((id) => (id === exam.id ? null : exam.id))}
-                        >
-                          {expandedGradeExamId === exam.id ? 'Masquer' : 'Noter'}
-                        </button>
                       </div>
                     </li>
                   ))}
@@ -2357,6 +2377,31 @@ export default function App() {
         </Suspense>
       )}
 
+      {gradeAnswersTarget && (
+        <Suspense fallback={null}>
+          <GradeExamAnswersModal
+            exam={gradeAnswersTarget.exam}
+            submission={gradeAnswersTarget.submission}
+            showToast={showToast}
+            onClose={() => setGradeAnswersTarget(null)}
+            onResolved={async () => {
+              const [history, requests, exams, submissions] = await Promise.all([
+                fetchGradeHistory({ blackOnly: true }),
+                fetchGradeRequests({ statut: 'pending' }).catch(() => []),
+                fetchGradeExams().catch(() => []),
+                fetchGradeExamSubmissions().catch(() => []),
+              ]);
+              setGradeHistory(history);
+              setGradeRequests(requests);
+              setGradeExams(exams);
+              setGradeExamSubmissions(submissions);
+              setPendingGradeRequestsCount(requests.length);
+              await loadData();
+            }}
+          />
+        </Suspense>
+      )}
+
       {viewClub && (
         <Suspense fallback={null}>
           <ClubDetailModal
@@ -2374,6 +2419,7 @@ export default function App() {
         <Suspense fallback={null}>
           <AccountDetailModal
             account={viewAccount}
+            members={members}
             onClose={() => setViewAccount(null)}
           />
         </Suspense>

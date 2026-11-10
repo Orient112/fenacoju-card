@@ -3,7 +3,13 @@ import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { getSupabase, isSupabaseEnabled } from './supabase.js';
 import { dataDir } from './paths.js';
-import { actorLabel, approveGradeRequest, getGradeRequestById } from './judokaLifecycle.js';
+import {
+  actorLabel,
+  addGradeHistory,
+  approveGradeRequest,
+  getGradeRequestById,
+  rejectGradeRequest,
+} from './judokaLifecycle.js';
 
 const examsPath = path.join(dataDir, 'judoka_grade_exams.json');
 const submissionsPath = path.join(dataDir, 'judoka_grade_exam_submissions.json');
@@ -298,12 +304,21 @@ export async function publicExamSubmit(token, { numero_carte, answers }) {
   return row;
 }
 
-export async function gradeExamSubmission(examId, submissionId, { scores, reussi }, user, { applyGradeChange } = {}) {
+export async function gradeExamSubmission(
+  examId,
+  submissionId,
+  { scores, reussi, note = '' },
+  user,
+  { applyGradeChange } = {}
+) {
   const exam = await getGradeExamById(examId);
   if (!exam) throw new Error('Examen introuvable');
   const submissions = await getExamSubmissions(examId);
   const submission = submissions.find((s) => s.id === submissionId);
   if (!submission) throw new Error('Réponses introuvables');
+  if (submission.reussi === true || submission.reussi === false) {
+    throw new Error('Cette copie a déjà été traitée');
+  }
 
   const qs = exam.questions || [];
   const scoreMap = new Map((Array.isArray(scores) ? scores : []).map((s) => [String(s.question_id), Number(s.points)]));
@@ -317,6 +332,9 @@ export async function gradeExamSubmission(examId, submissionId, { scores, reussi
   const totalScore = normalizedScores.reduce((sum, s) => sum + s.points, 0);
   const totalMax = normalizedScores.reduce((sum, s) => sum + s.max_points, 0);
   const passed = reussi === true || reussi === '1' || reussi === 1;
+  const graderNote = String(note || '').trim();
+  const scoreNote = `Examen ceinture noire · ${totalScore}/${totalMax}`;
+  const finalNote = [scoreNote, graderNote].filter(Boolean).join(' · ');
 
   const updated = {
     ...submission,
@@ -324,6 +342,7 @@ export async function gradeExamSubmission(examId, submissionId, { scores, reussi
     total_score: totalScore,
     total_max: totalMax,
     reussi: passed,
+    grader_note: graderNote,
     graded_at: new Date().toISOString(),
     graded_by: user?.id || null,
     graded_by_name: actorLabel(user),
@@ -355,19 +374,60 @@ export async function gradeExamSubmission(examId, submissionId, { scores, reussi
     writeJson(submissionsPath, list);
   }
 
-  if (passed && submission.request_id) {
+  if (submission.request_id) {
     const request = await getGradeRequestById(submission.request_id);
     if (request && request.statut === 'pending') {
-      await approveGradeRequest(submission.request_id, user, {
-        instructeur_nom: exam.instructeur_nom,
-        points: totalScore,
-        note: `Examen ceinture noire · ${totalScore}/${totalMax}`,
-        applyGradeChange,
-      });
+      if (passed) {
+        await approveGradeRequest(submission.request_id, user, {
+          instructeur_nom: exam.instructeur_nom,
+          points: totalScore,
+          note: finalNote,
+          applyGradeChange,
+        });
+      } else {
+        await rejectGradeRequest(
+          submission.request_id,
+          user,
+          graderNote || 'Échec à l\'examen ceinture noire'
+        );
+        await addGradeHistory({
+          judoka_id: submission.judoka_id,
+          grade_from: submission.grade_from,
+          grade_to: submission.grade_to,
+          reussi: false,
+          instructeur_nom: exam.instructeur_nom,
+          points: totalScore,
+          note: finalNote || 'Échec à l\'examen - ceinture inchangée',
+          changed_by: user?.id || null,
+          changed_by_name: actorLabel(user),
+        });
+      }
     }
   }
 
   return updated;
+}
+
+export async function listGradeExamSubmissionsWithExam({ federationId = null } = {}) {
+  const exams = await listGradeExams({ federationId });
+  const out = [];
+  for (const exam of exams) {
+    const submissions = await getExamSubmissions(exam.id);
+    for (const submission of submissions) {
+      out.push({
+        ...submission,
+        exam: {
+          id: exam.id,
+          token: exam.token,
+          instructeur_nom: exam.instructeur_nom,
+          questions: exam.questions,
+          statut: exam.statut,
+          created_at: exam.created_at,
+        },
+      });
+    }
+  }
+  return out.sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at));
 }
 
 export function publicExamSummary(exam) {

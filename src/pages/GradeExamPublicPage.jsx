@@ -3,7 +3,7 @@ import BrandLoader from '../components/BrandLoader';
 import { lookupGradeExamAthlete, submitGradeExamAnswers } from '../api';
 
 export default function GradeExamPublicPage({ token }) {
-  const [step, setStep] = useState('id'); // id | quiz | done | closed
+  const [step, setStep] = useState('id'); // id | quiz | done | closed | already
   const [numeroCarte, setNumeroCarte] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -27,10 +27,15 @@ export default function GradeExamPublicPage({ token }) {
       setStep('quiz');
     } catch (err) {
       const msg = err.message || 'Accès impossible';
-      if (/plus accessible|n.est plus accessible|ferm[eé]/i.test(msg)) {
+      if (/déjà confirmé|deja confirme|déjà envoyé|deja envoye/i.test(msg)) {
+        setStep('already');
+        setError(msg);
+      } else if (/plus accessible|n.est plus accessible|ferm[eé]/i.test(msg)) {
         setStep('closed');
+        setError(msg);
+      } else {
+        setError(msg);
       }
-      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -52,7 +57,9 @@ export default function GradeExamPublicPage({ token }) {
       setStep('done');
     } catch (err) {
       const msg = err.message || 'Envoi impossible';
-      if (/plus accessible|n.est plus accessible|ferm[eé]/i.test(msg)) {
+      if (/déjà confirmé|deja confirme/i.test(msg)) {
+        setStep('already');
+      } else if (/plus accessible|n.est plus accessible|ferm[eé]/i.test(msg)) {
         setStep('closed');
       }
       setError(msg);
@@ -61,106 +68,124 @@ export default function GradeExamPublicPage({ token }) {
     }
   };
 
-  if (step === 'closed') {
-    return (
-      <div className="grade-exam-public">
-        <div className="grade-exam-public-card">
-          <h1>Lien de Test indisponible</h1>
-          <p>
-            Ce lien n&apos;est plus accessible : tous les athlètes sélectionnés ont confirmé leur examen.
-          </p>
-          {error ? <p className="form-error">{error}</p> : null}
-        </div>
-      </div>
-    );
-  }
-
-  if (step === 'done') {
-    return (
-      <div className="grade-exam-public">
-        <div className="grade-exam-public-card">
-          <h1>Réponses envoyées</h1>
-          <p>
-            Merci {athlete?.judoka_prenom} {athlete?.judoka_nom}. Vos réponses ont été transmises
-            au Responsable Grade pour notation.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   if (loading && step === 'id') {
     return <BrandLoader label="Vérification…" />;
   }
 
   return (
     <div className="grade-exam-public">
-      <div className="grade-exam-public-card">
-        <h1>Lien de Test — Ceinture noire</h1>
-        {step === 'id' && (
-          <>
-            <p className="form-hint">
-              Saisissez votre ID unique (n° de carte) pour ouvrir le questionnaire d&apos;examen.
-            </p>
+      <div className="grade-exam-public-shell">
+        <div className="grade-exam-public-card">
+          {(step === 'id' || step === 'quiz') && (
+            <header className="grade-exam-public-header">
+              <p className="grade-exam-public-kicker">Fenacoju Card</p>
+              <h1>Test - Ceinture noire</h1>
+              {step === 'id' && (
+                <p className="grade-exam-public-lead">
+                  Saisissez votre ID unique pour accéder au questionnaire d&apos;examen.
+                </p>
+              )}
+            </header>
+          )}
+
+          {step === 'closed' && (
+            <div className="grade-exam-public-state">
+              <h1>Test indisponible</h1>
+              <p>
+                Ce lien n&apos;est plus accessible : tous les athlètes sélectionnés ont confirmé leur examen.
+              </p>
+              {error ? <p className="form-error">{error}</p> : null}
+            </div>
+          )}
+
+          {step === 'already' && (
+            <div className="grade-exam-public-state">
+              <h1>Accès fermé</h1>
+              <p>
+                Vous avez déjà confirmé et envoyé vos réponses. Il n&apos;est plus possible
+                d&apos;ouvrir ni de modifier ce questionnaire.
+              </p>
+              {error ? <p className="form-error">{error}</p> : null}
+            </div>
+          )}
+
+          {step === 'done' && (
+            <div className="grade-exam-public-state is-success">
+              <h1>Réponses envoyées</h1>
+              <p>
+                Merci {athlete?.judoka_prenom} {athlete?.judoka_nom}. Vos réponses ont été transmises
+                au Responsable Grade. Votre accès à ce test est désormais fermé.
+              </p>
+            </div>
+          )}
+
+          {step === 'id' && (
             <form onSubmit={handleLookup} className="grade-exam-id-form">
-              <label className="form-field">
-                <span>ID unique</span>
+              <label className="grade-exam-id-field">
+                <span>ID unique (n° de carte)</span>
                 <input
                   type="text"
                   value={numeroCarte}
                   onChange={(e) => setNumeroCarte(e.target.value)}
                   required
                   autoFocus
-                  placeholder="N° de carte"
+                  placeholder="Ex. FC-2026-00123"
+                  autoComplete="off"
                 />
               </label>
               {error ? <p className="form-error">{error}</p> : null}
-              <button type="submit" className="btn btn-demande-grade" disabled={loading}>
-                Ouvrir le questionnaire
+              <button type="submit" className="btn btn-demande-grade grade-exam-primary-btn" disabled={loading}>
+                {loading ? 'Vérification…' : 'Ouvrir le questionnaire'}
               </button>
             </form>
-          </>
-        )}
+          )}
 
-        {step === 'quiz' && exam && athlete && (
-          <form onSubmit={handleSubmit} className="grade-exam-quiz-form">
-            <p>
-              <strong>
-                {athlete.judoka_prenom} {athlete.judoka_nom}
-              </strong>
-              {athlete.judoka_numero_carte ? ` · ID ${athlete.judoka_numero_carte}` : ''}
-            </p>
-            <p className="form-hint">
-              Instructeur : {exam.instructeur_nom}
-              {' · '}
-              {athlete.grade_from} → {athlete.grade_to}
-            </p>
-            <ul className="exam-questions-list">
-              {questions.map((q, index) => (
-                <li key={q.id} className="exam-question-row">
-                  <label className="form-field exam-question-text">
-                    <span>
-                      Question {index + 1}
-                      {q.max_points != null ? ` (${q.max_points} pts)` : ''}
-                    </span>
-                    <p className="exam-question-prompt">{q.text}</p>
+          {step === 'quiz' && exam && athlete && (
+            <form onSubmit={handleSubmit} className="grade-exam-quiz-form">
+              <div className="grade-exam-athlete-card">
+                <p className="grade-exam-athlete-name">
+                  {athlete.judoka_prenom} {athlete.judoka_nom}
+                </p>
+                <p className="grade-exam-athlete-belts">
+                  {athlete.grade_from || '-'} → {athlete.grade_to || '-'}
+                </p>
+                {athlete.judoka_numero_carte ? (
+                  <p className="grade-exam-athlete-id">ID {athlete.judoka_numero_carte}</p>
+                ) : null}
+                <p className="grade-exam-instructeur">
+                  Instructeur : <strong>{exam.instructeur_nom}</strong>
+                </p>
+              </div>
+
+              <ul className="grade-exam-quiz-list">
+                {questions.map((q, index) => (
+                  <li key={q.id} className="grade-exam-quiz-item">
+                    <div className="grade-exam-quiz-item-head">
+                      <span className="grade-exam-quiz-index">Question {index + 1}</span>
+                      {q.max_points != null ? (
+                        <span className="grade-exam-quiz-points">{q.max_points} pts</span>
+                      ) : null}
+                    </div>
+                    <p className="grade-exam-quiz-prompt">{q.text}</p>
                     <textarea
+                      className="grade-exam-quiz-answer"
                       value={answers[q.id] || ''}
                       onChange={(e) => setAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))}
                       required
-                      rows={3}
-                      placeholder="Votre réponse"
+                      rows={4}
+                      placeholder="Écrivez votre réponse ici…"
                     />
-                  </label>
-                </li>
-              ))}
-            </ul>
-            {error ? <p className="form-error">{error}</p> : null}
-            <button type="submit" className="btn btn-demande-grade" disabled={loading}>
-              {loading ? 'Envoi…' : 'Confirmer et envoyer'}
-            </button>
-          </form>
-        )}
+                  </li>
+                ))}
+              </ul>
+
+              {error ? <p className="form-error">{error}</p> : null}
+              <button type="submit" className="btn btn-demande-grade grade-exam-primary-btn" disabled={loading}>
+                {loading ? 'Envoi…' : 'Confirmer et envoyer'}
+              </button>
+            </form>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -4029,33 +4029,266 @@ tbody tr:last-child td {
 .grade-exam-public {
   min-height: 100vh;
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
   padding: 1.5rem;
   background:
-    radial-gradient(ellipse at top, #fee2e2 0%, transparent 55%),
-    linear-gradient(180deg, #fff7ed 0%, #f8fafc 100%);
+    linear-gradient(145deg, rgba(15, 23, 42, 0.92), rgba(30, 41, 59, 0.88)),
+    radial-gradient(circle at top right, rgba(220, 38, 38, 0.28), transparent 42%),
+    linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+}
+
+.grade-exam-public-shell {
+  width: min(720px, 100%);
+  display: flex;
+  align-items: center;
 }
 
 .grade-exam-public-card {
-  width: min(640px, 100%);
+  width: 100%;
   background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 1.4rem 1.5rem;
-  box-shadow: var(--shadow-lg, 0 12px 40px rgba(15, 23, 42, 0.08));
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 20px;
+  padding: 1.6rem 1.7rem 1.5rem;
+  box-shadow: 0 24px 60px rgba(2, 6, 23, 0.35);
 }
 
-.grade-exam-public-card h1 {
-  margin: 0 0 0.75rem;
-  font-size: 1.35rem;
+.grade-exam-public-header {
+  margin-bottom: 1.25rem;
+}
+
+.grade-exam-public-kicker {
+  margin: 0 0 0.35rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.grade-exam-public-card h1,
+.grade-exam-public-state h1 {
+  margin: 0 0 0.55rem;
+  font-size: 1.55rem;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+}
+
+.grade-exam-public-lead {
+  margin: 0;
+  color: #475569;
+  line-height: 1.5;
+}
+
+.grade-exam-public-state {
+  text-align: center;
+  padding: 1rem 0.25rem;
+}
+
+.grade-exam-public-state.is-success h1 {
+  color: #15803d;
 }
 
 .grade-exam-id-form,
 .grade-exam-quiz-form {
   display: flex;
   flex-direction: column;
-  gap: 0.85rem;
+  gap: 1rem;
+}
+
+.grade-exam-id-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.grade-exam-id-field span {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.grade-exam-id-field input {
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  padding: 0.9rem 1rem;
+  font-size: 1.05rem;
+  background: #f8fafc;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.grade-exam-id-field input:focus {
+  outline: none;
+  border-color: #16a34a;
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.18);
+  background: #fff;
+}
+
+.grade-exam-primary-btn {
+  width: 100%;
+  justify-content: center;
+  min-height: 2.75rem;
+  border-radius: 12px;
+  font-size: 1rem;
+}
+
+.grade-exam-athlete-card {
+  background: linear-gradient(180deg, #f8fafc 0%, #fff 100%);
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 1rem 1.1rem;
+}
+
+.grade-exam-athlete-name {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.grade-exam-athlete-belts {
+  margin: 0.35rem 0 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.grade-exam-athlete-id {
+  margin: 0.25rem 0 0;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.grade-exam-instructeur {
+  margin: 0.65rem 0 0;
+  color: #475569;
+  font-size: 0.92rem;
+}
+
+.grade-exam-instructeur strong {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.grade-exam-quiz-list,
+.grade-exam-review-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.grade-exam-quiz-item,
+.grade-exam-review-item {
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 0.95rem 1rem;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.grade-exam-quiz-item-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.45rem;
+}
+
+.grade-exam-quiz-index {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.grade-exam-quiz-points {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #b91c1c;
+  background: #fef2f2;
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+}
+
+.grade-exam-quiz-prompt {
+  margin: 0 0 0.7rem;
+  font-weight: 600;
+  color: #0f172a;
+  line-height: 1.45;
+}
+
+.grade-exam-quiz-answer {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  padding: 0.85rem 0.95rem;
+  min-height: 6.5rem;
+  resize: vertical;
+  background: #f8fafc;
+  font: inherit;
+  line-height: 1.45;
+}
+
+.grade-exam-quiz-answer:focus {
+  outline: none;
+  border-color: #16a34a;
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.15);
+  background: #fff;
+}
+
+.grade-exam-review-answer {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.7rem 0.8rem;
+  margin-bottom: 0.7rem;
+}
+
+.grade-exam-review-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+  margin-bottom: 0.3rem;
+}
+
+.grade-exam-review-answer p {
+  margin: 0;
+  white-space: pre-wrap;
+  color: #0f172a;
+  line-height: 1.45;
+}
+
+.grade-exam-answers-modal {
+  width: min(760px, 96vw);
+  max-height: 92vh;
+  overflow: auto;
+}
+
+.grade-exam-answers-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.65rem;
+  margin-top: 1rem;
+}
+
+.btn-voir-reponses {
+  background: #16a34a;
+  border: 1px solid #16a34a;
+  color: #fff !important;
+  font-weight: 700;
+}
+
+.btn-voir-reponses:hover:not(:disabled) {
+  background: #15803d;
+  border-color: #15803d;
+  color: #fff !important;
 }
 
 .form-error {
@@ -4093,6 +4326,14 @@ tbody tr:last-child td {
 
   .exam-question-points {
     width: 100%;
+  }
+
+  .grade-exam-public {
+    padding: 1rem;
+  }
+
+  .grade-exam-public-card {
+    padding: 1.2rem 1.1rem;
   }
 }
 
