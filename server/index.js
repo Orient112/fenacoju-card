@@ -2994,6 +2994,8 @@ app.post('/api/grades/exams/:id/submissions/:submissionId/grade', async (req, re
         scores: req.body?.scores,
         reussi: req.body?.reussi,
         note: req.body?.note || '',
+        pratique_score: req.body?.pratique_score,
+        pratique_max: req.body?.pratique_max,
       },
       req.user,
       {

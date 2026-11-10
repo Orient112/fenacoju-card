@@ -191,7 +191,7 @@ export default function GradeExamPublicPage({ token }) {
                 </strong>
                 <span className="grade-exam-done-msg">
                   {timedOut
-                    ? 'Le temps imparti est terminé. Les questions non répondues sont enregistrées comme non répondues (échec).'
+                    ? 'Le temps imparti est terminé. Les questions non répondues sont enregistrées comme échec (Vide).'
                     : 'Vos réponses ont été transmises au Responsable Grade'}
                 </span>
               </p>

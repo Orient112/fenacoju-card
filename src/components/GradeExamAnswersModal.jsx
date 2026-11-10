@@ -6,7 +6,7 @@ function isUnansweredAnswer(entry) {
   if (entry.unanswered === true) return true;
   const text = String(entry.answer || '').trim();
   if (!text) return true;
-  return /non\s*r[eé]pondu|sans\s*r[eé]ponse|temps\s*[eé]coul[eé]/i.test(text);
+  return /non\s*r[eé]pondu|sans\s*r[eé]ponse|temps\s*[eé]coul[eé]|échec\s*\(\s*vide\s*\)|^vide$/i.test(text);
 }
 
 export default function GradeExamAnswersModal({
@@ -19,6 +19,12 @@ export default function GradeExamAnswersModal({
   const questions = exam?.questions || [];
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
+  const [pratiquePoints, setPratiquePoints] = useState(
+    () => (submission?.pratique_score != null ? String(submission.pratique_score) : '')
+  );
+  const [pratiqueMax, setPratiqueMax] = useState(
+    () => (submission?.pratique_max != null ? String(submission.pratique_max) : '')
+  );
   const [verdicts, setVerdicts] = useState(() => {
     const init = {};
     for (const q of questions) {
@@ -48,15 +54,32 @@ export default function GradeExamAnswersModal({
   );
 
   const scoreSummary = useMemo(() => {
-    let total = 0;
-    let max = 0;
+    let theoryTotal = 0;
+    let theoryMax = 0;
     for (const q of questions) {
-      max += Number(q.max_points) || 0;
-      if (verdicts[q.id] === 'faux') total += 0;
-      else if (verdicts[q.id] === 'vrai') total += Number(scores[q.id]) || 0;
+      theoryMax += Number(q.max_points) || 0;
+      if (verdicts[q.id] === 'faux') theoryTotal += 0;
+      else if (verdicts[q.id] === 'vrai') theoryTotal += Number(scores[q.id]) || 0;
     }
-    return { total, max, half: max / 2 };
-  }, [questions, scores, verdicts]);
+    const pratiqueScore = Number(pratiquePoints);
+    const pratiqueCeiling = Number(pratiqueMax);
+    const pratiqueOk = pratiquePoints !== '' && !Number.isNaN(pratiqueScore);
+    const pratiqueMaxOk = pratiqueMax !== '' && !Number.isNaN(pratiqueCeiling) && pratiqueCeiling >= 0;
+    const pratiqueValue = pratiqueOk ? Math.max(0, pratiqueScore) : 0;
+    const pratiqueMaxValue = pratiqueMaxOk ? Math.max(0, pratiqueCeiling) : 0;
+    const total = theoryTotal + pratiqueValue;
+    const max = theoryMax + pratiqueMaxValue;
+    return {
+      theoryTotal,
+      theoryMax,
+      pratiqueValue,
+      pratiqueMaxValue,
+      pratiqueReady: pratiqueOk && pratiqueMaxOk,
+      total,
+      max,
+      half: max / 2,
+    };
+  }, [questions, scores, verdicts, pratiquePoints, pratiqueMax]);
 
   const answerEntryFor = (questionId) => (
     (submission?.answers || []).find((a) => String(a.question_id) === String(questionId)) || null
@@ -68,6 +91,7 @@ export default function GradeExamAnswersModal({
   };
 
   const setVerdict = (questionId, verdict) => {
+    if (isUnansweredAnswer(answerEntryFor(questionId)) && verdict === 'vrai') return;
     setVerdicts((prev) => ({ ...prev, [questionId]: verdict }));
     if (verdict === 'faux') {
       setScores((prev) => ({ ...prev, [questionId]: 0 }));
@@ -95,6 +119,15 @@ export default function GradeExamAnswersModal({
       }
     }
 
+    if (!scoreSummary.pratiqueReady) {
+      showToast?.('Saisissez les points de pratique (obtenus et barème max).', 'error');
+      return;
+    }
+    if (scoreSummary.pratiqueValue > scoreSummary.pratiqueMaxValue) {
+      showToast?.('Les points de pratique ne peuvent pas dépasser le barème max.', 'error');
+      return;
+    }
+
     if (reussi && scoreSummary.total < scoreSummary.half) {
       showToast?.(
         `Score insuffisant : ${scoreSummary.total}/${scoreSummary.max}. Il faut au moins ${scoreSummary.half} points (moitié) pour Passer.`,
@@ -111,6 +144,8 @@ export default function GradeExamAnswersModal({
       }));
       await gradeExamSubmission(exam.id, submission.id, {
         scores: payloadScores,
+        pratique_score: scoreSummary.pratiqueValue,
+        pratique_max: scoreSummary.pratiqueMaxValue,
         reussi,
         note,
       });
@@ -153,65 +188,148 @@ export default function GradeExamAnswersModal({
           </button>
         </header>
 
+        <div className="grade-exam-theory-label">Partie théorique</div>
         <ul className="grade-exam-review-list">
           {questions.map((q, index) => {
             const verdict = verdicts[q.id];
             const unanswered = isUnansweredAnswer(answerEntryFor(q.id));
+            const isLast = index === questions.length - 1;
             return (
-              <li key={q.id} className={`grade-exam-review-item ${unanswered ? 'is-unanswered' : ''}`}>
-                <div className="grade-exam-quiz-item-head">
-                  <span className="grade-exam-quiz-index">Question {index + 1}</span>
-                  <span className="grade-exam-quiz-points">/{q.max_points} pts</span>
-                </div>
-                <p className="grade-exam-quiz-prompt">{q.text}</p>
-                <div className="grade-exam-review-answer">
-                  <span className="grade-exam-review-label">Réponse de l&apos;athlète</span>
-                  <p>{answerFor(q.id) || '-'}</p>
-                  {unanswered ? (
-                    <span className="grade-exam-unanswered-chip">Non répondu - considéré comme échec (0 pt)</span>
-                  ) : null}
-                </div>
-                <div className="grade-exam-correction-row">
-                  <div className="grade-exam-verdict-btns">
-                    <button
-                      type="button"
-                      className={`btn btn-sm grade-exam-verdict-btn ${verdict === 'vrai' ? 'is-vrai' : ''}`}
-                      onClick={() => setVerdict(q.id, 'vrai')}
-                    >
-                      Vrai
-                    </button>
-                    <button
-                      type="button"
-                      className={`btn btn-sm grade-exam-verdict-btn ${verdict === 'faux' ? 'is-faux' : ''}`}
-                      onClick={() => setVerdict(q.id, 'faux')}
-                    >
-                      Faux
-                    </button>
+              <li key={q.id}>
+                {isLast && (
+                  <div className="grade-exam-pratique-block">
+                    <div className="grade-exam-pratique-head">
+                      <h4>Partie pratique</h4>
+                      <p>Saisissez les points obtenus par l&apos;athlète à la pratique.</p>
+                    </div>
+                    <div className="grade-exam-pratique-fields">
+                      <label className="exam-field">
+                        <span className="exam-field-label">Points obtenus</span>
+                        <input
+                          className="exam-field-control"
+                          type="number"
+                          min="0"
+                          step="0.5"
+                          value={pratiquePoints}
+                          onChange={(e) => setPratiquePoints(e.target.value)}
+                          placeholder="0"
+                          required
+                        />
+                      </label>
+                      <label className="exam-field">
+                        <span className="exam-field-label">Barème max</span>
+                        <input
+                          className="exam-field-control"
+                          type="number"
+                          min="0"
+                          step="0.5"
+                          value={pratiqueMax}
+                          onChange={(e) => setPratiqueMax(e.target.value)}
+                          placeholder="Ex. 50"
+                          required
+                        />
+                      </label>
+                    </div>
                   </div>
-                  {verdict === 'vrai' && (
-                    <label className="grade-exam-score-field">
-                      <span>Note / {q.max_points}</span>
-                      <input
-                        type="number"
-                        min="0"
-                        max={q.max_points}
-                        step="0.5"
-                        value={scores[q.id]}
-                        onChange={(e) => setScores((prev) => ({ ...prev, [q.id]: e.target.value }))}
-                        placeholder="0"
-                      />
-                    </label>
-                  )}
-                  {verdict === 'faux' && (
-                    <span className="grade-exam-score-zero">Note : 0 / {q.max_points}</span>
-                  )}
+                )}
+                <div className={`grade-exam-review-item ${unanswered ? 'is-unanswered' : ''}`}>
+                  <div className="grade-exam-quiz-item-head">
+                    <span className="grade-exam-quiz-index">Question {index + 1}</span>
+                    <span className="grade-exam-quiz-points">/{q.max_points} pts</span>
+                  </div>
+                  <p className="grade-exam-quiz-prompt">{q.text}</p>
+                  <div className="grade-exam-review-answer">
+                    <span className="grade-exam-review-label">Réponse de l&apos;athlète</span>
+                    <p>{answerFor(q.id) || '-'}</p>
+                    {unanswered ? (
+                      <span className="grade-exam-unanswered-chip">Non répondu - échec (Vide)</span>
+                    ) : null}
+                  </div>
+                  <div className="grade-exam-correction-row">
+                    <div className="grade-exam-verdict-btns">
+                      <button
+                        type="button"
+                        className={`btn btn-sm grade-exam-verdict-btn ${verdict === 'vrai' ? 'is-vrai' : ''} ${unanswered ? 'is-disabled' : ''}`}
+                        onClick={() => setVerdict(q.id, 'vrai')}
+                        disabled={unanswered}
+                        title={unanswered ? 'Question non répondue - Vrai indisponible' : 'Réponse correcte'}
+                      >
+                        Vrai
+                      </button>
+                      <button
+                        type="button"
+                        className={`btn btn-sm grade-exam-verdict-btn ${verdict === 'faux' ? 'is-faux' : ''}`}
+                        onClick={() => setVerdict(q.id, 'faux')}
+                      >
+                        Faux
+                      </button>
+                    </div>
+                    {verdict === 'vrai' && !unanswered && (
+                      <label className="grade-exam-score-field">
+                        <span>Note / {q.max_points}</span>
+                        <input
+                          type="number"
+                          min="0"
+                          max={q.max_points}
+                          step="0.5"
+                          value={scores[q.id]}
+                          onChange={(e) => setScores((prev) => ({ ...prev, [q.id]: e.target.value }))}
+                          placeholder="0"
+                        />
+                      </label>
+                    )}
+                    {(verdict === 'faux' || unanswered) && (
+                      <span className="grade-exam-score-zero">Note : 0 / {q.max_points}</span>
+                    )}
+                  </div>
                 </div>
               </li>
             );
           })}
         </ul>
 
+        {questions.length === 0 && (
+          <div className="grade-exam-pratique-block">
+            <div className="grade-exam-pratique-head">
+              <h4>Partie pratique</h4>
+              <p>Saisissez les points obtenus par l&apos;athlète à la pratique.</p>
+            </div>
+            <div className="grade-exam-pratique-fields">
+              <label className="exam-field">
+                <span className="exam-field-label">Points obtenus</span>
+                <input
+                  className="exam-field-control"
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  value={pratiquePoints}
+                  onChange={(e) => setPratiquePoints(e.target.value)}
+                  placeholder="0"
+                  required
+                />
+              </label>
+              <label className="exam-field">
+                <span className="exam-field-label">Barème max</span>
+                <input
+                  className="exam-field-control"
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  value={pratiqueMax}
+                  onChange={(e) => setPratiqueMax(e.target.value)}
+                  placeholder="Ex. 50"
+                  required
+                />
+              </label>
+            </div>
+          </div>
+        )}
+
         <p className="form-hint grade-exam-score-hint">
+          Théorie : {scoreSummary.theoryTotal}/{scoreSummary.theoryMax}
+          {' · '}
+          Pratique : {scoreSummary.pratiqueReady ? `${scoreSummary.pratiqueValue}/${scoreSummary.pratiqueMaxValue}` : '-/-'}
+          {' · '}
           Total : {scoreSummary.total}/{scoreSummary.max} pts
           {scoreSummary.max > 0
             ? ` · Seuil pour Passer : ${scoreSummary.half} pts (moitié)`

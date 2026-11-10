@@ -421,7 +421,7 @@ export async function publicExamSubmit(token, { numero_carte, answers, timed_out
 export async function gradeExamSubmission(
   examId,
   submissionId,
-  { scores, reussi, note = '' },
+  { scores, reussi, note = '', pratique_score = null, pratique_max = null },
   user,
   { applyGradeChange } = {}
 ) {
@@ -443,8 +443,16 @@ export async function gradeExamSubmission(
     points = Math.max(0, Math.min(max, points));
     return { question_id: q.id, points, max_points: max };
   });
-  const totalScore = normalizedScores.reduce((sum, s) => sum + s.points, 0);
-  const totalMax = normalizedScores.reduce((sum, s) => sum + s.max_points, 0);
+  const theoryScore = normalizedScores.reduce((sum, s) => sum + s.points, 0);
+  const theoryMax = normalizedScores.reduce((sum, s) => sum + s.max_points, 0);
+  const pratiqueMax = Math.max(0, Number(pratique_max));
+  let pratiqueScore = Number(pratique_score);
+  if (Number.isNaN(pratiqueScore) || Number.isNaN(pratiqueMax)) {
+    throw new Error('Points de pratique invalides');
+  }
+  pratiqueScore = Math.max(0, Math.min(pratiqueMax, pratiqueScore));
+  const totalScore = theoryScore + pratiqueScore;
+  const totalMax = theoryMax + pratiqueMax;
   const halfThreshold = totalMax / 2;
   const passed = reussi === true || reussi === '1' || reussi === 1;
   // Règle métier : la moitié des points (ou plus) est requise pour passer
@@ -454,12 +462,14 @@ export async function gradeExamSubmission(
     );
   }
   const graderNote = String(note || '').trim();
-  const scoreNote = `Examen ceinture noire · ${totalScore}/${totalMax}`;
+  const scoreNote = `Examen ceinture noire · Théorie ${theoryScore}/${theoryMax} · Pratique ${pratiqueScore}/${pratiqueMax} · Total ${totalScore}/${totalMax}`;
   const finalNote = [scoreNote, graderNote].filter(Boolean).join(' · ');
 
   // Payload strict : ne jamais renvoyer des champs UI (ex. exam) vers Supabase
   const patch = {
     scores: normalizedScores,
+    pratique_score: pratiqueScore,
+    pratique_max: pratiqueMax,
     total_score: totalScore,
     total_max: totalMax,
     reussi: passed,
@@ -480,20 +490,52 @@ export async function gradeExamSubmission(
         .select('*')
         .maybeSingle();
       if (error) throw error;
-      if (data) updated = data;
+      if (data) updated = { ...data, pratique_score: pratiqueScore, pratique_max: pratiqueMax };
     } catch (err) {
-      if (!/relation|does not exist|schema cache/i.test(err.message || '')) throw err;
-      console.warn('judoka_grade_exam_submissions grade fallback JSON:', err.message);
-      const list = readJson(submissionsPath);
-      const idx = list.findIndex((s) => String(s.id) === String(submission.id));
-      if (idx === -1) {
-        // Soumission déjà en Supabase mais table/colonne partielle : on continue avec le patch mémoire
-        updated = { ...submission, ...patch };
-        delete updated.exam;
+      if (/pratique_score|pratique_max|column|schema cache/i.test(err.message || '')) {
+        try {
+          const slim = { ...patch };
+          delete slim.pratique_score;
+          delete slim.pratique_max;
+          const { data, error } = await getSupabase()
+            .from('judoka_grade_exam_submissions')
+            .update(slim)
+            .eq('id', submission.id)
+            .select('*')
+            .maybeSingle();
+          if (error) throw error;
+          if (data) updated = { ...data, pratique_score: pratiqueScore, pratique_max: pratiqueMax };
+          else updated = { ...submission, ...patch };
+          delete updated.exam;
+        } catch (err2) {
+          if (!/relation|does not exist|schema cache/i.test(err2.message || '')) throw err2;
+          console.warn('judoka_grade_exam_submissions grade fallback JSON:', err2.message);
+          const list = readJson(submissionsPath);
+          const idx = list.findIndex((s) => String(s.id) === String(submission.id));
+          if (idx === -1) {
+            updated = { ...submission, ...patch };
+            delete updated.exam;
+          } else {
+            list[idx] = { ...list[idx], ...patch };
+            writeJson(submissionsPath, list);
+            updated = list[idx];
+          }
+        }
+      } else if (!/relation|does not exist|schema cache/i.test(err.message || '')) {
+        throw err;
       } else {
-        list[idx] = { ...list[idx], ...patch };
-        writeJson(submissionsPath, list);
-        updated = list[idx];
+        console.warn('judoka_grade_exam_submissions grade fallback JSON:', err.message);
+        const list = readJson(submissionsPath);
+        const idx = list.findIndex((s) => String(s.id) === String(submission.id));
+        if (idx === -1) {
+          // Soumission déjà en Supabase mais table/colonne partielle : on continue avec le patch mémoire
+          updated = { ...submission, ...patch };
+          delete updated.exam;
+        } else {
+          list[idx] = { ...list[idx], ...patch };
+          writeJson(submissionsPath, list);
+          updated = list[idx];
+        }
       }
     }
   } else {
