@@ -530,6 +530,11 @@ export async function listGradeExamSubmissionsWithExam({ federationId = null } =
 export async function resetGradePassationHistory({ federationId = null } = {}) {
   const exams = await listGradeExams({ federationId: federationId || undefined });
   const examIds = new Set(exams.map((e) => String(e.id)));
+  const submissions = [];
+  for (const exam of exams) {
+    const list = await getExamSubmissions(exam.id);
+    submissions.push(...list);
+  }
 
   if (isSupabaseEnabled()) {
     try {
@@ -556,7 +561,11 @@ export async function resetGradePassationHistory({ federationId = null } = {}) {
   const subsList = readJson(submissionsPath).filter((s) => !examIds.has(String(s.exam_id)));
   writeJson(submissionsPath, subsList);
 
-  return { exams_removed: examIds.size };
+  return {
+    exams_removed: examIds.size,
+    exams,
+    submissions,
+  };
 }
 
 export async function publicExamSummary(exam) {

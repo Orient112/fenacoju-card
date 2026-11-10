@@ -78,6 +78,7 @@ const TransferModal = lazy(() => import('./components/TransferModal'));
 const AccountDetailModal = lazy(() => import('./components/AccountDetailModal'));
 const CompetitionSettings = lazy(() => import('./pages/CompetitionSettings'));
 const FederationSettings = lazy(() => import('./pages/FederationSettings'));
+const AdminGradeHistory = lazy(() => import('./pages/AdminGradeHistory'));
 const SuperAdminConfigurations = lazy(() => import('./pages/SuperAdminConfigurations'));
 const SuperAdminFederations = lazy(() => import('./components/SuperAdminFederations'));
 const SuperAdminDashboard = lazy(() => import('./components/SuperAdminDashboard'));
@@ -1121,6 +1122,7 @@ export default function App() {
                 {view === 'arbitre-form' && (editingArbitre ? 'Modifier l\'arbitre' : 'Nouvel arbitre')}
                 {view === 'messages' && 'Messages'}
                 {view === 'settings' && M('settings', 'Réglages')}
+                {view === 'grade-archives' && 'Historique'}
                 {view === 'federation-settings' && M('parametrage', 'Paramétrage fédération')}
                 {view === 'configurations' && 'Configurations'}
                 {view === 'competition' && M('competition', 'Compétition')}
@@ -1704,6 +1706,12 @@ export default function App() {
           </Suspense>
         )}
 
+        {view === 'grade-archives' && user.type === 'admin' && (
+          <Suspense fallback={<PageLoader label="Chargement de l'historique..." />}>
+            <AdminGradeHistory onToast={showToast} />
+          </Suspense>
+        )}
+
         {view === 'federation-settings' && user.type === 'admin' && (
           <Suspense fallback={<PageLoader label="Chargement du paramétrage..." />}>
             <FederationSettings
@@ -1981,6 +1989,15 @@ export default function App() {
             >
               {M('settings', 'Réglages')}
             </button>
+            {user.type === 'admin' && (
+              <button
+                className={`nav-btn ${view === 'grade-archives' ? 'active' : ''}`}
+                type="button"
+                onClick={() => { setView('grade-archives'); setEditing(null); setEditingUser(null); setCreateType(null); }}
+              >
+                Historique
+              </button>
+            )}
             {user.type === 'superadmin' && (
               <button
                 className={`nav-btn ${view === 'configurations' ? 'active' : ''}`}
@@ -2216,7 +2233,7 @@ export default function App() {
                 </p>
               </div>
               <div className="grade-history-head-actions">
-                {(perms.manageBlackBelts || canManageGrades || user?.type === 'admin') && (
+                {(perms.manageBlackBelts || canManageGrades) && user?.type !== 'admin' && (
                   <button
                     type="button"
                     className="btn btn-outline btn-sm"

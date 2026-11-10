@@ -53,6 +53,11 @@ import {
   resetGradePassationHistory,
 } from './gradeExams.js';
 import {
+  archiveGradePassationReset,
+  getGradePassationArchiveById,
+  listGradePassationArchives,
+} from './gradeHistoryArchive.js';
+import {
   login,
   logout,
   getSessionUser,
@@ -2827,21 +2832,78 @@ app.post('/api/grades/exams', async (req, res) => {
 app.post('/api/grades/history/reset', async (req, res) => {
   try {
     const perms = getPermissions(req.user);
-    if (!perms.manageBlackBelts && !perms.manageGrades && req.user.type !== 'admin') {
+    // Réservé au Responsable Grade (pas l'Admin fédération)
+    if (req.user.type === 'admin' || req.user.type === 'superadmin') {
       return res.status(403).json({ error: 'Réinitialisation réservée au Responsable Grade' });
     }
-    const fedId = req.user.type === 'admin' || req.user.type === 'superadmin'
-      ? null
-      : (req.user.federation_id || null);
+    if (!perms.manageBlackBelts && !perms.manageGrades) {
+      return res.status(403).json({ error: 'Réinitialisation réservée au Responsable Grade' });
+    }
+    const fedId = req.user.federation_id || null;
     const examsReset = await resetGradePassationHistory({ federationId: fedId || undefined });
     const historyReset = await clearBlackBeltGradeHistory();
+    const archive = await archiveGradePassationReset({
+      federation_id: fedId,
+      reset_by: req.user.id,
+      reset_by_name: actorLabel(req.user),
+      exams: examsReset.exams || [],
+      submissions: examsReset.submissions || [],
+      grade_history: historyReset.items || [],
+    });
     res.json({
       ok: true,
       exams_removed: examsReset.exams_removed || 0,
       history_removed: historyReset.removed || 0,
+      archive_id: archive?.id || null,
     });
   } catch (err) {
     res.status(400).json({ error: err.message });
+  }
+});
+
+/** Archives des historiques réinitialisés (Admin fédération) */
+app.get('/api/grades/history/archives', async (req, res) => {
+  try {
+    if (req.user.type !== 'admin' && req.user.type !== 'superadmin') {
+      return res.status(403).json({ error: 'Accès réservé à l\'Admin de la fédération' });
+    }
+    const fedId = req.user.type === 'superadmin'
+      ? (req.query.federation_id || null)
+      : (req.user.federation_id || null);
+    const list = await listGradePassationArchives({ federationId: fedId || undefined });
+    res.json(list.map((a) => ({
+      id: a.id,
+      federation_id: a.federation_id,
+      reset_by: a.reset_by,
+      reset_by_name: a.reset_by_name,
+      created_at: a.created_at,
+      exams_count: a.exams_count ?? (a.exams || []).length,
+      submissions_count: a.submissions_count ?? (a.submissions || []).length,
+      history_count: a.history_count ?? (a.grade_history || []).length,
+    })));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/grades/history/archives/:id', async (req, res) => {
+  try {
+    if (req.user.type !== 'admin' && req.user.type !== 'superadmin') {
+      return res.status(403).json({ error: 'Accès réservé à l\'Admin de la fédération' });
+    }
+    const archive = await getGradePassationArchiveById(req.params.id);
+    if (!archive) return res.status(404).json({ error: 'Archive introuvable' });
+    if (
+      req.user.type === 'admin'
+      && archive.federation_id
+      && req.user.federation_id
+      && String(archive.federation_id) !== String(req.user.federation_id)
+    ) {
+      return res.status(403).json({ error: 'Accès non autorisé' });
+    }
+    res.json(archive);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

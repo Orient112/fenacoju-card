@@ -251,18 +251,18 @@ export async function getGradeHistory({ judokaId = null, blackOnly = false } = {
 /** Efface l'historique de passations ceinture noire (Responsable Grade). */
 export async function clearBlackBeltGradeHistory() {
   const all = await getGradeHistory({ blackOnly: false });
+  const toRemove = all.filter((r) => isBlackBeltGrade(r.grade_to) || r.grade_from === 'Marron');
   const keep = all.filter((r) => !isBlackBeltGrade(r.grade_to) && r.grade_from !== 'Marron');
-  const removed = all.length - keep.length;
+  const removed = toRemove.length;
 
   if (isSupabaseEnabled()) {
     try {
-      const toRemove = all.filter((r) => isBlackBeltGrade(r.grade_to) || r.grade_from === 'Marron');
       const ids = toRemove.map((r) => r.id).filter(Boolean);
       if (ids.length > 0) {
         const { error } = await getSupabase().from('judoka_grade_history').delete().in('id', ids);
         if (error) throw error;
       }
-      return { removed };
+      return { removed, items: toRemove };
     } catch (err) {
       if (!/relation|does not exist|schema cache/i.test(err.message || '')) throw err;
       console.warn('clearBlackBeltGradeHistory fallback JSON:', err.message);
@@ -270,7 +270,7 @@ export async function clearBlackBeltGradeHistory() {
   }
 
   writeJson(gradeHistoryPath, keep);
-  return { removed };
+  return { removed, items: toRemove };
 }
 
 export async function createTransfer({

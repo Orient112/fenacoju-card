@@ -457,6 +457,24 @@ export async function resetGradePassationHistory() {
   return res.json();
 }
 
+export async function fetchGradeHistoryArchives() {
+  const res = await apiFetch('/api/grades/history/archives');
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Impossible de charger les archives');
+  }
+  return res.json();
+}
+
+export async function fetchGradeHistoryArchive(id) {
+  const res = await apiFetch(`/api/grades/history/archives/${encodeURIComponent(id)}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Archive introuvable');
+  }
+  return res.json();
+}
+
 export async function createGradeExam(payload) {
   const res = await apiFetch('/api/grades/exams', {
     method: 'POST',

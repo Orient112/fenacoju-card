@@ -3171,6 +3171,99 @@ tbody tr:last-child td {
   flex-wrap: wrap;
 }
 
+.admin-grade-history {
+  padding: 0.25rem 0 1.5rem;
+}
+
+.admin-grade-history-head {
+  margin-bottom: 1.25rem;
+}
+
+.admin-grade-history-kicker {
+  margin: 0 0 0.25rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.admin-grade-history-head h2 {
+  margin: 0;
+  color: #0f172a;
+}
+
+.admin-grade-history-layout {
+  display: grid;
+  grid-template-columns: minmax(240px, 320px) 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+
+.admin-grade-history-list,
+.admin-grade-history-detail {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 1rem 1.05rem;
+}
+
+.admin-grade-history-list h3,
+.admin-grade-detail-head h3 {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+  color: #0f172a;
+}
+
+.admin-grade-history-list ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.admin-grade-archive-btn {
+  width: 100%;
+  text-align: left;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  border-radius: 10px;
+  padding: 0.7rem 0.8rem;
+  cursor: pointer;
+}
+
+.admin-grade-archive-btn strong {
+  display: block;
+  color: #0f172a;
+  font-size: 0.9rem;
+}
+
+.admin-grade-archive-btn small {
+  display: block;
+  margin-top: 0.25rem;
+  color: #64748b;
+  font-size: 0.78rem;
+}
+
+.admin-grade-archive-btn.is-active {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.admin-grade-detail-head {
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #eef2f7;
+}
+
+@media (max-width: 900px) {
+  .admin-grade-history-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
 .passation-group-modal {
   width: min(640px, 96vw);
 }
