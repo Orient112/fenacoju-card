@@ -37,6 +37,41 @@ function groupArchiveAthletes(archive) {
     .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
 }
 
+function linkPassationsToGroups(groups, history = []) {
+  const remaining = [...(history || [])];
+  const linkedGroups = groups.map((group) => {
+    const athleteIds = new Set(
+      (group.athletes || []).map((a) => String(a.judoka_id || '')).filter(Boolean)
+    );
+    const passations = [];
+    for (let i = remaining.length - 1; i >= 0; i -= 1) {
+      const h = remaining[i];
+      const judokaId = String(h.judoka_id || '');
+      const matchesAthlete = judokaId && athleteIds.has(judokaId);
+      const sameInstructeur = group.instructeur_nom
+        && h.instructeur_nom
+        && String(group.instructeur_nom).trim().toLowerCase() === String(h.instructeur_nom).trim().toLowerCase();
+      if (matchesAthlete || (sameInstructeur && !judokaId)) {
+        passations.unshift(h);
+        remaining.splice(i, 1);
+      }
+    }
+    return {
+      ...group,
+      passations: passations.sort(
+        (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)
+      ),
+    };
+  });
+
+  return {
+    linkedGroups,
+    orphanPassations: remaining.sort(
+      (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)
+    ),
+  };
+}
+
 export default function AdminGradeHistory({ onToast }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -89,25 +124,10 @@ export default function AdminGradeHistory({ onToast }) {
   }, [selectedId, onToast]);
 
   const groups = useMemo(() => (detail ? groupArchiveAthletes(detail) : []), [detail]);
-
-  const mixedHistoryItems = useMemo(() => {
-    if (!detail) return [];
-    const items = [
-      ...groups.map((group) => ({
-        kind: 'group',
-        id: `group-${group.id}`,
-        sortAt: group.created_at || '',
-        group,
-      })),
-      ...(detail.grade_history || []).map((h) => ({
-        kind: 'passation',
-        id: `passation-${h.id}`,
-        sortAt: h.created_at || '',
-        history: h,
-      })),
-    ];
-    return items.sort((a, b) => new Date(b.sortAt || 0) - new Date(a.sortAt || 0));
-  }, [detail, groups]);
+  const { linkedGroups, orphanPassations } = useMemo(
+    () => linkPassationsToGroups(groups, detail?.grade_history || []),
+    [groups, detail]
+  );
 
   return (
     <div className="admin-grade-history">
@@ -183,80 +203,101 @@ export default function AdminGradeHistory({ onToast }) {
                 </header>
 
                 <div className="grade-requests-section">
-                  <h4>Groupes d&apos;examen et passations</h4>
-                  {mixedHistoryItems.length === 0 ? (
+                  <h4>Groupes d&apos;examen et passations liées</h4>
+                  {linkedGroups.length === 0 && orphanPassations.length === 0 ? (
                     <p className="form-hint">Aucune donnée dans cette archive.</p>
                   ) : (
-                    <ul className="transfer-list">
-                      {mixedHistoryItems.map((item) => {
-                        if (item.kind === 'group') {
-                          const group = item.group;
-                          return (
-                            <li key={item.id} className="transfer-row grade-exam-list-row">
-                              <div>
-                                <div className="grade-history-meta" style={{ marginBottom: '0.35rem' }}>
-                                  <span className="grade-history-chip is-exam">Groupe d&apos;examen</span>
-                                  {group.created_at ? (
-                                    <span>{new Date(group.created_at).toLocaleString('fr-FR')}</span>
-                                  ) : null}
-                                </div>
-                                <strong>
-                                  Instructeur : {group.instructeur_nom}
-                                  {' · '}
-                                  {group.athletes.length} athlète{group.athletes.length > 1 ? 's' : ''}
-                                </strong>
-                                <ul className="passation-group-list" style={{ marginTop: '0.65rem' }}>
-                                  {group.athletes.map((a) => (
-                                    <li key={a.id || `${a.judoka_id}-${a.graded_at}`} className="passation-group-item">
-                                      <div className="passation-group-item-main">
-                                        <strong>
-                                          {a.judoka_prenom} {a.judoka_nom}
-                                        </strong>
-                                        <small>
-                                          Club : {a.club || '-'}
-                                          {a.judoka_numero_carte ? ` · ID ${a.judoka_numero_carte}` : ''}
-                                        </small>
-                                        <p className="form-hint">
-                                          {a.grade_from || '-'} → {a.grade_to || '-'}
-                                          {a.total_score != null && a.total_max != null
-                                            ? ` · Points : ${a.total_score}/${a.total_max}`
-                                            : ''}
-                                        </p>
-                                      </div>
-                                      <span className={`passation-result-badge ${a.reussi ? 'is-pass' : 'is-reject'}`}>
-                                        {a.reussi ? 'Passer' : 'Rejeter'}
-                                      </span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            </li>
-                          );
-                        }
-
-                        const h = item.history;
-                        return (
-                          <li key={item.id} className="transfer-row">
-                            <div>
-                              <div className="grade-history-meta" style={{ marginBottom: '0.35rem' }}>
-                                <span className="grade-history-chip is-pass">Passation enregistrée</span>
-                                {h.created_at ? (
-                                  <span>{new Date(h.created_at).toLocaleString('fr-FR')}</span>
-                                ) : null}
-                              </div>
-                              <strong>{h.grade_from || '-'} → {h.grade_to}</strong>
-                              <small>
-                                {h.instructeur_nom ? `Instructeur : ${h.instructeur_nom}` : 'Sans instructeur'}
-                                {h.points != null ? ` · Points : ${h.points}` : ''}
-                              </small>
-                              <p className="form-hint">
-                                {h.changed_by_name || '-'}
-                              </p>
-                              {h.note ? <p className="form-hint">{h.note}</p> : null}
+                    <ul className="transfer-list admin-grade-linked-list">
+                      {linkedGroups.map((group) => (
+                        <li key={group.id} className="transfer-row grade-exam-list-row admin-grade-linked-card">
+                          <div className="admin-grade-linked-block">
+                            <div className="grade-history-meta" style={{ marginBottom: '0.35rem' }}>
+                              <span className="grade-history-chip is-exam">Groupe d&apos;examen</span>
+                              {group.created_at ? (
+                                <span>{new Date(group.created_at).toLocaleString('fr-FR')}</span>
+                              ) : null}
                             </div>
-                          </li>
-                        );
-                      })}
+                            <strong>
+                              Instructeur : {group.instructeur_nom}
+                              {' · '}
+                              {group.athletes.length} athlète{group.athletes.length > 1 ? 's' : ''}
+                            </strong>
+                            <ul className="passation-group-list" style={{ marginTop: '0.65rem' }}>
+                              {group.athletes.map((a) => (
+                                <li key={a.id || `${a.judoka_id}-${a.graded_at}`} className="passation-group-item">
+                                  <div className="passation-group-item-main">
+                                    <strong>
+                                      {a.judoka_prenom} {a.judoka_nom}
+                                    </strong>
+                                    <small>
+                                      Club : {a.club || '-'}
+                                      {a.judoka_numero_carte ? ` · ID ${a.judoka_numero_carte}` : ''}
+                                    </small>
+                                    <p className="form-hint">
+                                      {a.grade_from || '-'} → {a.grade_to || '-'}
+                                      {a.total_score != null && a.total_max != null
+                                        ? ` · Points : ${a.total_score}/${a.total_max}`
+                                        : ''}
+                                    </p>
+                                  </div>
+                                  <span className={`passation-result-badge ${a.reussi ? 'is-pass' : 'is-reject'}`}>
+                                    {a.reussi ? 'Passer' : 'Rejeter'}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+
+                          <div className="admin-grade-linked-passations">
+                            <div className="grade-history-meta" style={{ marginBottom: '0.45rem' }}>
+                              <span className="grade-history-chip is-pass">Passation enregistrée</span>
+                              <span>
+                                {group.passations.length} liée{group.passations.length > 1 ? 's' : ''}
+                              </span>
+                            </div>
+                            {group.passations.length === 0 ? (
+                              <p className="form-hint">Aucune passation liée à ce groupe.</p>
+                            ) : (
+                              <ul className="admin-grade-passation-mini-list">
+                                {group.passations.map((h) => (
+                                  <li key={h.id}>
+                                    <strong>{h.grade_from || '-'} → {h.grade_to}</strong>
+                                    <small>
+                                      {h.instructeur_nom ? `Instructeur : ${h.instructeur_nom}` : 'Sans instructeur'}
+                                      {h.points != null ? ` · Points : ${h.points}` : ''}
+                                      {h.created_at ? ` · ${new Date(h.created_at).toLocaleString('fr-FR')}` : ''}
+                                    </small>
+                                    {h.changed_by_name ? (
+                                      <p className="form-hint">{h.changed_by_name}</p>
+                                    ) : null}
+                                    {h.note ? <p className="form-hint">{h.note}</p> : null}
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        </li>
+                      ))}
+
+                      {orphanPassations.map((h) => (
+                        <li key={`orphan-${h.id}`} className="transfer-row">
+                          <div>
+                            <div className="grade-history-meta" style={{ marginBottom: '0.35rem' }}>
+                              <span className="grade-history-chip is-pass">Passation enregistrée</span>
+                              {h.created_at ? (
+                                <span>{new Date(h.created_at).toLocaleString('fr-FR')}</span>
+                              ) : null}
+                            </div>
+                            <strong>{h.grade_from || '-'} → {h.grade_to}</strong>
+                            <small>
+                              {h.instructeur_nom ? `Instructeur : ${h.instructeur_nom}` : 'Sans instructeur'}
+                              {h.points != null ? ` · Points : ${h.points}` : ''}
+                            </small>
+                            <p className="form-hint">{h.changed_by_name || '-'}</p>
+                            {h.note ? <p className="form-hint">{h.note}</p> : null}
+                          </div>
+                        </li>
+                      ))}
                     </ul>
                   )}
                 </div>

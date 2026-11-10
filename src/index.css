@@ -5755,18 +5755,61 @@ tbody tr:last-child td {
   color: #64748b;
 }
 
-.grade-exam-review-list > li {
-  list-style: none;
-  margin: 0 0 0.75rem;
-  padding: 0;
-}
-
 .grade-exam-pratique-block {
-  margin: 0 0 0.85rem;
+  margin: 0.85rem 0 0.75rem;
   padding: 0.95rem 1rem;
   border: 1px solid #bfdbfe;
   border-radius: 14px;
   background: linear-gradient(180deg, #eff6ff 0%, #ffffff 70%);
+}
+
+.admin-grade-linked-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.admin-grade-linked-card {
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 0.85rem;
+}
+
+.admin-grade-linked-block,
+.admin-grade-linked-passations {
+  width: 100%;
+}
+
+.admin-grade-linked-passations {
+  padding-top: 0.75rem;
+  border-top: 1px dashed #cbd5e1;
+}
+
+.admin-grade-passation-mini-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.admin-grade-passation-mini-list li {
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.admin-grade-passation-mini-list strong {
+  display: block;
+  color: #0f172a;
+}
+
+.admin-grade-passation-mini-list small {
+  display: block;
+  margin-top: 0.2rem;
+  color: #64748b;
 }
 
 .grade-exam-pratique-head h4 {
