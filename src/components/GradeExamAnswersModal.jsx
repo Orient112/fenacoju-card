@@ -35,6 +35,17 @@ export default function GradeExamAnswersModal({
     [submission]
   );
 
+  const scoreSummary = useMemo(() => {
+    let total = 0;
+    let max = 0;
+    for (const q of questions) {
+      max += Number(q.max_points) || 0;
+      if (verdicts[q.id] === 'faux') total += 0;
+      else if (verdicts[q.id] === 'vrai') total += Number(scores[q.id]) || 0;
+    }
+    return { total, max, half: max / 2 };
+  }, [questions, scores, verdicts]);
+
   const answerFor = (questionId) => {
     const found = (submission?.answers || []).find((a) => String(a.question_id) === String(questionId));
     return found?.answer || '';
@@ -66,6 +77,14 @@ export default function GradeExamAnswersModal({
           return;
         }
       }
+    }
+
+    if (reussi && scoreSummary.total < scoreSummary.half) {
+      showToast?.(
+        `Score insuffisant : ${scoreSummary.total}/${scoreSummary.max}. Il faut au moins ${scoreSummary.half} points (moitié) pour Passer.`,
+        'error'
+      );
+      return;
     }
 
     setBusy(true);
@@ -169,6 +188,13 @@ export default function GradeExamAnswersModal({
           })}
         </ul>
 
+        <p className="form-hint grade-exam-score-hint">
+          Total : {scoreSummary.total}/{scoreSummary.max} pts
+          {scoreSummary.max > 0
+            ? ` · Seuil pour Passer : ${scoreSummary.half} pts (moitié)`
+            : ''}
+        </p>
+
         <div className="grade-exam-responsable-note">
           <label>
             <span>Note du Responsable Grade</span>
@@ -193,8 +219,13 @@ export default function GradeExamAnswersModal({
           <button
             type="button"
             className="btn btn-demande-grade"
-            disabled={busy}
+            disabled={busy || (scoreSummary.max > 0 && scoreSummary.total < scoreSummary.half)}
             onClick={() => handleResolve(true)}
+            title={
+              scoreSummary.max > 0 && scoreSummary.total < scoreSummary.half
+                ? `Il faut au moins ${scoreSummary.half} points`
+                : 'Valider la ceinture supérieure'
+            }
           >
             {busy ? 'Traitement…' : 'Passer'}
           </button>

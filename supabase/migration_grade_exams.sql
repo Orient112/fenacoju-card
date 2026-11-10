@@ -14,8 +14,15 @@ create table if not exists judoka_grade_exams (
   created_by uuid,
   created_by_name text default '',
   created_at timestamptz default now(),
-  closed_at timestamptz
+  closed_at timestamptz,
+  chronometre_enabled boolean default false,
+  chronometre_minutes integer,
+  settings jsonb default '{}'::jsonb
 );
+
+alter table judoka_grade_exams add column if not exists chronometre_enabled boolean default false;
+alter table judoka_grade_exams add column if not exists chronometre_minutes integer;
+alter table judoka_grade_exams add column if not exists settings jsonb default '{}'::jsonb;
 
 create index if not exists idx_grade_exams_token on judoka_grade_exams(token);
 create index if not exists idx_grade_exams_statut on judoka_grade_exams(statut, created_at desc);

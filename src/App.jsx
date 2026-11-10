@@ -23,6 +23,7 @@ import {
   fetchGradeExamSubmissions,
   gradeExamTestUrl,
   rejectGradeRequest,
+  resetGradePassationHistory,
   fetchCompetition,
   setCompetitionAccess,
   fetchEntenteCompetitionAccess,
@@ -2214,7 +2215,36 @@ export default function App() {
                   Demandes en attente et Historiques des passations validées
                 </p>
               </div>
-              <button type="button" className="btn btn-outline btn-sm" onClick={() => setGradeHistoryOpen(false)}>Fermer</button>
+              <div className="grade-history-head-actions">
+                {(perms.manageBlackBelts || canManageGrades || user?.type === 'admin') && (
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-sm"
+                    disabled={gradeRequestBusy}
+                    onClick={async () => {
+                      if (!window.confirm('Réinitialiser tout l\'historique actuel des passations ceinture noire ?')) {
+                        return;
+                      }
+                      setGradeRequestBusy(true);
+                      try {
+                        await resetGradePassationHistory();
+                        setGradeHistory([]);
+                        setGradeExams([]);
+                        setGradeExamSubmissions([]);
+                        setPassationGroupTarget(null);
+                        showToast('Historique des passations réinitialisé');
+                      } catch (err) {
+                        showToast(err.message || 'Réinitialisation impossible', 'error');
+                      } finally {
+                        setGradeRequestBusy(false);
+                      }
+                    }}
+                  >
+                    Réinitialiser
+                  </button>
+                )}
+                <button type="button" className="btn btn-outline btn-sm" onClick={() => setGradeHistoryOpen(false)}>Fermer</button>
+              </div>
             </header>
 
             <section className="grade-requests-section">

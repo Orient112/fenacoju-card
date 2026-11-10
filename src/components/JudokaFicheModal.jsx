@@ -45,11 +45,38 @@ export default function JudokaFicheModal({ judoka, onClose, onRequestTransfer })
   const j = fiche?.judoka || judoka;
   const events = useMemo(() => {
     const raw = fiche?.events || [];
+    const successfulGradeKeys = new Set(
+      raw
+        .filter((ev) => ev.type === 'grade' && /passation réussie|passe en grade/i.test(String(ev.titre || '')))
+        .map((ev) => {
+          const from = String(ev.meta?.grade_from || '').trim();
+          const to = String(ev.meta?.grade_to || '').trim();
+          if (from && to) return `${from}→${to}`;
+          const match = String(ev.titre || '').match(/:\s*(.+?)\s*→\s*(.+)$/);
+          return match ? `${match[1].trim()}→${match[2].trim()}` : '';
+        })
+        .filter(Boolean)
+    );
+
     return raw.filter((ev) => {
-      if (ev.type !== 'transfert') return true;
-      const statut = ev?.meta?.statut;
-      if (statut) return statut === 'accepte';
-      return /confirmé|effectif|accepté/i.test(String(ev.titre || ''));
+      if (ev.type === 'transfert') {
+        const statut = ev?.meta?.statut;
+        if (statut) return statut === 'accepte';
+        return /confirmé|effectif|accepté/i.test(String(ev.titre || ''));
+      }
+      // Masquer la demande de passation une fois la ceinture validée
+      if (ev.type === 'grade' && /^Demande ceinture noire\s*:/i.test(String(ev.titre || ''))) {
+        const from = String(ev.meta?.grade_from || '').trim();
+        const to = String(ev.meta?.grade_to || '').trim();
+        const key = from && to
+          ? `${from}→${to}`
+          : (() => {
+            const match = String(ev.titre || '').match(/:\s*(.+?)\s*→\s*(.+)$/);
+            return match ? `${match[1].trim()}→${match[2].trim()}` : '';
+          })();
+        if (key && successfulGradeKeys.has(key)) return false;
+      }
+      return true;
     });
   }, [fiche?.events]);
 

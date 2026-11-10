@@ -22,6 +22,7 @@ import {
   addGradeHistory,
   actorLabel,
   approveGradeRequest,
+  clearBlackBeltGradeHistory,
   confirmTransferByFederation,
   createGradeRequest,
   createTransfer,
@@ -49,6 +50,7 @@ import {
   publicExamLookup,
   publicExamSubmit,
   publicExamSummary,
+  resetGradePassationHistory,
 } from './gradeExams.js';
 import {
   login,
@@ -927,6 +929,7 @@ app.post('/api/public/judoka-id/verify', async (req, res) => {
       club: judoka.club || '',
       grade: judoka.grade || '',
       statut: judoka.statut || '',
+      photo: judoka.photo || '',
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -2809,11 +2812,34 @@ app.post('/api/grades/exams', async (req, res) => {
       questions: req.body?.questions,
       athletes: req.body?.athletes,
       request_ids: req.body?.request_ids,
+      chronometre_enabled: req.body?.chronometre_enabled,
+      chronometre_minutes: req.body?.chronometre_minutes,
       federation_id: req.user.federation_id || null,
       created_by: req.user.id,
       created_by_name: actorLabel(req.user),
     });
     res.status(201).json(exam);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/grades/history/reset', async (req, res) => {
+  try {
+    const perms = getPermissions(req.user);
+    if (!perms.manageBlackBelts && !perms.manageGrades && req.user.type !== 'admin') {
+      return res.status(403).json({ error: 'Réinitialisation réservée au Responsable Grade' });
+    }
+    const fedId = req.user.type === 'admin' || req.user.type === 'superadmin'
+      ? null
+      : (req.user.federation_id || null);
+    const examsReset = await resetGradePassationHistory({ federationId: fedId || undefined });
+    const historyReset = await clearBlackBeltGradeHistory();
+    res.json({
+      ok: true,
+      exams_removed: examsReset.exams_removed || 0,
+      history_removed: historyReset.removed || 0,
+    });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

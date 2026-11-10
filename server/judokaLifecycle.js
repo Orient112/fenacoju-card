@@ -248,6 +248,31 @@ export async function getGradeHistory({ judokaId = null, blackOnly = false } = {
   return list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 }
 
+/** Efface l'historique de passations ceinture noire (Responsable Grade). */
+export async function clearBlackBeltGradeHistory() {
+  const all = await getGradeHistory({ blackOnly: false });
+  const keep = all.filter((r) => !isBlackBeltGrade(r.grade_to) && r.grade_from !== 'Marron');
+  const removed = all.length - keep.length;
+
+  if (isSupabaseEnabled()) {
+    try {
+      const toRemove = all.filter((r) => isBlackBeltGrade(r.grade_to) || r.grade_from === 'Marron');
+      const ids = toRemove.map((r) => r.id).filter(Boolean);
+      if (ids.length > 0) {
+        const { error } = await getSupabase().from('judoka_grade_history').delete().in('id', ids);
+        if (error) throw error;
+      }
+      return { removed };
+    } catch (err) {
+      if (!/relation|does not exist|schema cache/i.test(err.message || '')) throw err;
+      console.warn('clearBlackBeltGradeHistory fallback JSON:', err.message);
+    }
+  }
+
+  writeJson(gradeHistoryPath, keep);
+  return { removed };
+}
+
 export async function createTransfer({
   judoka_id,
   club_from,

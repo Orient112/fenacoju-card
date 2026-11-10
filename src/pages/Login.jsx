@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { loginUser, verifyJudokaId } from '../api';
+import { loginUser, resolveMediaUrl, verifyJudokaId } from '../api';
 
 export default function Login({ onLogin }) {
   const [mode, setMode] = useState('login'); // login | mon-id
@@ -38,6 +38,10 @@ export default function Login({ onLogin }) {
     setLoading(true);
     try {
       const data = await verifyJudokaId(cardId.trim());
+      if (!data?.found) {
+        setError('Cet ID n\'est pas enregistré dans le système');
+        return;
+      }
       setIdResult(data);
     } catch (err) {
       setError(err.message || 'ID introuvable');
@@ -59,6 +63,8 @@ export default function Login({ onLogin }) {
     setIdResult(null);
     setCardId('');
   };
+
+  const photoUrl = idResult?.photo ? resolveMediaUrl(idResult.photo) : '';
 
   return (
     <div className="login-page">
@@ -163,27 +169,6 @@ export default function Login({ onLogin }) {
                 />
               </div>
 
-              {idResult && (
-                <div className={`login-id-result ${idResult.found ? 'is-found' : 'is-missing'}`}>
-                  {idResult.found ? (
-                    <>
-                      <strong>ID reconnu</strong>
-                      <p>
-                        {idResult.prenom} {idResult.nom}
-                        {idResult.club ? ` · ${idResult.club}` : ''}
-                      </p>
-                      <p className="form-hint">
-                        {idResult.numero_carte}
-                        {idResult.grade ? ` · ${idResult.grade}` : ''}
-                        {idResult.statut ? ` · ${idResult.statut}` : ''}
-                      </p>
-                    </>
-                  ) : (
-                    <p>Cet ID n&apos;est pas enregistré dans le système.</p>
-                  )}
-                </div>
-              )}
-
               <button type="submit" className="btn login-mon-id-btn" disabled={loading}>
                 {loading ? 'Vérification…' : 'Valider'}
               </button>
@@ -199,6 +184,45 @@ export default function Login({ onLogin }) {
           )}
         </div>
       </section>
+
+      {idResult?.found && (
+        <div className="confirm-overlay login-id-overlay" onClick={backToLogin}>
+          <div className="login-id-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="login-id-photo-wrap">
+              {photoUrl ? (
+                <img src={photoUrl} alt={`${idResult.prenom || ''} ${idResult.nom || ''}`.trim()} />
+              ) : (
+                <div className="login-id-photo-fallback">
+                  {(idResult.prenom || idResult.nom || '?').charAt(0).toUpperCase()}
+                </div>
+              )}
+            </div>
+            <div className="login-id-fields">
+              <div>
+                <span>Nom</span>
+                <strong>{idResult.prenom} {idResult.nom}</strong>
+              </div>
+              <div>
+                <span>Club</span>
+                <strong>{idResult.club || '-'}</strong>
+              </div>
+              <div>
+                <span>Ceinture</span>
+                <strong>{idResult.grade || '-'}</strong>
+              </div>
+              {idResult.numero_carte ? (
+                <div>
+                  <span>ID</span>
+                  <strong>{idResult.numero_carte}</strong>
+                </div>
+              ) : null}
+            </div>
+            <button type="button" className="btn login-mon-id-btn" onClick={backToLogin}>
+              Retour connexion
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -448,6 +448,15 @@ export async function verifyJudokaId(numeroCarte) {
   return res.json();
 }
 
+export async function resetGradePassationHistory() {
+  const res = await apiFetch('/api/grades/history/reset', { method: 'POST', body: '{}' });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Réinitialisation impossible');
+  }
+  return res.json();
+}
+
 export async function createGradeExam(payload) {
   const res = await apiFetch('/api/grades/exams', {
     method: 'POST',

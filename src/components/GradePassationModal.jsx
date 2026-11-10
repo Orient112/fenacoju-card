@@ -29,13 +29,13 @@ export default function GradePassationModal({
 }) {
   const canUseBlack = allowBlackBelts || mode === 'full' || mode === 'black';
   const currentRank = gradeRank(judoka.grade);
+  const isMarronAthlete = String(judoka.grade || '').trim() === 'Marron';
 
   const allowedGrades = useMemo(() => {
     let list;
     if (mode === 'black') list = GRADES.filter((g) => isBlackBeltGrade(g));
     else if (canUseBlack) list = [...GRADES];
     else list = [...GRADES_CLUB];
-    // Club Marron/Noir : proposer les ceintures noires supérieures pour la Demande
     if (canRequestBlackBelt && isMarronOrBlackGrade(judoka.grade)) {
       GRADES.filter((g) => isBlackBeltGrade(g) && gradeRank(g) > currentRank).forEach((g) => {
         if (!list.includes(g)) list.push(g);
@@ -69,6 +69,7 @@ export default function GradePassationModal({
   const showDemande = canRequestBlackBelt
     && isMarronOrBlackGrade(judoka.grade)
     && Boolean(nextBlackBeltGrade(judoka.grade));
+  const demandeOnly = isMarronAthlete && showDemande;
   const demandeGrade = isBlackBeltGrade(grade) && gradeRank(grade) > currentRank
     ? grade
     : nextBlackBeltGrade(judoka.grade);
@@ -81,6 +82,7 @@ export default function GradePassationModal({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (demandeOnly) return;
     setError('');
     if (!datePassation) {
       setError('Indiquez la date de passation');
@@ -159,7 +161,7 @@ export default function GradePassationModal({
 
   return (
     <div className="confirm-overlay" onClick={onClose}>
-      <div className="grade-passation-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-labelledby="grade-passation-title">
+      <div className="grade-passation-modal is-refined" onClick={(e) => e.stopPropagation()} role="dialog" aria-labelledby="grade-passation-title">
         <header className="grade-passation-head">
           <div>
             <p className="grade-passation-kicker">Grade</p>
@@ -187,7 +189,7 @@ export default function GradePassationModal({
           ) : null}
         </div>
 
-        {error && <div className="form-error">{error}</div>}
+        {error && <div className="form-error grade-passation-error">{error}</div>}
 
         <form onSubmit={handleSubmit} className="grade-passation-form">
           <div className="form-group">
@@ -201,39 +203,43 @@ export default function GradePassationModal({
             />
           </div>
 
-          <div className="form-group">
-            <label>Résultat</label>
-            <div className="grade-passation-result">
-              <label className={`grade-passation-choice ${reussi ? 'is-on' : ''}`}>
-                <input
-                  type="radio"
-                  name="passation-result"
-                  checked={reussi}
-                  onChange={() => setReussi(true)}
-                />
-                <span>
-                  <strong>Passe en grade</strong>
-                  <small>Ceinture supérieure</small>
-                </span>
-              </label>
-              <label className={`grade-passation-choice ${!reussi ? 'is-on' : ''}`}>
-                <input
-                  type="radio"
-                  name="passation-result"
-                  checked={!reussi}
-                  onChange={() => setReussi(false)}
-                />
-                <span>
-                  <strong>Ne passe pas</strong>
-                  <small>Reste au grade actuel</small>
-                </span>
-              </label>
-            </div>
-          </div>
-
-          {reussi && (
+          {!demandeOnly && (
             <div className="form-group">
-              <label htmlFor="passation-grade">Ceinture supérieure *</label>
+              <label>Résultat</label>
+              <div className="grade-passation-result">
+                <label className={`grade-passation-choice ${reussi ? 'is-on' : ''}`}>
+                  <input
+                    type="radio"
+                    name="passation-result"
+                    checked={reussi}
+                    onChange={() => setReussi(true)}
+                  />
+                  <span>
+                    <strong>Passe en grade</strong>
+                    <small>Ceinture supérieure</small>
+                  </span>
+                </label>
+                <label className={`grade-passation-choice ${!reussi ? 'is-on' : ''}`}>
+                  <input
+                    type="radio"
+                    name="passation-result"
+                    checked={!reussi}
+                    onChange={() => setReussi(false)}
+                  />
+                  <span>
+                    <strong>Ne passe pas</strong>
+                    <small>Reste au grade actuel</small>
+                  </span>
+                </label>
+              </div>
+            </div>
+          )}
+
+          {(reussi || demandeOnly) && (
+            <div className="form-group">
+              <label htmlFor="passation-grade">
+                {demandeOnly ? 'Ceinture demandée *' : 'Ceinture supérieure *'}
+              </label>
               <select
                 id="passation-grade"
                 className="grade-passation-select"
@@ -255,11 +261,10 @@ export default function GradePassationModal({
                   );
                 })}
               </select>
-              <p className="form-hint">Les ceintures inférieures ou égales au grade actuel sont inactives.</p>
             </div>
           )}
 
-          {needsBlackExtras && (
+          {!demandeOnly && needsBlackExtras && (
             <div className="grade-passation-black-block">
               <p className="grade-passation-black-label">Examen ceinture noire</p>
               <div className="form-group">
@@ -294,9 +299,15 @@ export default function GradePassationModal({
             </div>
           )}
 
-          <div className="form-group">
+          <div className="grade-passation-note-block">
             <label htmlFor="passation-note">Note / observation</label>
-            <textarea id="passation-note" rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
+            <textarea
+              id="passation-note"
+              rows={3}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Observations, commentaires de l'instructeur…"
+            />
           </div>
 
           <div className="grade-passation-actions">
@@ -314,9 +325,11 @@ export default function GradePassationModal({
                 {loading ? 'Envoi...' : 'Demande'}
               </button>
             )}
-            <button type="submit" className="btn btn-primary" disabled={loading}>
-              {loading ? 'Enregistrement...' : 'Enregistrer'}
-            </button>
+            {!demandeOnly && (
+              <button type="submit" className="btn btn-primary" disabled={loading}>
+                {loading ? 'Enregistrement...' : 'Enregistrer'}
+              </button>
+            )}
           </div>
         </form>
       </div>

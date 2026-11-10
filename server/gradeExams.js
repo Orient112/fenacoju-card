@@ -35,7 +35,9 @@ function makeToken() {
 }
 
 function normalizeQuestions(raw) {
-  const list = Array.isArray(raw) ? raw : [];
+  const list = Array.isArray(raw)
+    ? raw
+    : (Array.isArray(raw?.items) ? raw.items : []);
   return list
     .map((q, i) => ({
       id: String(q.id || `q${i + 1}`),
@@ -43,6 +45,29 @@ function normalizeQuestions(raw) {
       max_points: Math.max(0, Number(q.max_points) || 0),
     }))
     .filter((q) => q.text);
+}
+
+export function examChronometre(exam) {
+  if (!exam) return { enabled: false, minutes: null };
+  const settings = exam.settings || {};
+  const fromQuestions = exam.questions && !Array.isArray(exam.questions) ? exam.questions : {};
+  const enabled = Boolean(
+    exam.chronometre_enabled
+    ?? settings.chronometre_enabled
+    ?? fromQuestions.chronometre_enabled
+  );
+  const minutes = enabled
+    ? Math.max(1, Number(
+      exam.chronometre_minutes
+      ?? settings.chronometre_minutes
+      ?? fromQuestions.chronometre_minutes
+    ) || 30)
+    : null;
+  return { enabled, minutes };
+}
+
+export function examQuestionsList(exam) {
+  return normalizeQuestions(exam?.questions);
 }
 
 export async function createGradeExam({
@@ -53,6 +78,8 @@ export async function createGradeExam({
   federation_id = null,
   created_by = null,
   created_by_name = '',
+  chronometre_enabled = false,
+  chronometre_minutes = null,
 }) {
   const instructeur = String(instructeur_nom || '').trim();
   if (!instructeur) throw new Error('Le nom de l\'instructeur est obligatoire');
@@ -61,6 +88,9 @@ export async function createGradeExam({
   if (!Array.isArray(athletes) || athletes.length === 0) {
     throw new Error('Sélectionnez au moins un athlète');
   }
+
+  const chronoOn = Boolean(chronometre_enabled);
+  const chronoMin = chronoOn ? Math.max(1, Number(chronometre_minutes) || 30) : null;
 
   const row = {
     id: uuidv4(),
@@ -84,6 +114,12 @@ export async function createGradeExam({
     created_by_name: created_by_name || '',
     created_at: new Date().toISOString(),
     closed_at: null,
+    chronometre_enabled: chronoOn,
+    chronometre_minutes: chronoMin,
+    settings: {
+      chronometre_enabled: chronoOn,
+      chronometre_minutes: chronoMin,
+    },
   };
 
   if (isSupabaseEnabled()) {
@@ -92,8 +128,35 @@ export async function createGradeExam({
       if (error) throw error;
       return data || row;
     } catch (err) {
-      if (!/relation|does not exist|schema cache/i.test(err.message || '')) throw err;
-      console.warn('judoka_grade_exams fallback JSON:', err.message);
+      if (/column|chronometre|settings|schema cache/i.test(err.message || '')) {
+        try {
+          const slim = { ...row };
+          delete slim.chronometre_enabled;
+          delete slim.chronometre_minutes;
+          delete slim.settings;
+          // conserver le chrono dans questions via envelope compatible
+          slim.questions = {
+            items: qs,
+            chronometre_enabled: chronoOn,
+            chronometre_minutes: chronoMin,
+          };
+          const { data, error } = await getSupabase().from('judoka_grade_exams').insert(slim).select('*').maybeSingle();
+          if (error) throw error;
+          return {
+            ...(data || slim),
+            questions: qs,
+            chronometre_enabled: chronoOn,
+            chronometre_minutes: chronoMin,
+          };
+        } catch (err2) {
+          if (!/relation|does not exist|schema cache/i.test(err2.message || '')) throw err2;
+          console.warn('judoka_grade_exams fallback JSON:', err2.message);
+        }
+      } else if (!/relation|does not exist|schema cache/i.test(err.message || '')) {
+        throw err;
+      } else {
+        console.warn('judoka_grade_exams fallback JSON:', err.message);
+      }
     }
   }
 
@@ -239,14 +302,17 @@ export async function publicExamLookup(token, numeroCarte) {
     }
   }
 
+  const chrono = examChronometre(exam);
   return {
     exam: {
       id: exam.id,
       token: exam.token,
       instructeur_nom: exam.instructeur_nom,
-      questions: exam.questions,
+      questions: examQuestionsList(exam),
       statut: exam.statut,
       federation_nom_profil,
+      chronometre_enabled: chrono.enabled,
+      chronometre_minutes: chrono.minutes,
     },
     athlete,
   };
@@ -268,7 +334,7 @@ export async function publicExamSubmit(token, { numero_carte, answers }) {
     .find((s) => String(s.judoka_id) === String(athlete.judoka_id));
   if (existing) throw new Error('Vous avez déjà confirmé cet examen');
 
-  const qs = exam.questions || [];
+  const qs = examQuestionsList(exam);
   const answerMap = new Map((Array.isArray(answers) ? answers : []).map((a) => [String(a.question_id), String(a.answer || '').trim()]));
   const normalized = qs.map((q) => {
     const answer = answerMap.get(String(q.id)) || '';
@@ -332,7 +398,7 @@ export async function gradeExamSubmission(
     throw new Error('Cette copie a déjà été traitée');
   }
 
-  const qs = exam.questions || [];
+  const qs = examQuestionsList(exam);
   const scoreMap = new Map((Array.isArray(scores) ? scores : []).map((s) => [String(s.question_id), Number(s.points)]));
   const normalizedScores = qs.map((q) => {
     const max = Math.max(0, Number(q.max_points) || 0);
@@ -343,7 +409,14 @@ export async function gradeExamSubmission(
   });
   const totalScore = normalizedScores.reduce((sum, s) => sum + s.points, 0);
   const totalMax = normalizedScores.reduce((sum, s) => sum + s.max_points, 0);
+  const halfThreshold = totalMax / 2;
   const passed = reussi === true || reussi === '1' || reussi === 1;
+  // Règle métier : la moitié des points (ou plus) est requise pour passer
+  if (passed && totalScore < halfThreshold) {
+    throw new Error(
+      `Score insuffisant : ${totalScore}/${totalMax}. Il faut au moins ${halfThreshold} points (moitié) pour valider la ceinture.`
+    );
+  }
   const graderNote = String(note || '').trim();
   const scoreNote = `Examen ceinture noire · ${totalScore}/${totalMax}`;
   const finalNote = [scoreNote, graderNote].filter(Boolean).join(' · ');
@@ -442,14 +515,48 @@ export async function listGradeExamSubmissionsWithExam({ federationId = null } =
           id: exam.id,
           token: exam.token,
           instructeur_nom: exam.instructeur_nom,
-          questions: exam.questions,
+          questions: examQuestionsList(exam),
           statut: exam.statut,
           created_at: exam.created_at,
+          chronometre_enabled: examChronometre(exam).enabled,
+          chronometre_minutes: examChronometre(exam).minutes,
         },
       });
     }
   }
   return out.sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at));
+}
+
+export async function resetGradePassationHistory({ federationId = null } = {}) {
+  const exams = await listGradeExams({ federationId: federationId || undefined });
+  const examIds = new Set(exams.map((e) => String(e.id)));
+
+  if (isSupabaseEnabled()) {
+    try {
+      if (examIds.size > 0) {
+        const ids = [...examIds];
+        await getSupabase().from('judoka_grade_exam_submissions').delete().in('exam_id', ids);
+        let q = getSupabase().from('judoka_grade_exams').delete();
+        if (federationId) q = q.eq('federation_id', federationId);
+        else q = q.in('id', ids);
+        await q;
+      }
+    } catch (err) {
+      if (!/relation|does not exist|schema cache/i.test(err.message || '')) throw err;
+      console.warn('reset exams supabase fallback JSON:', err.message);
+    }
+  }
+
+  const examsList = readJson(examsPath).filter((e) => {
+    if (federationId) return e.federation_id && e.federation_id !== federationId;
+    return !examIds.has(String(e.id));
+  });
+  writeJson(examsPath, examsList);
+
+  const subsList = readJson(submissionsPath).filter((s) => !examIds.has(String(s.exam_id)));
+  writeJson(submissionsPath, subsList);
+
+  return { exams_removed: examIds.size };
 }
 
 export async function publicExamSummary(exam) {

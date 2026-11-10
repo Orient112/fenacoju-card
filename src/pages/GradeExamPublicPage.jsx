@@ -1,6 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import BrandLoader from '../components/BrandLoader';
 import { fetchPublicGradeExam, lookupGradeExamAthlete, submitGradeExamAnswers } from '../api';
+
+function formatTimer(seconds) {
+  const s = Math.max(0, Number(seconds) || 0);
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return `${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}`;
+}
 
 export default function GradeExamPublicPage({ token }) {
   const [step, setStep] = useState('id'); // id | quiz | done | closed | already
@@ -11,6 +18,7 @@ export default function GradeExamPublicPage({ token }) {
   const [athlete, setAthlete] = useState(null);
   const [answers, setAnswers] = useState({});
   const [federationNomProfil, setFederationNomProfil] = useState('');
+  const [secondsLeft, setSecondsLeft] = useState(null);
 
   const questions = useMemo(() => exam?.questions || [], [exam]);
   const brandLabel = useMemo(() => {
@@ -30,6 +38,55 @@ export default function GradeExamPublicPage({ token }) {
       .catch(() => {});
     return () => { cancelled = true; };
   }, [token]);
+
+  const submitAnswers = useCallback(async () => {
+    const payload = questions.map((q) => ({
+      question_id: q.id,
+      answer: String(answers[q.id] || '').trim() || '(Sans réponse - temps écoulé)',
+    }));
+    await submitGradeExamAnswers(token, {
+      numero_carte: athlete?.judoka_numero_carte || numeroCarte,
+      answers: payload,
+    });
+    setStep('done');
+  }, [answers, athlete, numeroCarte, questions, token]);
+
+  useEffect(() => {
+    if (step !== 'quiz' || !exam?.chronometre_enabled || !exam?.chronometre_minutes) {
+      setSecondsLeft(null);
+      return undefined;
+    }
+    const total = Math.max(1, Number(exam.chronometre_minutes) || 30) * 60;
+    setSecondsLeft(total);
+    const id = setInterval(() => {
+      setSecondsLeft((prev) => {
+        if (prev == null) return prev;
+        if (prev <= 1) {
+          clearInterval(id);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, [step, exam?.chronometre_enabled, exam?.chronometre_minutes]);
+
+  useEffect(() => {
+    if (secondsLeft !== 0 || step !== 'quiz' || loading) return undefined;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError('');
+      try {
+        await submitAnswers();
+      } catch (err) {
+        if (!cancelled) setError(err.message || 'Temps écoulé - envoi impossible');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [secondsLeft, step, loading, submitAnswers]);
 
   const handleLookup = async (e) => {
     e.preventDefault();
@@ -64,15 +121,7 @@ export default function GradeExamPublicPage({ token }) {
     setError('');
     setLoading(true);
     try {
-      const payload = questions.map((q) => ({
-        question_id: q.id,
-        answer: String(answers[q.id] || '').trim(),
-      }));
-      await submitGradeExamAnswers(token, {
-        numero_carte: athlete?.judoka_numero_carte || numeroCarte,
-        answers: payload,
-      });
-      setStep('done');
+      await submitAnswers();
     } catch (err) {
       const msg = err.message || 'Envoi impossible';
       if (/déjà confirmé|deja confirme/i.test(msg)) {
@@ -94,24 +143,19 @@ export default function GradeExamPublicPage({ token }) {
     <div className="grade-exam-public">
       <div className="grade-exam-public-shell">
         {step === 'done' ? (
-          <>
-            <div className="grade-exam-public-card">
-              <div className="grade-exam-public-state is-success">
-                <h1>Réponses envoyées</h1>
-                <p className="grade-exam-done-text">
-                  <strong className="grade-exam-done-name">
-                    {athlete?.judoka_prenom} {athlete?.judoka_nom}
-                  </strong>
-                  <span className="grade-exam-done-msg">
-                    Vos réponses ont été transmises au Responsable Grade
-                  </span>
-                </p>
-              </div>
+          <div className="grade-exam-public-card">
+            <div className="grade-exam-public-state is-success">
+              <h1>Réponses envoyées</h1>
+              <p className="grade-exam-done-text">
+                <strong className="grade-exam-done-name">
+                  {athlete?.judoka_prenom} {athlete?.judoka_nom}
+                </strong>
+                <span className="grade-exam-done-msg">
+                  Vos réponses ont été transmises au Responsable Grade
+                </span>
+              </p>
             </div>
-            <p className="grade-exam-access-closed">
-              Votre accès à ce test est désormais fermé
-            </p>
-          </>
+          </div>
         ) : (
           <div className="grade-exam-public-card">
             {(step === 'id' || step === 'quiz') && (
@@ -170,6 +214,11 @@ export default function GradeExamPublicPage({ token }) {
 
             {step === 'quiz' && exam && athlete && (
               <form onSubmit={handleSubmit} className="grade-exam-quiz-form">
+                {exam.chronometre_enabled && secondsLeft != null && (
+                  <div className={`grade-exam-timer ${secondsLeft <= 60 ? 'is-urgent' : ''}`}>
+                    Temps restant : {formatTimer(secondsLeft)}
+                  </div>
+                )}
                 <div className="grade-exam-athlete-card is-blue">
                   <p className="grade-exam-athlete-name">
                     {athlete.judoka_prenom} {athlete.judoka_nom}

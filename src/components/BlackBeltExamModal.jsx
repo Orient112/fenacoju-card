@@ -8,12 +8,19 @@ function emptyQuestion() {
 export default function BlackBeltExamModal({ athletes = [], onClose, onCreated, showToast }) {
   const [instructeur, setInstructeur] = useState('');
   const [questions, setQuestions] = useState([emptyQuestion()]);
+  const [chronometreEnabled, setChronometreEnabled] = useState(false);
+  const [chronometreMinutes, setChronometreMinutes] = useState(30);
   const [busy, setBusy] = useState(false);
   const [createdExam, setCreatedExam] = useState(null);
 
   const testUrl = useMemo(
     () => (createdExam?.token ? gradeExamTestUrl(createdExam.token) : ''),
     [createdExam]
+  );
+
+  const totalPoints = useMemo(
+    () => questions.reduce((sum, q) => sum + (Number(q.max_points) || 0), 0),
+    [questions]
   );
 
   const updateQuestion = (id, patch) => {
@@ -32,6 +39,8 @@ export default function BlackBeltExamModal({ athletes = [], onClose, onCreated, 
       const exam = await createGradeExam({
         instructeur_nom: instructeur,
         questions,
+        chronometre_enabled: chronometreEnabled,
+        chronometre_minutes: chronometreEnabled ? Number(chronometreMinutes) || 30 : null,
         athletes: athletes.map((a) => ({
           request_id: a.id,
           judoka_id: a.judoka_id,
@@ -45,7 +54,7 @@ export default function BlackBeltExamModal({ athletes = [], onClose, onCreated, 
         request_ids: athletes.map((a) => a.id),
       });
       setCreatedExam(exam);
-      showToast?.('Examen créé — partagez le Lien de Test');
+      showToast?.('Examen créé - partagez le Lien de Test');
       onCreated?.(exam);
     } catch (err) {
       showToast?.(err.message || 'Création impossible', 'error');
@@ -66,13 +75,15 @@ export default function BlackBeltExamModal({ athletes = [], onClose, onCreated, 
 
   return (
     <div className="confirm-overlay" onClick={onClose}>
-      <div className="transfer-modal black-belt-exam-modal" onClick={(e) => e.stopPropagation()}>
-        <header className="competition-params-modal-head">
+      <div className="black-belt-exam-modal is-refined" onClick={(e) => e.stopPropagation()}>
+        <header className="black-belt-exam-head">
           <div>
+            <p className="black-belt-exam-kicker">Examen</p>
             <h3>Examen ceinture noire</h3>
             <p className="form-hint">
               {athletes.length} athlète{athletes.length > 1 ? 's' : ''} sélectionné
               {athletes.length > 1 ? 's' : ''}
+              {totalPoints > 0 ? ` · Total ${totalPoints} pts (seuil ${Math.ceil(totalPoints / 2)} pts)` : ''}
             </p>
           </div>
           <button type="button" className="btn btn-outline btn-sm" onClick={onClose}>
@@ -92,6 +103,30 @@ export default function BlackBeltExamModal({ athletes = [], onClose, onCreated, 
                 placeholder="Nom complet"
               />
             </label>
+
+            <div className="exam-chrono-block">
+              <label className="exam-chrono-toggle">
+                <input
+                  type="checkbox"
+                  checked={chronometreEnabled}
+                  onChange={(e) => setChronometreEnabled(e.target.checked)}
+                />
+                <span>Chronométrer l&apos;examen</span>
+              </label>
+              {chronometreEnabled && (
+                <label className="form-field exam-chrono-minutes">
+                  <span>Durée (minutes)</span>
+                  <input
+                    type="number"
+                    min="1"
+                    max="240"
+                    value={chronometreMinutes}
+                    onChange={(e) => setChronometreMinutes(e.target.value)}
+                    required
+                  />
+                </label>
+              )}
+            </div>
 
             <div className="exam-questions-block">
               <div className="exam-questions-head">
@@ -171,6 +206,11 @@ export default function BlackBeltExamModal({ athletes = [], onClose, onCreated, 
               L&apos;examen est prêt. Partagez le Lien de Test aux athlètes sélectionnés.
               Le lien disparaîtra dès que tous auront confirmé leurs réponses.
             </p>
+            {createdExam.chronometre_enabled ? (
+              <p className="form-hint">
+                Chronométré : {createdExam.chronometre_minutes || chronometreMinutes} min
+              </p>
+            ) : null}
             <p className="exam-link-url">{testUrl}</p>
             <div className="black-belt-exam-actions">
               <button type="button" className="btn btn-outline" onClick={copyLink}>
