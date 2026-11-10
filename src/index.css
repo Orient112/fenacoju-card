@@ -4211,6 +4211,252 @@ tbody tr:last-child td {
   margin: 0;
 }
 
+.ligue-competition-toggle-btn.is-active {
+  background: #16a34a;
+  border: 1px solid #16a34a;
+  color: #fff;
+  font-weight: 700;
+}
+
+.ligue-competition-toggle-btn.is-active:hover:not(:disabled) {
+  background: #15803d;
+  border-color: #15803d;
+  color: #fff;
+}
+
+.ligue-competition-toggle-btn.is-inactive {
+  background: #e2e8f0;
+  border: 1px solid #cbd5e1;
+  color: #64748b;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ligue-competition-toggle-btn.is-inactive:hover:not(:disabled) {
+  background: #cbd5e1;
+  border-color: #94a3b8;
+  color: #475569;
+}
+
+.grade-history-modal {
+  width: min(760px, 96vw);
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.2);
+  background:
+    linear-gradient(180deg, #f8fafc 0%, #ffffff 42%);
+}
+
+.grade-history-modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1.15rem 1.3rem 1rem;
+  border-bottom: 1px solid #eef2f7;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 55%, #334155 100%);
+  color: #fff;
+}
+
+.grade-history-modal-head h3 {
+  margin: 0.15rem 0 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: #fff;
+}
+
+.grade-history-kicker {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.grade-history-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.grade-history-modal-head .btn-outline {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.28);
+  color: #fff;
+}
+
+.grade-history-modal-head .btn-outline:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.45);
+  color: #fff;
+}
+
+.grade-history-modal-body {
+  padding: 1rem 1.15rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  max-height: min(72vh, 720px);
+  overflow: auto;
+}
+
+.grade-history-panel {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 0.85rem 0.95rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.grade-history-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.grade-history-panel-title {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.grade-history-panel-title h4 {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.grade-history-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #334155;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.grade-history-empty {
+  padding: 0.95rem 0.85rem;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  color: #64748b;
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+.grade-history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.grade-history-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 0.8rem;
+  border-radius: 12px;
+  border: 1px solid #eef2f7;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.grade-history-item-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.grade-history-item-main strong {
+  color: #0f172a;
+  font-size: 0.92rem;
+}
+
+.grade-history-item-main small {
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+.grade-history-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.55rem;
+  margin-top: 0.25rem;
+  color: #64748b;
+  font-size: 0.78rem;
+}
+
+.grade-history-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.12rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.grade-history-chip.is-answers {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.grade-history-chip.is-exam {
+  background: #ffedd5;
+  color: #c2410c;
+}
+
+.grade-history-chip.is-closed {
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.grade-history-chip.is-pass {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.grade-history-chip.is-reject {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.grade-history-note {
+  margin: 0.35rem 0 0;
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+.grade-history-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
 .grade-request-select-row {
   display: flex;
   align-items: flex-start;

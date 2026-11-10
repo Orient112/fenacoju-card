@@ -106,14 +106,16 @@ export default function AccountDetailModal({
             {account.type === 'ligue' && canToggleLigueCompetition && (
               <button
                 type="button"
-                className={`btn btn-sm ${ligueCompetitionAccess ? 'btn-outline' : 'btn-primary'}`}
+                className={`btn btn-sm ligue-competition-toggle-btn ${
+                  ligueCompetitionAccess ? 'is-active' : 'is-inactive'
+                }`}
                 onClick={handleToggleLigueCompetition}
                 disabled={ligueCompetitionBusy}
                 title={ligueCompetitionAccess
-                  ? 'Désactiver la page Compétition pour cette ligue'
-                  : 'Activer la page Compétition pour cette ligue'}
+                  ? 'Compétition activée - cliquer pour désactiver'
+                  : 'Compétition désactivée - cliquer pour activer'}
               >
-                {ligueCompetitionBusy ? '…' : 'Activer/Désactiver'}
+                {ligueCompetitionBusy ? '…' : (ligueCompetitionAccess ? 'Activer' : 'Désactiver')}
               </button>
             )}
             <button type="button" className="btn btn-outline btn-sm" onClick={onClose}>Fermer</button>

@@ -2154,7 +2154,8 @@ app.get('/api/messages/conversation/:userId', async (req, res) => {
   try {
     const other = await getUserById(req.params.userId);
     if (!other) return res.status(404).json({ error: 'Utilisateur introuvable' });
-    if (!canMessageUser(req.user, other) && !canMessageUser(other, req.user)) {
+    const users = await getAllUsers();
+    if (!canMessageUser(req.user, other, users) && !canMessageUser(other, req.user, users)) {
       return res.status(403).json({ error: 'Conversation non autorisée' });
     }
     await markConversationRead(req.user.id, other.id);

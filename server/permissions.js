@@ -650,24 +650,80 @@ export function canValidateTargetAccount(editor, target, allUsers = []) {
   return editor.type === 'admin' || isCoordon(editor);
 }
 
-export function canMessageUser(sender, recipient) {
+function findAncestorByType(allUsers, user, type) {
+  const byId = new Map((allUsers || []).map((u) => [String(u.id), u]));
+  let cursor = user?.parent_id ? byId.get(String(user.parent_id)) : null;
+  while (cursor) {
+    if (cursor.type === type) return cursor;
+    cursor = cursor.parent_id ? byId.get(String(cursor.parent_id)) : null;
+  }
+  return null;
+}
+
+function sameMessageFederation(a, b) {
+  const fa = getUserFederationId(a);
+  const fb = getUserFederationId(b);
+  if (!fa || !fb) return true;
+  return String(fa) === String(fb);
+}
+
+/**
+ * Droits d'écriture Messages :
+ * - Admin / fédération : tous les comptes de la fédération
+ * - Club : son entente, sa ligue, comptes fédération (sauf Admin)
+ * - Entente : sa ligue, ses clubs, comptes fédération (sauf Admin)
+ * - Ligue : ses ententes et clubs, comptes fédération (sauf Admin)
+ */
+export function canMessageUser(sender, recipient, allUsers = []) {
   if (!sender || !recipient || sender.id === recipient.id) return false;
   if (NO_LOGIN_TYPES.includes(sender.type) || NO_LOGIN_TYPES.includes(recipient.type)) return false;
+  if (!sameMessageFederation(sender, recipient)) return false;
 
-  if (recipient.type === 'admin') {
-    return isCoordon(sender);
+  // Admin et tous les comptes fédération → tous les comptes de la fédération
+  if (sender.type === 'admin' || sender.type === 'federation') {
+    return true;
   }
 
-  if (sender.type === 'admin') {
-    return recipient.type !== 'admin';
-  }
-
-  if (sender.type === 'federation' || sender.type === 'ligue' || sender.type === 'entente') {
-    return recipient.type !== 'admin' || isCoordon(sender);
-  }
-
+  // Club → entente, ligue, comptes fédération (sauf Admin)
   if (sender.type === 'club') {
-    return ['federation', 'ligue', 'entente'].includes(recipient.type);
+    if (recipient.type === 'admin') return false;
+    if (recipient.type === 'federation') return true;
+    if (recipient.type === 'entente') {
+      const entente = findAncestorByType(allUsers, sender, 'entente');
+      return Boolean(entente && String(entente.id) === String(recipient.id));
+    }
+    if (recipient.type === 'ligue') {
+      const ligue = findAncestorByType(allUsers, sender, 'ligue');
+      return Boolean(ligue && String(ligue.id) === String(recipient.id));
+    }
+    return false;
+  }
+
+  // Entente → ligue, clubs attachés, comptes fédération (sauf Admin)
+  if (sender.type === 'entente') {
+    if (recipient.type === 'admin') return false;
+    if (recipient.type === 'federation') return true;
+    if (recipient.type === 'ligue') {
+      const ligue = findAncestorByType(allUsers, sender, 'ligue');
+      return Boolean(ligue && String(ligue.id) === String(recipient.id));
+    }
+    if (recipient.type === 'club') {
+      if (String(recipient.parent_id || '') === String(sender.id)) return true;
+      return getDescendantUsers(allUsers, sender.id)
+        .some((u) => String(u.id) === String(recipient.id) && u.type === 'club');
+    }
+    return false;
+  }
+
+  // Ligue → ententes et clubs attachés, comptes fédération (sauf Admin)
+  if (sender.type === 'ligue') {
+    if (recipient.type === 'admin') return false;
+    if (recipient.type === 'federation') return true;
+    if (recipient.type === 'entente' || recipient.type === 'club') {
+      return getDescendantUsers(allUsers, sender.id)
+        .some((u) => String(u.id) === String(recipient.id));
+    }
+    return false;
   }
 
   return false;

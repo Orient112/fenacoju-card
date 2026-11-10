@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { canMessageUser } from './permissions.js';
-import { getUserById } from './users.js';
+import { getAllUsers, getUserById } from './users.js';
 import { getSupabase, isSupabaseEnabled } from './supabase.js';
 import { dataDir } from './paths.js';
 
@@ -137,7 +137,8 @@ export async function sendMessage(sender, recipientId, subject, body, attachment
 
   const recipient = await getUserById(recipientId);
   if (!recipient) throw new Error('Destinataire introuvable');
-  if (!canMessageUser(sender, recipient)) {
+  const users = await getAllUsers();
+  if (!canMessageUser(sender, recipient, users)) {
     throw new Error('Vous n\'êtes pas autorisé à envoyer un message à cet utilisateur');
   }
 
@@ -242,19 +243,19 @@ export async function getMessageContacts(sender, allUsers) {
   messages.forEach((m) => {
     const otherId = m.from_id === sender.id ? m.to_id : m.from_id;
     const other = allUsers.find((u) => u.id === otherId);
-    if (other && canMessageUser(sender, other)) {
+    if (other && canMessageUser(sender, other, allUsers)) {
       contactIds.add(otherId);
     }
   });
 
   allUsers.forEach((u) => {
-    if (u.id !== sender.id && canMessageUser(sender, u)) {
+    if (u.id !== sender.id && canMessageUser(sender, u, allUsers)) {
       contactIds.add(u.id);
     }
   });
 
   return allUsers
-    .filter((u) => contactIds.has(u.id) && canMessageUser(sender, u))
+    .filter((u) => contactIds.has(u.id) && canMessageUser(sender, u, allUsers))
     .sort((a, b) => {
       const nameA = (a.nom_club || `${a.prenom || ''} ${a.nom || ''}`).trim().toLowerCase();
       const nameB = (b.nom_club || `${b.prenom || ''} ${b.nom || ''}`).trim().toLowerCase();

@@ -2238,13 +2238,11 @@ export default function App() {
 
       {gradeHistoryOpen && (
         <div className="confirm-overlay" onClick={() => setGradeHistoryOpen(false)}>
-          <div className="transfer-modal" onClick={(e) => e.stopPropagation()}>
-            <header className="competition-params-modal-head">
+          <div className="transfer-modal grade-history-modal" onClick={(e) => e.stopPropagation()}>
+            <header className="grade-history-modal-head">
               <div>
+                <p className="grade-history-kicker">Responsable Grade</p>
                 <h3>Historique Ceintures Noires</h3>
-                <p className="form-hint">
-                  Demandes en attente et Historiques des passations validées
-                </p>
               </div>
               <div className="grade-history-head-actions">
                 {(perms.manageBlackBelts || canManageGrades) && user?.type !== 'admin' && (
@@ -2278,150 +2276,164 @@ export default function App() {
               </div>
             </header>
 
-            <section className="grade-requests-section">
-              <div className="grade-requests-section-head">
-                <h4>
-                  Demandes en attente
-                  {gradeRequests.length > 0 ? ` (${gradeRequests.length})` : ''}
-                </h4>
-                {(perms.manageBlackBelts || canManageGrades || user?.type === 'admin')
-                  && selectedGradeRequestIds.size > 0 && (
-                  <button
-                    type="button"
-                    className="btn btn-demande-grade btn-sm"
-                    onClick={() => setBlackBeltExamOpen(true)}
-                  >
-                    Valider ({selectedGradeRequestIds.size})
-                  </button>
-                )}
-              </div>
-              {gradeRequests.length === 0 ? (
-                <p className="form-hint">Aucune demande de passation ceinture noire.</p>
-              ) : (
-                <ul className="transfer-list">
-                  {gradeRequests.map((r) => {
-                    const canManage = perms.manageBlackBelts || canManageGrades || user?.type === 'admin';
-                    const inOpenExam = gradeExams.some(
-                      (exam) => exam.statut === 'open'
-                        && (exam.request_ids || []).map(String).includes(String(r.id))
-                    );
-                    const submissionEntry = gradeExamSubmissions.find(
-                      (s) => String(s.request_id) === String(r.id)
-                        && s.reussi !== true
-                        && s.reussi !== false
-                    );
-                    const hasAnswers = Boolean(submissionEntry);
-                    const checked = selectedGradeRequestIds.has(r.id);
-                    return (
-                      <li key={r.id} className="transfer-row">
-                        <div className="grade-request-select-row">
-                          {canManage && (
-                            <label className="grade-request-checkbox">
-                              <input
-                                type="checkbox"
-                                checked={checked}
-                                disabled={inOpenExam || hasAnswers}
-                                onChange={() => {
-                                  if (inOpenExam || hasAnswers) return;
-                                  setSelectedGradeRequestIds((prev) => {
-                                    const next = new Set(prev);
-                                    if (next.has(r.id)) next.delete(r.id);
-                                    else next.add(r.id);
-                                    return next;
-                                  });
-                                }}
-                              />
-                              <span className="sr-only">Sélectionner</span>
-                            </label>
-                          )}
-                          <div>
-                            <strong>
-                              {r.judoka_prenom} {r.judoka_nom}
-                              {r.judoka_numero_carte ? ` · ID ${r.judoka_numero_carte}` : ''}
-                            </strong>
-                            <small>
-                              {r.grade_from} → {r.grade_to}
-                              {r.judoka_club ? ` · ${r.judoka_club}` : ''}
-                              {hasAnswers ? ' · Réponses reçues' : (inOpenExam ? ' · En examen' : '')}
-                            </small>
-                            <p className="form-hint">
-                              Demande par {r.requested_by_name || '-'}
-                              {r.created_at ? ` · ${new Date(r.created_at).toLocaleString('fr-FR')}` : ''}
-                            </p>
-                            {r.note ? <p className="form-hint">{r.note}</p> : null}
-                          </div>
-                        </div>
-                        {canManage && (
-                          <div className="transfer-row-actions">
-                            {hasAnswers ? (
-                              <button
-                                type="button"
-                                className="btn btn-voir-reponses btn-sm"
-                                onClick={() => {
-                                  const { exam: examData, ...cleanSubmission } = submissionEntry;
-                                  setGradeAnswersTarget({
-                                    exam: examData || submissionEntry.exam,
-                                    submission: cleanSubmission,
-                                  });
-                                }}
-                              >
-                                Voir les réponses
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                className="btn btn-outline btn-sm"
-                                disabled={gradeRequestBusy || inOpenExam}
-                                onClick={async () => {
-                                  setGradeRequestBusy(true);
-                                  try {
-                                    await rejectGradeRequest(r.id);
-                                    showToast('Demande rejetée');
-                                    const requests = await fetchGradeRequests({ statut: 'pending' }).catch(() => []);
-                                    setGradeRequests(requests);
-                                    setPendingGradeRequestsCount(requests.length);
+            <div className="grade-history-modal-body">
+              <section className="grade-history-panel">
+                <div className="grade-history-panel-head">
+                  <div className="grade-history-panel-title">
+                    <h4>Demandes en attente</h4>
+                    <span className="grade-history-count">{gradeRequests.length}</span>
+                  </div>
+                  {(perms.manageBlackBelts || canManageGrades || user?.type === 'admin')
+                    && selectedGradeRequestIds.size > 0 && (
+                    <button
+                      type="button"
+                      className="btn btn-demande-grade btn-sm"
+                      onClick={() => setBlackBeltExamOpen(true)}
+                    >
+                      Valider ({selectedGradeRequestIds.size})
+                    </button>
+                  )}
+                </div>
+                {gradeRequests.length === 0 ? (
+                  <div className="grade-history-empty">Aucune demande de passation ceinture noire.</div>
+                ) : (
+                  <ul className="grade-history-list">
+                    {gradeRequests.map((r) => {
+                      const canManage = perms.manageBlackBelts || canManageGrades || user?.type === 'admin';
+                      const inOpenExam = gradeExams.some(
+                        (exam) => exam.statut === 'open'
+                          && (exam.request_ids || []).map(String).includes(String(r.id))
+                      );
+                      const submissionEntry = gradeExamSubmissions.find(
+                        (s) => String(s.request_id) === String(r.id)
+                          && s.reussi !== true
+                          && s.reussi !== false
+                      );
+                      const hasAnswers = Boolean(submissionEntry);
+                      const checked = selectedGradeRequestIds.has(r.id);
+                      return (
+                        <li key={r.id} className="grade-history-item">
+                          <div className="grade-request-select-row">
+                            {canManage && (
+                              <label className="grade-request-checkbox">
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  disabled={inOpenExam || hasAnswers}
+                                  onChange={() => {
+                                    if (inOpenExam || hasAnswers) return;
                                     setSelectedGradeRequestIds((prev) => {
                                       const next = new Set(prev);
-                                      next.delete(r.id);
+                                      if (next.has(r.id)) next.delete(r.id);
+                                      else next.add(r.id);
                                       return next;
                                     });
-                                  } catch (err) {
-                                    showToast(err.message || 'Rejet impossible', 'error');
-                                  } finally {
-                                    setGradeRequestBusy(false);
-                                  }
-                                }}
-                              >
-                                Rejeter
-                              </button>
+                                  }}
+                                />
+                                <span className="sr-only">Sélectionner</span>
+                              </label>
                             )}
+                            <div className="grade-history-item-main">
+                              <strong>
+                                {r.judoka_prenom} {r.judoka_nom}
+                                {r.judoka_numero_carte ? ` · ID ${r.judoka_numero_carte}` : ''}
+                              </strong>
+                              <small>
+                                {r.grade_from} → {r.grade_to}
+                                {r.judoka_club ? ` · ${r.judoka_club}` : ''}
+                              </small>
+                              <div className="grade-history-meta">
+                                {hasAnswers && <span className="grade-history-chip is-answers">Réponses reçues</span>}
+                                {!hasAnswers && inOpenExam && <span className="grade-history-chip is-exam">En examen</span>}
+                                <span>
+                                  Demande par {r.requested_by_name || '-'}
+                                  {r.created_at ? ` · ${new Date(r.created_at).toLocaleString('fr-FR')}` : ''}
+                                </span>
+                              </div>
+                              {r.note ? <p className="grade-history-note">{r.note}</p> : null}
+                            </div>
                           </div>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </section>
+                          {canManage && (
+                            <div className="grade-history-item-actions">
+                              {hasAnswers ? (
+                                <button
+                                  type="button"
+                                  className="btn btn-voir-reponses btn-sm"
+                                  onClick={() => {
+                                    const { exam: examData, ...cleanSubmission } = submissionEntry;
+                                    setGradeAnswersTarget({
+                                      exam: examData || submissionEntry.exam,
+                                      submission: cleanSubmission,
+                                    });
+                                  }}
+                                >
+                                  Voir les réponses
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className="btn btn-outline btn-sm"
+                                  disabled={gradeRequestBusy || inOpenExam}
+                                  onClick={async () => {
+                                    setGradeRequestBusy(true);
+                                    try {
+                                      await rejectGradeRequest(r.id);
+                                      showToast('Demande rejetée');
+                                      const requests = await fetchGradeRequests({ statut: 'pending' }).catch(() => []);
+                                      setGradeRequests(requests);
+                                      setPendingGradeRequestsCount(requests.length);
+                                      setSelectedGradeRequestIds((prev) => {
+                                        const next = new Set(prev);
+                                        next.delete(r.id);
+                                        return next;
+                                      });
+                                    } catch (err) {
+                                      showToast(err.message || 'Rejet impossible', 'error');
+                                    } finally {
+                                      setGradeRequestBusy(false);
+                                    }
+                                  }}
+                                >
+                                  Rejeter
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </section>
 
-            {activeGradeExams.length > 0 && (
-              <section className="grade-requests-section">
-                <h4>Examens / Lien de Test</h4>
-                <ul className="transfer-list">
-                  {activeGradeExams.map((exam) => (
-                    <li key={exam.id} className="transfer-row grade-exam-list-row">
-                      <div>
-                        <strong>
-                          {exam.instructeur_nom || 'Instructeur'}
-                          {' · '}
-                          {(exam.athletes || []).length} athlète{(exam.athletes || []).length > 1 ? 's' : ''}
-                        </strong>
-                        <small>
-                          {exam.statut === 'closed' ? 'Fermé' : 'Ouvert'}
-                          {exam.created_at ? ` · ${new Date(exam.created_at).toLocaleString('fr-FR')}` : ''}
-                        </small>
+              {activeGradeExams.length > 0 && (
+                <section className="grade-history-panel">
+                  <div className="grade-history-panel-head">
+                    <div className="grade-history-panel-title">
+                      <h4>Examens / Lien de Test</h4>
+                      <span className="grade-history-count">{activeGradeExams.length}</span>
+                    </div>
+                  </div>
+                  <ul className="grade-history-list">
+                    {activeGradeExams.map((exam) => (
+                      <li key={exam.id} className="grade-history-item">
+                        <div className="grade-history-item-main">
+                          <strong>
+                            {exam.instructeur_nom || 'Instructeur'}
+                            {' · '}
+                            {(exam.athletes || []).length} athlète{(exam.athletes || []).length > 1 ? 's' : ''}
+                          </strong>
+                          <div className="grade-history-meta">
+                            <span className={`grade-history-chip ${exam.statut === 'closed' ? 'is-closed' : 'is-exam'}`}>
+                              {exam.statut === 'closed' ? 'Fermé' : 'Ouvert'}
+                            </span>
+                            {exam.created_at ? (
+                              <span>{new Date(exam.created_at).toLocaleString('fr-FR')}</span>
+                            ) : null}
+                          </div>
+                        </div>
                         {exam.statut === 'open' && exam.token && (
-                          <div className="black-belt-exam-actions" style={{ marginTop: '0.5rem' }}>
+                          <div className="grade-history-item-actions">
                             <a
                               className="btn btn-lien-test btn-sm"
                               href={gradeExamTestUrl(exam.token)}
@@ -2432,65 +2444,77 @@ export default function App() {
                             </a>
                           </div>
                         )}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            )}
-
-            <section className="grade-requests-section">
-              <h4>Passations enregistrées</h4>
-              {passationGroups.length === 0 && gradeHistory.length === 0 ? (
-                <p className="form-hint">Aucune passation ceinture noire.</p>
-              ) : (
-                <ul className="transfer-list">
-                  {passationGroups.map((group) => (
-                    <li key={group.id} className="transfer-row">
-                      <div>
-                        <strong>
-                          Instructeur : {group.instructeur_nom || '-'}
-                          {' · '}
-                          {group.athletes.length} athlète{group.athletes.length > 1 ? 's' : ''}
-                        </strong>
-                        <small>
-                          {group.athletes.filter((a) => a.reussi).length} Passer
-                          {' · '}
-                          {group.athletes.filter((a) => !a.reussi).length} Rejeter
-                        </small>
-                        <p className="form-hint">
-                          {group.created_at ? new Date(group.created_at).toLocaleString('fr-FR') : ''}
-                        </p>
-                      </div>
-                      <div className="transfer-row-actions">
-                        <button
-                          type="button"
-                          className="btn btn-outline btn-sm"
-                          onClick={() => setPassationGroupTarget(group)}
-                        >
-                          Voir
-                        </button>
-                      </div>
-                    </li>
-                  ))}
-                  {passationGroups.length === 0 && gradeHistory.map((h) => (
-                    <li key={h.id} className="transfer-row">
-                      <div>
-                        <strong>{h.grade_from || '-'} → {h.grade_to}</strong>
-                        <small>
-                          {h.instructeur_nom ? `Instructeur : ${h.instructeur_nom}` : 'Sans instructeur'}
-                          {h.points != null ? ` · Points : ${h.points}` : ''}
-                        </small>
-                        <p className="form-hint">
-                          {h.changed_by_name || '-'}
-                          {h.created_at ? ` · ${new Date(h.created_at).toLocaleString('fr-FR')}` : ''}
-                        </p>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
               )}
-            </section>
+
+              <section className="grade-history-panel">
+                <div className="grade-history-panel-head">
+                  <div className="grade-history-panel-title">
+                    <h4>Passations enregistrées</h4>
+                    <span className="grade-history-count">
+                      {passationGroups.length || gradeHistory.length}
+                    </span>
+                  </div>
+                </div>
+                {passationGroups.length === 0 && gradeHistory.length === 0 ? (
+                  <div className="grade-history-empty">Aucune passation ceinture noire.</div>
+                ) : (
+                  <ul className="grade-history-list">
+                    {passationGroups.map((group) => (
+                      <li key={group.id} className="grade-history-item">
+                        <div className="grade-history-item-main">
+                          <strong>
+                            Instructeur : {group.instructeur_nom || '-'}
+                            {' · '}
+                            {group.athletes.length} athlète{group.athletes.length > 1 ? 's' : ''}
+                          </strong>
+                          <div className="grade-history-meta">
+                            <span className="grade-history-chip is-pass">
+                              {group.athletes.filter((a) => a.reussi).length} Passer
+                            </span>
+                            <span className="grade-history-chip is-reject">
+                              {group.athletes.filter((a) => !a.reussi).length} Rejeter
+                            </span>
+                            {group.created_at ? (
+                              <span>{new Date(group.created_at).toLocaleString('fr-FR')}</span>
+                            ) : null}
+                          </div>
+                        </div>
+                        <div className="grade-history-item-actions">
+                          <button
+                            type="button"
+                            className="btn btn-outline btn-sm"
+                            onClick={() => setPassationGroupTarget(group)}
+                          >
+                            Voir
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                    {passationGroups.length === 0 && gradeHistory.map((h) => (
+                      <li key={h.id} className="grade-history-item">
+                        <div className="grade-history-item-main">
+                          <strong>{h.grade_from || '-'} → {h.grade_to}</strong>
+                          <small>
+                            {h.instructeur_nom ? `Instructeur : ${h.instructeur_nom}` : 'Sans instructeur'}
+                            {h.points != null ? ` · Points : ${h.points}` : ''}
+                          </small>
+                          <div className="grade-history-meta">
+                            <span>
+                              {h.changed_by_name || '-'}
+                              {h.created_at ? ` · ${new Date(h.created_at).toLocaleString('fr-FR')}` : ''}
+                            </span>
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            </div>
           </div>
         </div>
       )}
