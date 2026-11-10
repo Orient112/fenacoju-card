@@ -1522,9 +1522,7 @@ app.put('/api/competition', async (req, res) => {
     if (!canToggle && !(canManage && orgCompetitionUnlocked(req.user, current))) {
       return res.status(403).json({
         error: canManage
-          ? (req.user.type === 'entente'
-            ? 'Le bouton Compétition n\'est pas encore activé par votre Ligue'
-            : 'Le bouton Compétition n\'est pas encore activé par Admin / Coordon')
+          ? 'La Compétition n\'est pas activée'
           : 'Accès non autorisé',
       });
     }

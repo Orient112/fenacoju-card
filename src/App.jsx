@@ -1523,32 +1523,32 @@ export default function App() {
                   )}
                 </div>
 
-                <div className="table-card">
-                  <div className="table-header">
-                    <h2>{getSectionTitle('judokas', user, fedSettings)}</h2>
-                    <div className="table-header-actions">
-                      {canScanQr && (
-                        <button
-                          type="button"
-                          className="btn btn-scan-qr"
-                          onClick={() => setShowQrScan(true)}
-                          disabled={!serverOnline}
-                        >
-                          Scan QR
-                        </button>
-                      )}
-                      {perms.export && (
-                        <button
-                          type="button"
-                          className="btn btn-export-green"
-                          onClick={canManageCompetition ? handleExportJudokasListPdf : handleExportCardsPdf}
-                          disabled={exportingPdf || !serverOnline || filteredJudokas.length === 0}
-                        >
-                          {exportingPdf ? 'Export...' : 'Exporter'}
-                        </button>
-                      )}
-                    </div>
+                <div className="table-section-header">
+                  <h2>{getSectionTitle('judokas', user, fedSettings)}</h2>
+                  <div className="table-header-actions">
+                    {canScanQr && (
+                      <button
+                        type="button"
+                        className="btn btn-scan-qr"
+                        onClick={() => setShowQrScan(true)}
+                        disabled={!serverOnline}
+                      >
+                        Scan QR
+                      </button>
+                    )}
+                    {perms.export && (
+                      <button
+                        type="button"
+                        className="btn btn-export-green"
+                        onClick={canManageCompetition ? handleExportJudokasListPdf : handleExportCardsPdf}
+                        disabled={exportingPdf || !serverOnline || filteredJudokas.length === 0}
+                      >
+                        {exportingPdf ? 'Export...' : 'Exporter'}
+                      </button>
+                    )}
                   </div>
+                </div>
+                <div className="table-card">
                   {loading && judokas.length === 0 ? (
                     <div className="table-skeleton">
                       {[1, 2, 3].map((i) => <div key={i} className="skeleton-row" />)}
@@ -1603,10 +1603,10 @@ export default function App() {
                   )}
                 </div>
 
+                <div className="table-section-header">
+                  <h2>{getSectionTitle(dashboardTab, user, fedSettings)}</h2>
+                </div>
                 <div className="table-card">
-                  <div className="table-header">
-                    <h2>{getSectionTitle(dashboardTab, user, fedSettings)}</h2>
-                  </div>
                   {loading && members.length === 0 ? (
                     <div className="table-skeleton">
                       {[1, 2, 3].map((i) => <div key={i} className="skeleton-row" />)}
@@ -1666,10 +1666,10 @@ export default function App() {
                     </button>
                   )}
                 </div>
+                <div className="table-section-header">
+                  <h2>{getSectionTitle('arbitres', user, fedSettings)}</h2>
+                </div>
                 <div className="table-card">
-                  <div className="table-header">
-                    <h2>{getSectionTitle('arbitres', user, fedSettings)}</h2>
-                  </div>
                   <Suspense fallback={<PageLoader label="Chargement des arbitres..." />}>
                     <ArbitreList
                       arbitres={filteredArbitres}
@@ -1858,14 +1858,7 @@ export default function App() {
                 className={`nav-btn ${view === 'competition' ? 'active' : ''}`}
                 onClick={() => {
                   if (!competitionButtonEnabled) {
-                    showToast(
-                      user?.type === 'entente'
-                        ? 'Le bouton Compétition n\'est pas encore activé par votre Ligue'
-                        : user?.type === 'ligue'
-                          ? 'Le bouton Compétition n\'est pas encore activé par Admin / Coordon'
-                          : 'Le bouton Compétition n\'est pas encore activé par Admin / Coordon',
-                      'error'
-                    );
+                    showToast('La Compétition n\'est pas activée', 'error');
                     return;
                   }
                   setView('competition');

@@ -109,8 +109,13 @@ canvas {
   flex-direction: column;
   order: 2;
   animation: fenacoju-rise 0.55s ease both;
+  height: 100vh;
+  height: 100dvh;
   min-height: 100vh;
   min-height: 100dvh;
+  max-height: 100vh;
+  max-height: 100dvh;
+  overflow: hidden;
   margin-left: var(--rail-width);
   width: calc(100% - var(--rail-width));
 }
@@ -394,6 +399,9 @@ canvas {
   display: flex;
   flex-direction: column;
   gap: 1.15rem;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
 }
 
 .dashboard-shell {
@@ -409,6 +417,55 @@ canvas {
   width: 100%;
   flex: 1;
   min-height: 0;
+  overflow: hidden;
+}
+
+.dashboard-workspace > .stats-grid,
+.dashboard-workspace > .dashboard-tabs,
+.dashboard-workspace > .search-bar,
+.dashboard-workspace > .club-info-panel,
+.dashboard-workspace > .table-section-header {
+  flex-shrink: 0;
+}
+
+.dashboard-workspace .table-card {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.dashboard-workspace .table-section-header {
+  padding: 1rem 1.25rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 14px 14px 0 0;
+  background: linear-gradient(180deg, #fbfcff 0%, #fff 100%);
+  box-shadow: 0 6px 18px rgba(18, 45, 102, 0.04);
+}
+
+.dashboard-workspace .table-section-header + .table-card {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+.dashboard-workspace .table-section-header h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.dashboard-workspace .data-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 8;
+  background: #f8fafc;
+  box-shadow: 0 1px 0 var(--border);
 }
 
 .dashboard-workspace .search-bar {
@@ -418,10 +475,6 @@ canvas {
   border-radius: 14px;
   padding: 0.85rem 1rem;
   box-shadow: 0 6px 18px rgba(18, 45, 102, 0.05);
-}
-
-.dashboard-workspace .table-card {
-  flex: 1;
 }
 
 /* Stats */
@@ -1587,7 +1640,9 @@ tbody tr:last-child td {
   .app-shell {
     flex-direction: column;
     max-width: 100%;
-    overflow-x: hidden;
+    height: 100dvh;
+    max-height: 100dvh;
+    overflow: hidden;
   }
 
   .app-content {
@@ -1595,18 +1650,33 @@ tbody tr:last-child td {
     margin-left: 0;
     width: 100%;
     max-width: 100%;
-    overflow-x: hidden;
+    height: auto;
+    max-height: none;
+    min-height: 0;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  .dashboard-workspace {
+    overflow: hidden;
+  }
+
+  .dashboard-workspace .table-card {
+    overflow: auto;
+    flex: 1;
+    min-height: 0;
   }
 
   .header {
     order: 1;
-    position: sticky;
+    position: relative;
+    flex-shrink: 0;
     left: auto;
     width: 100%;
     max-width: 100%;
     height: auto;
     max-height: none;
-    top: 0;
+    top: auto;
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas:
@@ -3265,7 +3335,126 @@ tbody tr:last-child td {
 }
 
 .passation-group-modal {
-  width: min(640px, 96vw);
+  width: min(680px, 96vw);
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.2);
+  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 40%);
+}
+
+.passation-group-modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1.15rem 1.3rem 1rem;
+  border-bottom: 1px solid #eef2f7;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 55%, #334155 100%);
+  color: #fff;
+}
+
+.passation-group-modal-head h3 {
+  margin: 0.15rem 0 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.passation-group-kicker {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.passation-group-subtitle {
+  margin: 0.4rem 0 0;
+  color: #cbd5e1;
+  font-size: 0.85rem;
+}
+
+.passation-group-subtitle strong {
+  color: #fff;
+}
+
+.passation-group-modal-head .btn-outline {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.28);
+  color: #fff;
+}
+
+.passation-group-modal-head .btn-outline:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.45);
+  color: #fff;
+}
+
+.passation-group-modal-body {
+  padding: 1rem 1.15rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  max-height: min(70vh, 640px);
+  overflow: auto;
+}
+
+.passation-group-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.passation-group-stat {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.7rem 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.passation-group-stat strong {
+  font-size: 1.15rem;
+  color: #0f172a;
+}
+
+.passation-group-stat span {
+  font-size: 0.75rem;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.passation-group-stat.is-pass {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.passation-group-stat.is-pass strong {
+  color: #15803d;
+}
+
+.passation-group-stat.is-reject {
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.passation-group-stat.is-reject strong {
+  color: #b91c1c;
+}
+
+.passation-group-empty {
+  padding: 0.95rem 0.85rem;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  color: #64748b;
+  font-size: 0.875rem;
+  text-align: center;
 }
 
 .passation-group-list {
@@ -3274,7 +3463,7 @@ tbody tr:last-child td {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.7rem;
+  gap: 0.55rem;
 }
 
 .passation-group-item {
@@ -3282,10 +3471,10 @@ tbody tr:last-child td {
   align-items: flex-start;
   justify-content: space-between;
   gap: 0.85rem;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #eef2f7;
   border-radius: 12px;
   padding: 0.85rem 0.95rem;
-  background: #fff;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
 }
 
 .passation-group-item-main {
@@ -3301,7 +3490,28 @@ tbody tr:last-child td {
 .passation-group-item-main small {
   display: block;
   margin-top: 0.2rem;
-  color: #475569;
+  color: #64748b;
+}
+
+.passation-group-item-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.55rem;
+  margin-top: 0.4rem;
+  color: #64748b;
+  font-size: 0.78rem;
+}
+
+.passation-group-grade-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.12rem 0.45rem;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #3730a3;
+  font-weight: 700;
+  font-size: 0.7rem;
 }
 
 .passation-result-badge {
@@ -3601,6 +3811,13 @@ tbody tr:last-child td {
   border-bottom: 1px solid var(--border);
 }
 
+.club-detail-header-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-shrink: 0;
+}
+
 .club-detail-header h2 {
   margin: 0;
   color: var(--primary);
@@ -3609,6 +3826,146 @@ tbody tr:last-child td {
 
 .club-detail-body {
   padding: 1.25rem 1.5rem 1.5rem;
+}
+
+.ligue-detail-modal {
+  width: min(760px, 96vw);
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.2);
+  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 38%);
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+}
+
+.ligue-detail-header {
+  align-items: flex-start;
+  padding: 1.15rem 1.3rem 1rem;
+  border-bottom: 1px solid #eef2f7;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 55%, #334155 100%);
+  color: #fff;
+}
+
+.ligue-detail-header h2 {
+  color: #fff;
+  font-size: 1.2rem;
+  letter-spacing: -0.01em;
+}
+
+.ligue-detail-kicker {
+  margin: 0 0 0.15rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.ligue-detail-header .club-detail-value {
+  color: #cbd5e1;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.ligue-detail-header .btn-outline {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.28);
+  color: #fff;
+}
+
+.ligue-detail-header .btn-outline:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.45);
+  color: #fff;
+}
+
+.ligue-detail-body {
+  padding: 1rem 1.15rem 1.25rem;
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.ligue-detail-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin-bottom: 1rem;
+}
+
+.ligue-detail-stat {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.7rem 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.ligue-detail-stat strong {
+  font-size: 1.15rem;
+  color: #0f172a;
+}
+
+.ligue-detail-stat span {
+  font-size: 0.75rem;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.ligue-detail-stat.is-on {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.ligue-detail-stat.is-on strong {
+  color: #15803d;
+}
+
+.ligue-detail-stat.is-off {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+.ligue-detail-stat.is-off strong {
+  color: #64748b;
+}
+
+.ligue-detail-section {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 0.85rem 0.95rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.ligue-detail-section h3 {
+  color: #0f172a;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.ligue-detail-empty {
+  padding: 0.85rem;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  color: #64748b;
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+.ligue-detail-list .club-member-item {
+  border: 1px solid #eef2f7;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  padding: 0.7rem 0.8rem;
 }
 
 .club-detail-section {
@@ -10639,6 +10996,7 @@ a.competition-action-btn,
   background: linear-gradient(90deg, var(--primary-light) 0%, var(--primary) 48%, var(--primary-dark) 100%);
   color: #fff;
   box-sizing: border-box;
+  flex-shrink: 0;
 }
 
 .dashboard-topbar-title {

@@ -936,11 +936,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
       const data = await fetchCompetition();
         setSettings(data);
       if (!data.access_ok && !data.can_toggle_access) {
-        setError(data.scope_entente
-          ? 'Le bouton Compétition n\'est pas encore activé par votre Ligue.'
-          : data.scope_ligue
-            ? 'Le bouton Compétition n\'est pas encore activé par Admin / Coordon.'
-            : 'Le bouton Compétition n\'est pas encore activé par Admin / Coordon.');
+        setError('La Compétition n\'est pas activée');
         return;
       }
       applySettingsForm(data);
@@ -2360,14 +2356,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
 
       {accessBlocked ? (
         <div className="empty-state">
-          <h3>Compétition non activée</h3>
-          <p>
-            {settings?.scope_entente
-              ? 'Attendez que votre Ligue active la compétition pour cette Entente.'
-              : settings?.scope_ligue
-                ? 'Attendez qu\'un Admin ou Coordon active le bouton Compétition pour cette Ligue.'
-                : 'Attendez qu\'un Admin ou Coordon active le bouton Compétition.'}
-          </p>
+          <h3>La Compétition n&apos;est pas activée</h3>
         </div>
       ) : (
         <>

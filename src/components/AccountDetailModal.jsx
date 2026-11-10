@@ -70,6 +70,7 @@ export default function AccountDetailModal({
   };
 
   const isArbitre = account._kind === 'arbitre' || (!account.type && account.niveau);
+  const isLigue = !isArbitre && account.type === 'ligue';
   const typeLabel = isArbitre
     ? 'Arbitre'
     : (USER_TYPES[account.type]?.label || account.type);
@@ -86,9 +87,13 @@ export default function AccountDetailModal({
 
   return (
     <div className="card-overlay" onClick={onClose}>
-      <div className="club-detail-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="club-detail-header">
+      <div
+        className={`club-detail-modal ${isLigue ? 'ligue-detail-modal' : ''}`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className={`club-detail-header ${isLigue ? 'ligue-detail-header' : ''}`}>
           <div>
+            {isLigue && <p className="ligue-detail-kicker">Organisation</p>}
             <h2>{title}</h2>
             <p className="club-detail-value" style={{ margin: '0.25rem 0 0' }}>
               {typeLabel}
@@ -102,8 +107,8 @@ export default function AccountDetailModal({
               )}
             </p>
           </div>
-          <div className="club-detail-header-actions" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-            {account.type === 'ligue' && canToggleLigueCompetition && (
+          <div className="club-detail-header-actions">
+            {isLigue && canToggleLigueCompetition && (
               <button
                 type="button"
                 className={`btn btn-sm ligue-competition-toggle-btn ${
@@ -122,7 +127,24 @@ export default function AccountDetailModal({
           </div>
         </div>
 
-        <div className="club-detail-body">
+        <div className={`club-detail-body ${isLigue ? 'ligue-detail-body' : ''}`}>
+          {isLigue && (
+            <div className="ligue-detail-summary">
+              <div className="ligue-detail-stat">
+                <strong>{childEntentes.length}</strong>
+                <span>Entente{childEntentes.length > 1 ? 's' : ''}</span>
+              </div>
+              <div className="ligue-detail-stat">
+                <strong>{childClubs.length}</strong>
+                <span>Club{childClubs.length > 1 ? 's' : ''}</span>
+              </div>
+              <div className={`ligue-detail-stat ${ligueCompetitionAccess ? 'is-on' : 'is-off'}`}>
+                <strong>{ligueCompetitionAccess ? 'On' : 'Off'}</strong>
+                <span>Compétition</span>
+              </div>
+            </div>
+          )}
+
           <div className="club-detail-grid">
             {isArbitre && (
               <>
@@ -216,14 +238,14 @@ export default function AccountDetailModal({
             </div>
           )}
 
-          {!isArbitre && account.type === 'ligue' && (
+          {isLigue && (
             <>
-              <div className="club-detail-section">
+              <div className="club-detail-section ligue-detail-section">
                 <h3>Ententes ({childEntentes.length})</h3>
                 {childEntentes.length === 0 ? (
-                  <p className="form-hint">Aucune entente liée à cette ligue.</p>
+                  <div className="ligue-detail-empty">Aucune entente liée à cette ligue.</div>
                 ) : (
-                  <ul className="club-members-list">
+                  <ul className="club-members-list ligue-detail-list">
                     {childEntentes.map((e) => (
                       <li key={e.id} className="club-member-item">
                         <div>
@@ -240,12 +262,12 @@ export default function AccountDetailModal({
                   </ul>
                 )}
               </div>
-              <div className="club-detail-section">
+              <div className="club-detail-section ligue-detail-section">
                 <h3>Clubs ({childClubs.length})</h3>
                 {childClubs.length === 0 ? (
-                  <p className="form-hint">Aucun club lié à cette ligue.</p>
+                  <div className="ligue-detail-empty">Aucun club lié à cette ligue.</div>
                 ) : (
-                  <ul className="club-members-list">
+                  <ul className="club-members-list ligue-detail-list">
                     {childClubs.map((c) => {
                       const parentEntente = childEntentes.find((e) => String(e.id) === String(c.parent_id));
                       return (
