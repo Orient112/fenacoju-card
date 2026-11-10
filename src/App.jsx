@@ -70,6 +70,7 @@ const ClubDetailModal = lazy(() => import('./components/ClubDetailModal'));
 const GradePassationModal = lazy(() => import('./components/GradePassationModal'));
 const BlackBeltExamModal = lazy(() => import('./components/BlackBeltExamModal'));
 const GradeExamAnswersModal = lazy(() => import('./components/GradeExamAnswersModal'));
+const PassationGroupModal = lazy(() => import('./components/PassationGroupModal'));
 const JudokaFicheModal = lazy(() => import('./components/JudokaFicheModal'));
 const JudokaAthleteSheetModal = lazy(() => import('./components/JudokaAthleteSheetModal'));
 const TransferModal = lazy(() => import('./components/TransferModal'));
@@ -298,6 +299,7 @@ export default function App() {
   const [gradeExams, setGradeExams] = useState([]);
   const [gradeExamSubmissions, setGradeExamSubmissions] = useState([]);
   const [gradeAnswersTarget, setGradeAnswersTarget] = useState(null);
+  const [passationGroupTarget, setPassationGroupTarget] = useState(null);
   const [toast, setToast] = useState(null);
   const [loading, setLoading] = useState(true);
   const [serverOnline, setServerOnline] = useState(true);
@@ -705,6 +707,47 @@ export default function App() {
   }, [gradeHistoryOpen, canViewGradeHistory]);
 
   const searchTerm = searchInput.trim().toLowerCase();
+
+  const passationGroups = useMemo(() => {
+    const graded = (gradeExamSubmissions || []).filter(
+      (s) => s.reussi === true || s.reussi === false
+    );
+    if (graded.length === 0) return [];
+
+    const byExam = new Map();
+    for (const sub of graded) {
+      const examId = String(sub.exam_id || sub.exam?.id || '');
+      if (!examId) continue;
+      if (!byExam.has(examId)) {
+        const examMeta = sub.exam || gradeExams.find((e) => String(e.id) === examId) || {};
+        byExam.set(examId, {
+          id: examId,
+          instructeur_nom: examMeta.instructeur_nom || '',
+          created_at: examMeta.created_at || sub.graded_at || sub.submitted_at,
+          athletes: [],
+          _athletesSource: examMeta.athletes || gradeExams.find((e) => String(e.id) === examId)?.athletes || [],
+        });
+      }
+      const group = byExam.get(examId);
+      const athleteMeta = (group._athletesSource || []).find(
+        (a) => String(a.judoka_id) === String(sub.judoka_id)
+      );
+      const judoka = judokas.find((j) => String(j.id) === String(sub.judoka_id));
+      group.athletes.push({
+        ...sub,
+        club: athleteMeta?.club || judoka?.club || sub.judoka_club || '-',
+      });
+    }
+
+    return [...byExam.values()]
+      .map(({ _athletesSource, ...group }) => ({
+        ...group,
+        athletes: group.athletes.sort(
+          (a, b) => new Date(b.graded_at || b.submitted_at || 0) - new Date(a.graded_at || a.submitted_at || 0)
+        ),
+      }))
+      .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+  }, [gradeExamSubmissions, gradeExams, judokas]);
 
   const filteredJudokas = useMemo(() => {
     let list = judokas;
@@ -2339,11 +2382,39 @@ export default function App() {
 
             <section className="grade-requests-section">
               <h4>Passations enregistrées</h4>
-              {gradeHistory.length === 0 ? (
+              {passationGroups.length === 0 && gradeHistory.length === 0 ? (
                 <p className="form-hint">Aucune passation ceinture noire.</p>
               ) : (
                 <ul className="transfer-list">
-                  {gradeHistory.map((h) => (
+                  {passationGroups.map((group) => (
+                    <li key={group.id} className="transfer-row">
+                      <div>
+                        <strong>
+                          Instructeur : {group.instructeur_nom || '-'}
+                          {' · '}
+                          {group.athletes.length} athlète{group.athletes.length > 1 ? 's' : ''}
+                        </strong>
+                        <small>
+                          {group.athletes.filter((a) => a.reussi).length} Passer
+                          {' · '}
+                          {group.athletes.filter((a) => !a.reussi).length} Rejeter
+                        </small>
+                        <p className="form-hint">
+                          {group.created_at ? new Date(group.created_at).toLocaleString('fr-FR') : ''}
+                        </p>
+                      </div>
+                      <div className="transfer-row-actions">
+                        <button
+                          type="button"
+                          className="btn btn-outline btn-sm"
+                          onClick={() => setPassationGroupTarget(group)}
+                        >
+                          Voir
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                  {passationGroups.length === 0 && gradeHistory.map((h) => (
                     <li key={h.id} className="transfer-row">
                       <div>
                         <strong>{h.grade_from || '-'} → {h.grade_to}</strong>
@@ -2401,6 +2472,15 @@ export default function App() {
               setPendingGradeRequestsCount(requests.length);
               await loadData();
             }}
+          />
+        </Suspense>
+      )}
+
+      {passationGroupTarget && (
+        <Suspense fallback={null}>
+          <PassationGroupModal
+            group={passationGroupTarget}
+            onClose={() => setPassationGroupTarget(null)}
           />
         </Suspense>
       )}

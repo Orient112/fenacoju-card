@@ -3058,6 +3058,119 @@ tbody tr:last-child td {
   cursor: not-allowed;
 }
 
+.login-mon-id-btn {
+  width: 100%;
+  justify-content: center;
+  padding: 0.95rem 1rem;
+  font-size: 1rem;
+  font-weight: 700;
+  margin-top: 0.65rem;
+  border-radius: 0;
+  border: 1px solid #16a34a;
+  background: #16a34a;
+  color: #fff !important;
+  box-shadow: none;
+  transform: none;
+}
+
+.login-mon-id-btn:hover:not(:disabled) {
+  background: #15803d;
+  border-color: #15803d;
+  color: #fff !important;
+}
+
+.login-mon-id-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.login-back-btn {
+  width: 100%;
+  justify-content: center;
+  margin-top: 0.65rem;
+  border-radius: 0;
+}
+
+.login-id-result {
+  border-radius: 10px;
+  padding: 0.85rem 0.95rem;
+  margin-bottom: 0.25rem;
+}
+
+.login-id-result.is-found {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+}
+
+.login-id-result.is-missing {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+}
+
+.login-id-result p {
+  margin: 0.35rem 0 0;
+}
+
+.passation-group-modal {
+  width: min(640px, 96vw);
+}
+
+.passation-group-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.passation-group-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.85rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.85rem 0.95rem;
+  background: #fff;
+}
+
+.passation-group-item-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.passation-group-item-main strong {
+  display: block;
+  color: #0f172a;
+}
+
+.passation-group-item-main small {
+  display: block;
+  margin-top: 0.2rem;
+  color: #475569;
+}
+
+.passation-result-badge {
+  flex-shrink: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 0.3rem 0.7rem;
+}
+
+.passation-result-badge.is-pass {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.passation-result-badge.is-reject {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
 @media (max-width: 900px) {
   .login-page {
     grid-template-columns: 1fr;

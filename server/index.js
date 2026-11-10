@@ -910,6 +910,29 @@ app.post('/api/public/competition/:token/register', async (req, res) => {
   }
 });
 
+/** Vérification publique d'un ID athlète (page Login - Mon ID) */
+app.post('/api/public/judoka-id/verify', async (req, res) => {
+  try {
+    const carte = String(req.body?.numero_carte || '').trim();
+    if (!carte) return res.status(400).json({ error: 'Saisissez votre ID unique' });
+    const judoka = await getJudokaByCardNumber(carte);
+    if (!judoka) {
+      return res.json({ found: false });
+    }
+    res.json({
+      found: true,
+      numero_carte: judoka.numero_carte || carte,
+      nom: judoka.nom || '',
+      prenom: judoka.prenom || '',
+      club: judoka.club || '',
+      grade: judoka.grade || '',
+      statut: judoka.statut || '',
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 /** Lien de Test — examen ceinture noire (public) */
 app.get('/api/public/grade-exam/:token', async (req, res) => {
   try {

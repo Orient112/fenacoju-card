@@ -130,7 +130,6 @@ export default function GradeExamAnswersModal({
                   <p>{answerFor(q.id) || '-'}</p>
                 </div>
                 <div className="grade-exam-correction-row">
-                  <span className="grade-exam-review-label">Note / correction</span>
                   <div className="grade-exam-verdict-btns">
                     <button
                       type="button"

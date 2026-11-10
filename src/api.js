@@ -432,6 +432,22 @@ export function gradeExamTestUrl(token) {
   return `${window.location.origin}/grade-exam/${encodeURIComponent(token)}`;
 }
 
+export async function verifyJudokaId(numeroCarte) {
+  const res = await fetchWithTimeout(
+    apiUrl('/api/public/judoka-id/verify'),
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ numero_carte: numeroCarte }),
+    }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Vérification impossible');
+  }
+  return res.json();
+}
+
 export async function createGradeExam(payload) {
   const res = await apiFetch('/api/grades/exams', {
     method: 'POST',
