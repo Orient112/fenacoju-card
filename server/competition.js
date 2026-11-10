@@ -38,14 +38,19 @@ const DEFAULT_SETTINGS = {
   updated_at: null,
 };
 
-/** Clé de portée : Directeur Compétition = federation ; Entente = entente:{id} */
+/** Clé de portée : Directeur = federation ; Entente = entente:{id} ; Ligue = ligue:{id} */
 export function competitionOwnerKey(user) {
+  if (user?.type === 'ligue' && user.id) return `ligue:${user.id}`;
   if (user?.type === 'entente' && user.id) return `entente:${user.id}`;
   return 'federation';
 }
 
 export function ententeOwnerKey(ententeId) {
   return `entente:${ententeId}`;
+}
+
+export function ligueOwnerKey(ligueId) {
+  return `ligue:${ligueId}`;
 }
 
 const META_RE = /\n?<!--FENACOJU_META:([\s\S]*?)-->\s*$/;

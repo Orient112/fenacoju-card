@@ -641,7 +641,7 @@ function ParamsFormFields({
       <div className="form-group form-group-full competition-description-field">
         <div className="competition-description-head">
           <span className="competition-cat-block-kicker">Présentation</span>
-          <label htmlFor="comp-desc">Description</label>
+        <label htmlFor="comp-desc">Description</label>
         </div>
         <p className="form-hint competition-description-hint">
           Texte affiché aux athlètes sur la page d&apos;inscription publique.
@@ -934,11 +934,13 @@ export default function CompetitionSettings({ onBack, onToast }) {
     setError('');
     try {
       const data = await fetchCompetition();
-      setSettings(data);
+        setSettings(data);
       if (!data.access_ok && !data.can_toggle_access) {
         setError(data.scope_entente
           ? 'Le bouton Compétition n\'est pas encore activé par votre Ligue.'
-          : 'Le bouton Compétition n\'est pas encore activé par Admin / Coordon.');
+          : data.scope_ligue
+            ? 'Le bouton Compétition n\'est pas encore activé par Admin / Coordon.'
+            : 'Le bouton Compétition n\'est pas encore activé par Admin / Coordon.');
         return;
       }
       applySettingsForm(data);
@@ -1541,12 +1543,18 @@ export default function CompetitionSettings({ onBack, onToast }) {
   const handleAddCompetitionClub = async (e) => {
     e.preventDefault();
     const nom = clubDraft.trim();
-    const ligue = settings?.scope_entente ? (settings?.scope_label || 'Entente') : (ligueDraft.trim() || '-');
+    const orgScoped = Boolean(settings?.scope_entente || settings?.scope_ligue);
+    const ligue = orgScoped ? (settings?.scope_label || (settings?.scope_ligue ? 'Ligue' : 'Entente')) : (ligueDraft.trim() || '-');
     if (!nom || !clubsEditorCadre) return;
-    if (settings?.scope_entente && Array.isArray(settings.scoped_clubs) && settings.scoped_clubs.length) {
+    if (orgScoped && Array.isArray(settings.scoped_clubs) && settings.scoped_clubs.length) {
       const ok = settings.scoped_clubs.some((c) => String(c).trim().toLowerCase() === nom.toLowerCase());
       if (!ok) {
-        onToast?.('Ce club n\'appartient pas à votre entente', 'error');
+        onToast?.(
+          settings?.scope_ligue
+            ? 'Ce club n\'appartient pas à votre ligue'
+            : 'Ce club n\'appartient pas à votre entente',
+          'error'
+        );
         return;
       }
     }
@@ -2284,9 +2292,11 @@ export default function CompetitionSettings({ onBack, onToast }) {
           <div>
             <p className="competition-kicker">
               {settings?.scope_label
-                || (settings?.scope_entente
-                  ? 'ENTENTE'
-                  : 'FENACOJU · Directeur Compétition')}
+                || (settings?.scope_ligue
+                  ? 'LIGUE'
+                  : settings?.scope_entente
+                    ? 'ENTENTE'
+                    : 'FENACOJU · Directeur Compétition')}
             </p>
             <h2>Compétition</h2>
             <p className="subtitle">
@@ -2320,7 +2330,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
                 <span className="competition-stat-chip competition-stat-chip-team">
                   Par équipe <b>{teamCount}</b>
                 </span>
-              </div>
+            </div>
             </div>
             <div className="competition-stat competition-stat-emphasis">
               <strong>{weighedCount}</strong>
@@ -2354,7 +2364,9 @@ export default function CompetitionSettings({ onBack, onToast }) {
           <p>
             {settings?.scope_entente
               ? 'Attendez que votre Ligue active la compétition pour cette Entente.'
-              : 'Attendez qu\'un Admin ou Coordon active le bouton Compétition.'}
+              : settings?.scope_ligue
+                ? 'Attendez qu\'un Admin ou Coordon active le bouton Compétition pour cette Ligue.'
+                : 'Attendez qu\'un Admin ou Coordon active le bouton Compétition.'}
           </p>
         </div>
       ) : (
@@ -2534,15 +2546,15 @@ export default function CompetitionSettings({ onBack, onToast }) {
               <div className="competition-inscriptions-pane">
                 <div className="competition-inscriptions-pane-head">
                   <h4>Individuel</h4>
-                  <button
-                    type="button"
+                            <button
+                              type="button"
                     className="btn btn-sm"
                     style={{ background: '#16a34a', color: '#fff', borderColor: '#16a34a' }}
                     onClick={openAddIndividuelModal}
                   >
                     Ajouter
-                  </button>
-                </div>
+                            </button>
+                          </div>
                 <RegistrationsTable
                   registrations={registrations.filter((r) => !isTeamRegistration(r))}
                   onEdit={openEditRegistration}
@@ -3307,16 +3319,18 @@ export default function CompetitionSettings({ onBack, onToast }) {
               </div>
             )}
             <form onSubmit={handleAddCompetitionClub}>
-              {settings?.scope_entente && (
+              {(settings?.scope_entente || settings?.scope_ligue) && (
                 <p className="form-hint">
-                  Uniquement les clubs rattachés à votre entente
+                  {settings?.scope_ligue
+                    ? 'Uniquement les clubs rattachés à votre ligue'
+                    : 'Uniquement les clubs rattachés à votre entente'}
                   {Array.isArray(settings.scoped_clubs) ? ` (${settings.scoped_clubs.length})` : ''}.
                 </p>
               )}
               <div className="competition-club-fields-row">
                 <div className="form-group">
                   <label htmlFor="competition-club-name">Nom du club</label>
-                  {settings?.scope_entente && Array.isArray(settings.scoped_clubs) && settings.scoped_clubs.length > 0 ? (
+                  {(settings?.scope_entente || settings?.scope_ligue) && Array.isArray(settings.scoped_clubs) && settings.scoped_clubs.length > 0 ? (
                     <select
                       id="competition-club-name"
                       value={clubDraft}
@@ -3335,18 +3349,18 @@ export default function CompetitionSettings({ onBack, onToast }) {
                       onChange={(e) => setClubDraft(e.target.value)}
                       placeholder="Ex. Club Judo Kinshasa"
                       autoFocus
-                      list={settings?.scope_entente ? 'entente-scoped-clubs' : undefined}
+                      list={(settings?.scope_entente || settings?.scope_ligue) ? 'org-scoped-clubs' : undefined}
                     />
                   )}
-                  {settings?.scope_entente && Array.isArray(settings.scoped_clubs) && (
-                    <datalist id="entente-scoped-clubs">
+                  {(settings?.scope_entente || settings?.scope_ligue) && Array.isArray(settings.scoped_clubs) && (
+                    <datalist id="org-scoped-clubs">
                       {settings.scoped_clubs.map((nom) => (
                         <option key={nom} value={nom} />
                       ))}
                     </datalist>
                   )}
                 </div>
-                {!settings?.scope_entente && (
+                {!(settings?.scope_entente || settings?.scope_ligue) && (
                   <div className="form-group">
                     <label htmlFor="competition-club-ligue">Ligue</label>
                     <input
@@ -3633,22 +3647,22 @@ export default function CompetitionSettings({ onBack, onToast }) {
                     </>
                   ) : (
                     <>
-                      {group.fights.length === 0 && !group.bye && (
-                        <p className="form-hint">Pas de combat dans cette catégorie.</p>
-                      )}
-                      <ul className="competition-draw-fights">
-                        {group.fights.map((fight, idx) => (
-                          <li key={fight.id}>
-                            <span className="competition-draw-fight-num">Combat {idx + 1}</span>
-                            <strong>{fight.labelA}</strong>
-                            <span className="competition-draw-vs">vs</span>
-                            <strong>{fight.labelB}</strong>
-                            <p>
+                  {group.fights.length === 0 && !group.bye && (
+                    <p className="form-hint">Pas de combat dans cette catégorie.</p>
+                  )}
+                  <ul className="competition-draw-fights">
+                    {group.fights.map((fight, idx) => (
+                      <li key={fight.id}>
+                        <span className="competition-draw-fight-num">Combat {idx + 1}</span>
+                        <strong>{fight.labelA}</strong>
+                        <span className="competition-draw-vs">vs</span>
+                        <strong>{fight.labelB}</strong>
+                        <p>
                               {(fight.a.club || '-')} · {(fight.b.club || '-')}
-                            </p>
-                          </li>
-                        ))}
-                      </ul>
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
                     </>
                   )}
                   {group.bye && (
@@ -3677,7 +3691,7 @@ export default function CompetitionSettings({ onBack, onToast }) {
                   Sélectionnez un ou plusieurs athlètes (Individuel et Par équipe) pour générer leur carte.
                   Le club sera enregistré automatiquement s&apos;il n&apos;existe pas encore.
                 </p>
-              </div>
+    </div>
               <button
                 type="button"
                 className="btn btn-outline btn-sm"

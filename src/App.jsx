@@ -29,6 +29,7 @@ import {
   fetchEntenteCompetitionAccess,
   setEntenteCompetitionAccess,
   setEntenteCompetitionAccessBulk,
+  setLigueCompetitionAccess,
   getToken,
   USER_TYPES,
   resolveMediaUrl,
@@ -462,13 +463,13 @@ export default function App() {
         results[0].status === 'rejected' && results[1].status === 'rejected';
       setServerOnline(!coreDown);
 
-      // Entente / Directeur : resynchroniser l'accès Compétition (reste actif après refresh Ligue)
-      if (user.type === 'entente' || user.fonction === 'Directeur Compétition') {
+      // Entente / Ligue / Directeur : resynchroniser l'accès Compétition
+      if (user.type === 'entente' || user.type === 'ligue' || user.fonction === 'Directeur Compétition') {
         fetchCompetition()
           .then((data) => {
             setCompetitionAccessState(
               Boolean(data.access_enabled)
-              || (user.type === 'entente' && Boolean(user.competition_access))
+              || ((user.type === 'entente' || user.type === 'ligue') && Boolean(user.competition_access))
             );
           })
           .catch(() => {});
@@ -507,8 +508,8 @@ export default function App() {
     }
     if (!canToggleCompetition && !canManageCompetition) return undefined;
 
-    // Flag durable Entente : déjà connu sur le compte (survit au refresh)
-    if (user.type === 'entente' && user.competition_access) {
+    // Flag durable Entente / Ligue : déjà connu sur le compte (survit au refresh)
+    if ((user.type === 'entente' || user.type === 'ligue') && user.competition_access) {
       setCompetitionAccessState(true);
     }
 
@@ -518,13 +519,15 @@ export default function App() {
         if (!cancelled) {
           setCompetitionAccessState(
             Boolean(data.access_enabled)
-            || (user.type === 'entente' && Boolean(user.competition_access))
+            || ((user.type === 'entente' || user.type === 'ligue') && Boolean(user.competition_access))
           );
         }
       })
       .catch(() => {
         if (!cancelled) {
-          setCompetitionAccessState(user.type === 'entente' && Boolean(user.competition_access));
+          setCompetitionAccessState(
+            (user.type === 'entente' || user.type === 'ligue') && Boolean(user.competition_access)
+          );
         }
       });
     return () => { cancelled = true; };
@@ -750,6 +753,12 @@ export default function App() {
       }))
       .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
   }, [gradeExamSubmissions, gradeExams, judokas]);
+
+  // Examens encore actifs : exclus dès qu'ils apparaissent dans Passations enregistrées
+  const activeGradeExams = useMemo(() => {
+    const passedExamIds = new Set(passationGroups.map((g) => String(g.id)));
+    return (gradeExams || []).filter((exam) => !passedExamIds.has(String(exam.id)));
+  }, [gradeExams, passationGroups]);
 
   const filteredJudokas = useMemo(() => {
     let list = judokas;
@@ -1844,6 +1853,40 @@ export default function App() {
                 {M('messages', 'Messages')}{unreadMessages > 0 ? ` (${unreadMessages})` : ''}
               </button>
             )}
+            {showCompetitionButton && (
+              <button
+                className={`nav-btn ${view === 'competition' ? 'active' : ''}`}
+                onClick={() => {
+                  if (!competitionButtonEnabled) {
+                    showToast(
+                      user?.type === 'entente'
+                        ? 'Le bouton Compétition n\'est pas encore activé par votre Ligue'
+                        : user?.type === 'ligue'
+                          ? 'Le bouton Compétition n\'est pas encore activé par Admin / Coordon'
+                          : 'Le bouton Compétition n\'est pas encore activé par Admin / Coordon',
+                      'error'
+                    );
+                    return;
+                  }
+                  setView('competition');
+                  setEditing(null);
+                  setEditingUser(null);
+                  setCreateType(null);
+                }}
+                disabled={!serverOnline || !competitionButtonEnabled}
+                title={competitionButtonEnabled
+                  ? (user?.type === 'ligue'
+                    ? 'Compétition Ligue (clubs et athlètes liés)'
+                    : user?.type === 'entente'
+                      ? 'Compétition Entente (clubs liés)'
+                      : 'Paramètres compétition')
+                  : (user?.type === 'entente'
+                    ? 'En attente d\'activation Ligue'
+                    : 'En attente d\'activation Admin / Coordon')}
+              >
+                {M('competition', 'Compétition')}
+              </button>
+            )}
             {canScanQr && (
               <button
                 className="nav-btn"
@@ -1877,32 +1920,6 @@ export default function App() {
                 title="Activer la compétition séparément pour chaque Entente"
               >
                 Compétition Ententes
-              </button>
-            )}
-            {showCompetitionButton && (
-              <button
-                className={`nav-btn ${view === 'competition' ? 'active' : ''}`}
-                onClick={() => {
-                  if (!competitionButtonEnabled) {
-                    showToast(
-                      user?.type === 'entente'
-                        ? 'Le bouton Compétition n\'est pas encore activé par votre Ligue'
-                        : 'Le bouton Compétition n\'est pas encore activé par Admin / Coordon',
-                      'error'
-                    );
-                    return;
-                  }
-                  setView('competition');
-                  setEditing(null);
-                  setEditingUser(null);
-                  setCreateType(null);
-                }}
-                disabled={!serverOnline || !competitionButtonEnabled}
-                title={competitionButtonEnabled
-                  ? (user?.type === 'entente' ? 'Compétition Entente (clubs liés)' : 'Paramètres compétition')
-                  : (user?.type === 'entente' ? 'En attente d\'activation Ligue' : 'En attente d\'activation Admin / Coordon')}
-              >
-                {M('competition', 'Compétition')}
               </button>
             )}
             {(canValidateTransfersEntente || canValidateTransfersLigue || canConfirmTransfersFederation) && (
@@ -2154,10 +2171,7 @@ export default function App() {
           <div className="transfer-modal" onClick={(e) => e.stopPropagation()}>
             <header className="competition-params-modal-head">
               <div>
-                <h3>Compétition par Entente</h3>
-                <p className="form-hint">
-                  Chaque Entente gère sa compétition indépendamment, avec ses clubs et athlètes uniquement.
-                </p>
+                <h3>Compétition Entente</h3>
               </div>
               <button type="button" className="btn btn-outline btn-sm" onClick={() => setShowEntenteCompetitionPanel(false)}>Fermer</button>
             </header>
@@ -2390,13 +2404,11 @@ export default function App() {
               )}
             </section>
 
-            <section className="grade-requests-section">
-              <h4>Examens / Lien de Test</h4>
-              {gradeExams.length === 0 ? (
-                <p className="form-hint">Aucun examen en cours ou récent.</p>
-              ) : (
+            {activeGradeExams.length > 0 && (
+              <section className="grade-requests-section">
+                <h4>Examens / Lien de Test</h4>
                 <ul className="transfer-list">
-                  {gradeExams.map((exam) => (
+                  {activeGradeExams.map((exam) => (
                     <li key={exam.id} className="transfer-row grade-exam-list-row">
                       <div>
                         <strong>
@@ -2424,8 +2436,8 @@ export default function App() {
                     </li>
                   ))}
                 </ul>
-              )}
-            </section>
+              </section>
+            )}
 
             <section className="grade-requests-section">
               <h4>Passations enregistrées</h4>
@@ -2550,6 +2562,30 @@ export default function App() {
           <AccountDetailModal
             account={viewAccount}
             members={members}
+            canToggleLigueCompetition={canToggleCompetition && viewAccount.type === 'ligue'}
+            onToggleLigueCompetition={async (account, enabled) => {
+              try {
+                await setLigueCompetitionAccess(account.id, enabled);
+                setMembers((prev) => prev.map((m) => (
+                  String(m.id) === String(account.id)
+                    ? { ...m, competition_access: enabled }
+                    : m
+                )));
+                setViewAccount((prev) => (
+                  prev && String(prev.id) === String(account.id)
+                    ? { ...prev, competition_access: enabled }
+                    : prev
+                ));
+                showToast(
+                  enabled
+                    ? 'Compétition activée pour cette ligue'
+                    : 'Compétition désactivée pour cette ligue'
+                );
+              } catch (err) {
+                showToast(err.message || 'Activation compétition impossible', 'error');
+                throw err;
+              }
+            }}
             onClose={() => setViewAccount(null)}
           />
         </Suspense>

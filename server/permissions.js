@@ -327,6 +327,7 @@ export function getPermissions(user, settings = null) {
       showHeaderCreate: false,
       liveRefresh: true,
       canToggleEntenteCompetition: true,
+      canManageCompetition: true,
     };
   }
 

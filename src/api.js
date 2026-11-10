@@ -897,6 +897,18 @@ export async function setEntenteCompetitionAccessBulk({ ententeIds, all = false,
   return res.json();
 }
 
+export async function setLigueCompetitionAccess(ligueId, accessEnabled) {
+  const res = await apiFetch('/api/competition/ligues-access', {
+    method: 'PUT',
+    body: JSON.stringify({ ligue_id: ligueId, access_enabled: accessEnabled }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Erreur lors de l\'activation Ligue');
+  }
+  return res.json();
+}
+
 export async function updateCompetition(data) {
   const res = await apiFetch('/api/competition', {
     method: 'PUT',

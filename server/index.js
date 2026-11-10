@@ -163,6 +163,7 @@ import {
   isCompetitionConfigured,
   competitionOwnerKey,
   ententeOwnerKey,
+  ligueOwnerKey,
 } from './competition.js';
 import {
   collectSimplyPayPayment,
@@ -1066,9 +1067,10 @@ app.get('/api/competition', async (req, res) => {
     const canToggle = canToggleCompetitionAccess(req.user);
     const canManage = canManageCompetition(req.user);
 
-    // Entente : le flag durable sur le compte prime (reste activé après refresh Ligue)
-    const ententeAccess = req.user.type === 'entente' && Boolean(req.user.competition_access);
-    if (ententeAccess && !settings.access_enabled) {
+    // Entente / Ligue : le flag durable sur le compte prime
+    const orgAccess = (req.user.type === 'entente' || req.user.type === 'ligue')
+      && Boolean(req.user.competition_access);
+    if (orgAccess && !settings.access_enabled) {
       settings = await updateCompetitionSettings(
         { access_enabled: true, federation_id: fedId, owner_key: ownerKey },
         fedId,
@@ -1076,12 +1078,14 @@ app.get('/api/competition', async (req, res) => {
       );
     }
 
-    const accessEnabled = req.user.type === 'entente'
-      ? (ententeAccess || Boolean(settings.access_enabled))
+    const accessEnabled = (req.user.type === 'entente' || req.user.type === 'ligue')
+      ? (orgAccess || Boolean(settings.access_enabled))
       : Boolean(settings.access_enabled);
 
     const accessOk = canToggle
-      || ((isDirecteurCompetition(req.user) || req.user.type === 'entente') && accessEnabled);
+      || ((isDirecteurCompetition(req.user)
+        || req.user.type === 'entente'
+        || req.user.type === 'ligue') && accessEnabled);
 
     if (!canToggle && !perms.canManageCompetition && !perms.canToggleEntenteCompetition) {
       return res.status(403).json({ error: 'Accès non autorisé' });
@@ -1089,7 +1093,7 @@ app.get('/api/competition', async (req, res) => {
 
     let competitionClubs = settings.competition_clubs || [];
     let scopedClubs = [];
-    if (req.user.type === 'entente') {
+    if (req.user.type === 'entente' || req.user.type === 'ligue') {
       const users = await getAllUsers();
       scopedClubs = getScopedClubNames(users, req.user)
         .map((nom) => String(nom || '').trim())
@@ -1109,10 +1113,13 @@ app.get('/api/competition', async (req, res) => {
       can_toggle_access: canToggle,
       can_edit: accessOk && (canToggle || canManage),
       scope_entente: req.user.type === 'entente',
+      scope_ligue: req.user.type === 'ligue',
       owner_key: ownerKey,
-      scope_label: req.user.type === 'entente'
-        ? `ENTENTE - ${req.user.nom_organisation || req.user.nom || 'Entente'}`
-        : 'FENACOJU · Directeur Compétition',
+      scope_label: req.user.type === 'ligue'
+        ? `LIGUE - ${req.user.nom_organisation || req.user.nom || 'Ligue'}`
+        : req.user.type === 'entente'
+          ? `ENTENTE - ${req.user.nom_organisation || req.user.nom || 'Entente'}`
+          : 'FENACOJU · Directeur Compétition',
       federation_id: fedId,
     });
   } catch (err) {
@@ -1224,6 +1231,47 @@ app.put('/api/competition/ententes-access', async (req, res) => {
       access_enabled: enabled,
       count: results.filter((r) => !r.error).length,
       results,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/** Admin / Coordon : activer la compétition d'une Ligue */
+app.put('/api/competition/ligues-access', async (req, res) => {
+  try {
+    if (!canToggleCompetitionAccess(req.user) && req.user.type !== 'admin') {
+      return res.status(403).json({ error: 'Réservé à l\'Admin / Coordon de la fédération' });
+    }
+    const ligueId = String(req.body?.ligue_id || '').trim();
+    if (!ligueId) return res.status(400).json({ error: 'ligue_id requis' });
+    const enabled = Boolean(req.body?.access_enabled);
+
+    const users = await getAllUsers();
+    const ligue = users.find((u) => u.id === ligueId && u.type === 'ligue');
+    if (!ligue) return res.status(404).json({ error: 'Ligue introuvable' });
+    if (getAccountStatut(ligue) !== 'actif') {
+      return res.status(400).json({ error: 'Ligue inactive' });
+    }
+
+    const callerFed = getUserFederationId(req.user);
+    const ligueFed = getUserFederationId(ligue);
+    if (callerFed && ligueFed && String(callerFed) !== String(ligueFed) && req.user.type !== 'superadmin') {
+      return res.status(403).json({ error: 'Ligue hors périmètre de votre fédération' });
+    }
+
+    const fedId = callerFed || ligueFed;
+    const ownerKey = ligueOwnerKey(ligueId);
+    await setUserCompetitionAccess(ligueId, enabled);
+    const settings = enabled
+      ? await updateCompetitionSettings({ access_enabled: true, federation_id: fedId, owner_key: ownerKey }, fedId, ownerKey)
+      : await resetCompetitionCompletely({ access_enabled: false, federationId: fedId, ownerKey });
+
+    res.json({
+      ligue_id: ligueId,
+      access_enabled: enabled,
+      configured: isCompetitionConfigured(settings),
+      reset: !enabled,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1447,8 +1495,10 @@ app.put('/api/competition/access', async (req, res) => {
   }
 });
 
-function ententeCompetitionUnlocked(user, settings) {
-  if (user?.type !== 'entente') return Boolean(settings?.access_enabled);
+function orgCompetitionUnlocked(user, settings) {
+  if (user?.type !== 'entente' && user?.type !== 'ligue') {
+    return Boolean(settings?.access_enabled);
+  }
   return Boolean(user.competition_access) || Boolean(settings?.access_enabled);
 }
 
@@ -1460,7 +1510,8 @@ app.put('/api/competition', async (req, res) => {
     const canToggle = canToggleCompetitionAccess(req.user);
     const canManage = canManageCompetition(req.user);
 
-    if (req.user.type === 'entente' && req.user.competition_access && !current.access_enabled) {
+    if ((req.user.type === 'entente' || req.user.type === 'ligue')
+      && req.user.competition_access && !current.access_enabled) {
       current = await updateCompetitionSettings(
         { access_enabled: true, federation_id: fedId, owner_key: ownerKey },
         fedId,
@@ -1468,7 +1519,7 @@ app.put('/api/competition', async (req, res) => {
       );
     }
 
-    if (!canToggle && !(canManage && ententeCompetitionUnlocked(req.user, current))) {
+    if (!canToggle && !(canManage && orgCompetitionUnlocked(req.user, current))) {
       return res.status(403).json({
         error: canManage
           ? (req.user.type === 'entente'
@@ -1500,7 +1551,7 @@ app.put('/api/competition', async (req, res) => {
     }
     if (body.competition_clubs !== undefined) {
       let clubs = parseCompetitionClubs(body.competition_clubs);
-      if (req.user.type === 'entente') {
+      if (req.user.type === 'entente' || req.user.type === 'ligue') {
         const users = await getAllUsers();
         const allowed = new Set(getScopedClubNames(users, req.user).map((c) => c.toLowerCase()));
         clubs = clubs.filter((c) => allowed.has(String(c.nom || '').trim().toLowerCase()));
@@ -1552,7 +1603,7 @@ app.post('/api/competition/logo', upload.single('logo'), async (req, res) => {
     const current = await getCompetitionSettings(fedId, ownerKey);
     const canToggle = canToggleCompetitionAccess(req.user);
     const canManage = canManageCompetition(req.user);
-    if (!canToggle && !(canManage && ententeCompetitionUnlocked(req.user, current))) {
+    if (!canToggle && !(canManage && orgCompetitionUnlocked(req.user, current))) {
       return res.status(403).json({ error: 'Accès non autorisé' });
     }
     if (!req.file) {
@@ -1580,7 +1631,7 @@ app.delete('/api/competition/logo', async (req, res) => {
     const current = await getCompetitionSettings(fedId, ownerKey);
     const canToggle = canToggleCompetitionAccess(req.user);
     const canManage = canManageCompetition(req.user);
-    if (!canToggle && !(canManage && ententeCompetitionUnlocked(req.user, current))) {
+    if (!canToggle && !(canManage && orgCompetitionUnlocked(req.user, current))) {
       return res.status(403).json({ error: 'Accès non autorisé' });
     }
     if (current.logo_url) {
@@ -1604,7 +1655,7 @@ app.delete('/api/competition/public-link', async (req, res) => {
     const current = await getCompetitionSettings(fedId, ownerKey);
     const canToggle = canToggleCompetitionAccess(req.user);
     const canManage = canManageCompetition(req.user);
-    if (!canToggle && !(canManage && ententeCompetitionUnlocked(req.user, current))) {
+    if (!canToggle && !(canManage && orgCompetitionUnlocked(req.user, current))) {
       return res.status(403).json({ error: 'Accès non autorisé' });
     }
     if (current.public_enabled) {
@@ -1630,11 +1681,11 @@ app.get('/api/competition/registrations', async (req, res) => {
     const current = await getCompetitionSettings(fedId, ownerKey);
     const canToggle = canToggleCompetitionAccess(req.user);
     const canManage = canManageCompetition(req.user);
-    if (!canToggle && !(canManage && ententeCompetitionUnlocked(req.user, current))) {
+    if (!canToggle && !(canManage && orgCompetitionUnlocked(req.user, current))) {
       return res.status(403).json({ error: 'Accès non autorisé' });
     }
     let list = await getCompetitionRegistrations(fedId, ownerKey);
-    if (req.user.type === 'entente') {
+    if (req.user.type === 'entente' || req.user.type === 'ligue') {
       const users = await getAllUsers();
       const allowed = new Set(getScopedClubNames(users, req.user).map((c) => c.toLowerCase()));
       list = list.filter((r) => allowed.has(String(r.club || '').trim().toLowerCase()));
@@ -1652,16 +1703,20 @@ app.post('/api/competition/registrations/charge-team', async (req, res) => {
     const current = await getCompetitionSettings(fedId, ownerKey);
     const canToggle = canToggleCompetitionAccess(req.user);
     const canManage = canManageCompetition(req.user);
-    if (!canToggle && !(canManage && ententeCompetitionUnlocked(req.user, current))) {
+    if (!canToggle && !(canManage && orgCompetitionUnlocked(req.user, current))) {
       return res.status(403).json({ error: 'Accès non autorisé' });
     }
     const body = req.body || {};
-    if (req.user.type === 'entente') {
+    if (req.user.type === 'entente' || req.user.type === 'ligue') {
       const users = await getAllUsers();
       const allowed = new Set(getScopedClubNames(users, req.user).map((c) => c.toLowerCase()));
       const club = String(body.club || '').trim().toLowerCase();
       if (club && !allowed.has(club)) {
-        return res.status(403).json({ error: 'Club hors du périmètre de votre entente' });
+        return res.status(403).json({
+          error: req.user.type === 'ligue'
+            ? 'Club hors du périmètre de votre ligue'
+            : 'Club hors du périmètre de votre entente',
+        });
       }
     }
     const result = await chargeTeamFromIndividuel({
@@ -1683,13 +1738,13 @@ app.post('/api/competition/registrations', async (req, res) => {
     const current = await getCompetitionSettings(fedId, ownerKey);
     const canToggle = canToggleCompetitionAccess(req.user);
     const canManage = canManageCompetition(req.user);
-    if (!canToggle && !(canManage && ententeCompetitionUnlocked(req.user, current))) {
+    if (!canToggle && !(canManage && orgCompetitionUnlocked(req.user, current))) {
       return res.status(403).json({ error: 'Accès non autorisé' });
     }
     const body = req.body || {};
 
     let allowedClubSet = null;
-    if (req.user.type === 'entente') {
+    if (req.user.type === 'entente' || req.user.type === 'ligue') {
       const users = await getAllUsers();
       allowedClubSet = new Set(getScopedClubNames(users, req.user).map((c) => c.toLowerCase()));
     }
@@ -1697,7 +1752,11 @@ app.post('/api/competition/registrations', async (req, res) => {
     const toPayload = (item = {}) => {
       const club = String(item.club || '').trim();
       if (allowedClubSet && club && !allowedClubSet.has(club.toLowerCase())) {
-        throw new Error(`Club « ${club} » hors du périmètre de votre entente`);
+        throw new Error(
+          req.user.type === 'ligue'
+            ? `Club « ${club} » hors du périmètre de votre ligue`
+            : `Club « ${club} » hors du périmètre de votre entente`
+        );
       }
       return {
         nom: item.nom,
@@ -1747,7 +1806,7 @@ app.delete('/api/competition/registrations/:id', async (req, res) => {
     const current = await getCompetitionSettings(fedId, ownerKey);
     const canToggle = canToggleCompetitionAccess(req.user);
     const canManage = canManageCompetition(req.user);
-    if (!canToggle && !(canManage && ententeCompetitionUnlocked(req.user, current))) {
+    if (!canToggle && !(canManage && orgCompetitionUnlocked(req.user, current))) {
       return res.status(403).json({ error: 'Accès non autorisé' });
     }
     const result = await deleteCompetitionRegistration(req.params.id);
@@ -1765,7 +1824,7 @@ app.put('/api/competition/registrations/:id', async (req, res) => {
     const current = await getCompetitionSettings(fedId, ownerKey);
     const canToggle = canToggleCompetitionAccess(req.user);
     const canManage = canManageCompetition(req.user);
-    if (!canToggle && !(canManage && ententeCompetitionUnlocked(req.user, current))) {
+    if (!canToggle && !(canManage && orgCompetitionUnlocked(req.user, current))) {
       return res.status(403).json({ error: 'Accès non autorisé' });
     }
     const updated = await updateCompetitionRegistration(req.params.id, {
@@ -1793,7 +1852,7 @@ app.post('/api/competition/licences', async (req, res) => {
     const current = await getCompetitionSettings(fedId, ownerKey);
     const canToggle = canToggleCompetitionAccess(req.user);
     const canManage = canManageCompetition(req.user);
-    if (!canToggle && !(canManage && ententeCompetitionUnlocked(req.user, current))) {
+    if (!canToggle && !(canManage && orgCompetitionUnlocked(req.user, current))) {
       return res.status(403).json({ error: 'Accès non autorisé' });
     }
 

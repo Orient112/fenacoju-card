@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ACCOUNT_STATUT_LABELS, CLUB_DOCUMENT_LABELS, USER_TYPES, resolveMediaUrl } from '../api';
 
 function Field({ label, value }) {
@@ -14,7 +14,21 @@ function orgName(u) {
   return u?.nom_organisation || u?.nom_club || `${u?.prenom || ''} ${u?.nom || ''}`.trim() || '-';
 }
 
-export default function AccountDetailModal({ account, members = [], onClose }) {
+export default function AccountDetailModal({
+  account,
+  members = [],
+  onClose,
+  canToggleLigueCompetition = false,
+  onToggleLigueCompetition,
+}) {
+  const [ligueCompetitionBusy, setLigueCompetitionBusy] = useState(false);
+  const [ligueCompetitionAccess, setLigueCompetitionAccess] = useState(
+    () => Boolean(account?.competition_access)
+  );
+
+  useEffect(() => {
+    setLigueCompetitionAccess(Boolean(account?.competition_access));
+  }, [account?.id, account?.competition_access]);
   const childEntentes = useMemo(() => {
     if (!account || account.type !== 'ligue') return [];
     return (members || [])
@@ -42,6 +56,18 @@ export default function AccountDetailModal({ account, members = [], onClose }) {
   }, [account, members, childEntentes]);
 
   if (!account) return null;
+
+  const handleToggleLigueCompetition = async () => {
+    if (!onToggleLigueCompetition || ligueCompetitionBusy) return;
+    setLigueCompetitionBusy(true);
+    try {
+      const next = !ligueCompetitionAccess;
+      await onToggleLigueCompetition(account, next);
+      setLigueCompetitionAccess(next);
+    } finally {
+      setLigueCompetitionBusy(false);
+    }
+  };
 
   const isArbitre = account._kind === 'arbitre' || (!account.type && account.niveau);
   const typeLabel = isArbitre
@@ -76,7 +102,22 @@ export default function AccountDetailModal({ account, members = [], onClose }) {
               )}
             </p>
           </div>
-          <button type="button" className="btn btn-outline btn-sm" onClick={onClose}>Fermer</button>
+          <div className="club-detail-header-actions" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            {account.type === 'ligue' && canToggleLigueCompetition && (
+              <button
+                type="button"
+                className={`btn btn-sm ${ligueCompetitionAccess ? 'btn-outline' : 'btn-primary'}`}
+                onClick={handleToggleLigueCompetition}
+                disabled={ligueCompetitionBusy}
+                title={ligueCompetitionAccess
+                  ? 'Désactiver la page Compétition pour cette ligue'
+                  : 'Activer la page Compétition pour cette ligue'}
+              >
+                {ligueCompetitionBusy ? '…' : 'Activer/Désactiver'}
+              </button>
+            )}
+            <button type="button" className="btn btn-outline btn-sm" onClick={onClose}>Fermer</button>
+          </div>
         </div>
 
         <div className="club-detail-body">

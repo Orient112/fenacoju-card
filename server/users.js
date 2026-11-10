@@ -964,14 +964,14 @@ export async function setUserAccountStatut(id, statut, editor) {
   return sanitizeUser(updated);
 }
 
-/** Active / désactive durablement la page Compétition d'un compte Entente. */
+/** Active / désactive durablement la page Compétition d'un compte Entente ou Ligue. */
 export async function setUserCompetitionAccess(id, enabled) {
   const users = await readUsers();
   const index = users.findIndex((u) => u.id === id);
   if (index === -1) throw new Error('Utilisateur introuvable');
   const target = users[index];
-  if (target.type !== 'entente') {
-    throw new Error('La compétition par activation Ligue concerne uniquement les Ententes');
+  if (target.type !== 'entente' && target.type !== 'ligue') {
+    throw new Error('Activation compétition réservée aux comptes Entente ou Ligue');
   }
 
   const updated = { ...target, competition_access: Boolean(enabled) };
