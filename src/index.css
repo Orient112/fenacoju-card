@@ -5023,8 +5023,71 @@ tbody tr:last-child td {
 }
 
 .exam-chrono-minutes {
-  width: 8rem;
+  width: 8.5rem;
   margin: 0;
+}
+
+.exam-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.exam-field-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.exam-field-control {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #d7dee8;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  color: #0f172a;
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 500;
+  line-height: 1.35;
+  padding: 0.75rem 0.9rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.exam-field-control::placeholder {
+  color: #94a3b8;
+  font-weight: 400;
+}
+
+.exam-field-control:hover {
+  border-color: #b6c3d6;
+  background: #fff;
+}
+
+.exam-field-control:focus {
+  outline: none;
+  border-color: #1d4ed8;
+  background: #fff;
+  box-shadow:
+    0 0 0 3px rgba(29, 78, 216, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.exam-field-textarea {
+  min-height: 5.2rem;
+  resize: vertical;
+  line-height: 1.45;
+}
+
+.exam-question-points .exam-field-control {
+  text-align: center;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
 }
 
 .grade-exam-timer {
@@ -5081,13 +5144,14 @@ tbody tr:last-child td {
 
 .exam-question-row {
   display: grid;
-  grid-template-columns: auto 1fr 7rem auto;
-  gap: 0.65rem;
-  align-items: end;
-  padding: 0.75rem;
-  border: 1px solid #eef2f7;
-  border-radius: 12px;
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  grid-template-columns: auto 1fr 7.5rem auto;
+  gap: 0.75rem;
+  align-items: start;
+  padding: 0.85rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
 }
 
 .exam-question-index {
@@ -5100,15 +5164,15 @@ tbody tr:last-child td {
   color: #fff;
   font-size: 0.75rem;
   font-weight: 700;
-  margin-bottom: 0.35rem;
+  margin-top: 1.55rem;
 }
 
 .exam-question-points {
-  width: 7rem;
+  width: 7.5rem;
 }
 
 .exam-question-remove {
-  margin-bottom: 0.1rem;
+  margin-top: 1.55rem;
 }
 
 .exam-question-prompt {

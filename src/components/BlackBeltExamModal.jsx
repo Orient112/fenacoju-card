@@ -112,14 +112,15 @@ export default function BlackBeltExamModal({ athletes = [], onClose, onCreated, 
             <form onSubmit={handleCreate} className="black-belt-exam-form">
               <section className="black-belt-exam-panel">
                 <h4>Instructeur</h4>
-                <label className="form-field">
-                  <span>Nom de l&apos;instructeur</span>
+                <label className="exam-field">
+                  <span className="exam-field-label">Nom de l&apos;instructeur</span>
                   <input
+                    className="exam-field-control"
                     type="text"
                     value={instructeur}
                     onChange={(e) => setInstructeur(e.target.value)}
                     required
-                    placeholder="Nom complet"
+                    placeholder="Ex. Jean Mukendi"
                   />
                 </label>
 
@@ -133,9 +134,10 @@ export default function BlackBeltExamModal({ athletes = [], onClose, onCreated, 
                     <span>Chronométrer l&apos;examen</span>
                   </label>
                   {chronometreEnabled && (
-                    <label className="form-field exam-chrono-minutes">
-                      <span>Durée (minutes)</span>
+                    <label className="exam-field exam-chrono-minutes">
+                      <span className="exam-field-label">Durée (minutes)</span>
                       <input
+                        className="exam-field-control"
                         type="number"
                         min="1"
                         max="240"
@@ -163,19 +165,21 @@ export default function BlackBeltExamModal({ athletes = [], onClose, onCreated, 
                   {questions.map((q, index) => (
                     <li key={q.id} className="exam-question-row">
                       <div className="exam-question-index" aria-hidden="true">{index + 1}</div>
-                      <label className="form-field exam-question-text">
-                        <span>Question {index + 1}</span>
+                      <label className="exam-field exam-question-text">
+                        <span className="exam-field-label">Question {index + 1}</span>
                         <textarea
+                          className="exam-field-control exam-field-textarea"
                           value={q.text}
                           onChange={(e) => updateQuestion(q.id, { text: e.target.value })}
                           required
-                          rows={2}
-                          placeholder="Énoncé de la question"
+                          rows={3}
+                          placeholder="Rédigez l'énoncé de la question…"
                         />
                       </label>
-                      <label className="form-field exam-question-points">
-                        <span>Note / points</span>
+                      <label className="exam-field exam-question-points">
+                        <span className="exam-field-label">Note / points</span>
                         <input
+                          className="exam-field-control"
                           type="number"
                           min="0"
                           step="0.5"
