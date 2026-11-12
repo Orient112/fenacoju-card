@@ -1,4 +1,4 @@
-const CARD_NUMBER_RE = /(?:FCJ|FJC)-\d{4}-\d+/i;
+const CARD_NUMBER_RE = /(?:FCJ|FJC|[A-Z]{2,5})-\d{4}-\d+/i;
 const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 
 function tryParseJson(text) {
@@ -12,17 +12,19 @@ function tryParseJson(text) {
 function normalizeCardNumber(value) {
   if (!value) return null;
   const match = String(value).trim().match(CARD_NUMBER_RE);
-  return match ? match[0].toUpperCase().replace(/^FJC-/, 'FCJ-') : null;
+  if (!match) return null;
+  return match[0].toUpperCase().replace(/^FJC-/, 'FCJ-');
 }
 
-function buildPayload({ id = null, carte = null, nom = null, prenom = null, club = null, org = 'FENACOJU', raw = '' }) {
+function buildPayload({ id = null, carte = null, nom = null, prenom = null, club = null, grade = null, raw = '' }) {
   return {
-    org,
+    type: 'athlete',
     id: id ? String(id).trim() : null,
-    carte: normalizeCardNumber(carte),
+    carte: normalizeCardNumber(carte) || (carte ? String(carte).trim() : null),
     nom: nom ? String(nom).trim() : null,
     prenom: prenom ? String(prenom).trim() : null,
     club: club ? String(club).trim() : null,
+    grade: grade ? String(grade).trim() : null,
     raw,
   };
 }
@@ -32,7 +34,6 @@ function normalizePayload(data, raw = '') {
 
   const id = data.id || data.judoka_id || data.judokaId;
   const carte = data.carte || data.numero_carte || data.numeroCarte || data.card || data.numero;
-  const org = data.org || data.organization || 'FENACOJU';
 
   if (!id && !carte) return null;
 
@@ -42,7 +43,7 @@ function normalizePayload(data, raw = '') {
     nom: data.nom,
     prenom: data.prenom,
     club: data.club,
-    org: String(org).toUpperCase() === 'FENACOJU' ? 'FENACOJU' : org,
+    grade: data.grade,
     raw,
   });
 }

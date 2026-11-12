@@ -182,7 +182,7 @@ export default function QrScanModal({ onClose }) {
 
     const payload = parseCardQr(text);
     if (!payload || !hasResolvableQrPayload(payload)) {
-      setError('QR Code non reconnu. Utilisez une carte judoka FENACOJU.');
+      setError('QR Code non reconnu. Utilisez une carte athlète valide.');
       return;
     }
 

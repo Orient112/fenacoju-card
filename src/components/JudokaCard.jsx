@@ -16,11 +16,16 @@ function formatSubtitle(template, year) {
   return String(template || 'Carte Athlète {year}').replace(/\{year\}/gi, String(year));
 }
 
-function getCardQrValue(judoka, qrOrg) {
+/** QR orienté athlète : infos judoka, pas le nom de fédération. */
+function getCardQrValue(judoka) {
   return JSON.stringify({
-    org: qrOrg || 'FENACOJU',
+    type: 'athlete',
     id: judoka.id,
     carte: judoka.numero_carte,
+    prenom: judoka.prenom || '',
+    nom: judoka.nom || '',
+    club: judoka.club || '',
+    grade: judoka.grade || '',
     structure: judoka.hierarchy_id || judoka.club_code || '',
   });
 }
@@ -29,7 +34,7 @@ export default function JudokaCard({ judoka, design: designProp = null, branding
   const design = normalizeCardDesign(designProp || {});
   const validityYear = getCardValidityYear(judoka);
   const currentYear = new Date().getFullYear();
-  const qrValue = getCardQrValue(judoka, design.qr_org);
+  const qrValue = getCardQrValue(judoka);
   const logoSrc = resolveCardLogo(design, branding);
   const orgName = design.org_name || branding?.nom || 'Fédération';
   const subtitle = formatSubtitle(design.subtitle, currentYear);

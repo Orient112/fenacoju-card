@@ -52,7 +52,7 @@ export const DEFAULT_CARD_DESIGN = {
   subtitle: 'Carte Athlète {year}',
   logo_mode: 'default',
   logo_url: '',
-  qr_org: 'FENACOJU',
+  card_id_prefix: 'FCJ',
   show_validity: true,
   colors: {
     header_bg: '#1D4393',
@@ -85,12 +85,17 @@ export function normalizeCardDesign(raw = {}) {
     : base.logo_mode;
   const hex = (v, fallback) => (/^#[0-9a-fA-F]{6}$/.test(String(v || '').trim()) ? v : fallback);
 
+  const rawPrefix = String(src.card_id_prefix || base.card_id_prefix || 'FCJ')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+    .slice(0, 5);
+
   return {
     org_name: String(src.org_name || base.org_name).trim().slice(0, 120) || base.org_name,
     subtitle: String(src.subtitle || base.subtitle).trim().slice(0, 80) || base.subtitle,
     logo_mode: logoMode,
     logo_url: String(src.logo_url || '').trim().slice(0, 500),
-    qr_org: String(src.qr_org || base.qr_org).trim().slice(0, 40) || base.qr_org,
+    card_id_prefix: rawPrefix || 'FCJ',
     show_validity: src.show_validity !== false,
     colors: {
       header_bg: hex(colorsIn.header_bg, base.colors.header_bg),

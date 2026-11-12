@@ -1918,7 +1918,10 @@ app.post('/api/competition/licences', async (req, res) => {
           || String(reg.categorie || '').trim()
           || '';
         const id = uuidv4();
-        const numero_carte = await generateCardNumber();
+        const fedId = getUserFederationId(req.user);
+        const fedSettings = await getFederationSettingsForUser(req.user);
+        const cardPrefix = fedSettings?.card_design?.card_id_prefix || 'FCJ';
+        const numero_carte = await generateCardNumber({ prefix: cardPrefix, federationId: fedId });
         await createJudoka({
           id,
           numero_carte,
@@ -1939,6 +1942,7 @@ app.post('/api/competition/licences', async (req, res) => {
           entraineur_nom: '',
           date_inscription: new Date().toISOString().split('T')[0],
           statut: 'actif',
+          federation_id: fedId,
         });
         judoka = await getJudokaById(id);
       }
@@ -2505,7 +2509,10 @@ app.post('/api/judokas', handlePhotoUpload, async (req, res) => {
     }
 
     const id = uuidv4();
-    const numero_carte = await generateCardNumber();
+    const fedId = getUserFederationId(req.user);
+    const fedSettings = await getFederationSettingsForUser(req.user);
+    const cardPrefix = fedSettings?.card_design?.card_id_prefix || 'FCJ';
+    const numero_carte = await generateCardNumber({ prefix: cardPrefix, federationId: fedId });
     const photo = req.file ? await saveUploadedFile(req.file, 'photos') : '';
 
     await createJudoka({
@@ -2528,7 +2535,7 @@ app.post('/api/judokas', handlePhotoUpload, async (req, res) => {
       entraineur_nom: body.entraineur_nom?.trim() || '',
       date_inscription: body.date_inscription || new Date().toISOString().split('T')[0],
       statut: 'actif',
-      federation_id: getUserFederationId(req.user),
+      federation_id: fedId,
     });
 
     res.status(201).json(await getJudokaById(id));

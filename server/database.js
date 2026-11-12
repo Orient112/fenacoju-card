@@ -87,18 +87,37 @@ export async function getJudokaByCardNumber(numero_carte) {
   return judokas.find((j) => variants.includes(j.numero_carte?.toUpperCase())) || null;
 }
 
-export async function generateCardNumber() {
+/**
+ * ID carte par fédération : {PREFIX}-{YEAR}-{NNNN}
+ * PREFIX vient du design de la fédération (ex. FCJ pour Judo).
+ */
+export async function generateCardNumber({ prefix = 'FCJ', federationId = null } = {}) {
   const year = new Date().getFullYear();
   const judokas = await readAll();
-  const prefix = `FCJ-${year}-`;
+  const safePrefix = String(prefix || 'FCJ')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+    .slice(0, 5) || 'FCJ';
+  const re = new RegExp(`^${safePrefix}-\\d{4}-\\d+$`, 'i');
+  const legacyJudo = /^(FCJ|FJC)-\d{4}-\d+$/i;
 
   const last = judokas
-    .filter((j) => /^(FCJ|FJC)-/.test(j.numero_carte) && j.numero_carte.includes(`-${year}-`))
-    .map((j) => parseInt(j.numero_carte.split('-')[2], 10))
+    .filter((j) => {
+      const num = String(j.numero_carte || '');
+      if (federationId && j.federation_id && String(j.federation_id) !== String(federationId)) {
+        return false;
+      }
+      if (safePrefix === 'FCJ') {
+        return legacyJudo.test(num) && num.includes(`-${year}-`);
+      }
+      return re.test(num) && num.includes(`-${year}-`);
+    })
+    .map((j) => parseInt(String(j.numero_carte).split('-').pop(), 10))
+    .filter((n) => Number.isFinite(n))
     .sort((a, b) => b - a)[0];
 
   const nextNum = (last || 0) + 1;
-  return `${prefix}${String(nextNum).padStart(4, '0')}`;
+  return `${safePrefix}-${year}-${String(nextNum).padStart(4, '0')}`;
 }
 
 export async function createJudoka(data) {

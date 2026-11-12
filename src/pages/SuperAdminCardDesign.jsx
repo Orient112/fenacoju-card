@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import BrandLoader from '../components/BrandLoader';
 import JudokaCard from '../components/JudokaCard';
 import {
@@ -12,20 +12,12 @@ import {
   mergeFederationSettings,
   normalizeCardDesign,
 } from '../utils/federationConfig';
-
-const PREVIEW_JUDOKA = {
-  id: 'preview-card-design',
-  prenom: 'Jean',
-  nom: 'Mbala',
-  club: 'Club Kinshasa Judo',
-  grade: 'Ceinture Noire 1er Dan',
-  categorie: '-73 kg',
-  numero_licence: 'LIC-2026-001',
-  numero_carte: 'JD-2026-0001',
-  photo: '',
-  date_inscription: new Date().toISOString(),
-  hierarchy_id: 'L01-E01-C01',
-};
+import {
+  buildPreviewCardNumber,
+  deriveCardIdPrefix,
+  extractDesignFromJpg,
+  generateCardDesignForFederation,
+} from '../utils/cardDesignTools';
 
 const COLOR_FIELDS = [
   { key: 'header_bg', label: 'Fond en-tête' },
@@ -45,15 +37,18 @@ const FIELD_TOGGLES = [
 ];
 
 export default function SuperAdminCardDesign({ onToast }) {
+  const importInputRef = useRef(null);
   const [loadingList, setLoadingList] = useState(true);
   const [loadingSettings, setLoadingSettings] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [importBusy, setImportBusy] = useState(false);
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
   const [federations, setFederations] = useState([]);
   const [selectedId, setSelectedId] = useState('');
   const [settings, setSettings] = useState(() => mergeFederationSettings(null));
   const [design, setDesign] = useState(() => getDefaultCardDesign());
+  const [generateSeed, setGenerateSeed] = useState(0);
 
   const selected = useMemo(
     () => federations.find((f) => f.id === selectedId) || null,
@@ -64,7 +59,7 @@ export default function SuperAdminCardDesign({ onToast }) {
     const q = query.trim().toLowerCase();
     if (!q) return federations;
     return federations.filter((f) =>
-      [f.nom, f.nom_profil, f.slug].filter(Boolean).some((v) => String(v).toLowerCase().includes(q))
+      String(f.nom_profil || '').toLowerCase().includes(q)
     );
   }, [federations, query]);
 
@@ -72,6 +67,23 @@ export default function SuperAdminCardDesign({ onToast }) {
     nom: selected?.nom || '',
     logo_url: selected?.logo_url || '',
   }), [selected]);
+
+  const previewJudoka = useMemo(() => {
+    const prefix = design.card_id_prefix || deriveCardIdPrefix(selected);
+    return {
+      id: 'preview-card-design',
+      prenom: 'Jean',
+      nom: 'Mbala',
+      club: 'Club Kinshasa Judo',
+      grade: 'Ceinture Noire 1er Dan',
+      categorie: '-73 kg',
+      numero_licence: 'LIC-2026-001',
+      numero_carte: buildPreviewCardNumber(prefix),
+      photo: '',
+      date_inscription: new Date().toISOString(),
+      hierarchy_id: 'L01-E01-C01',
+    };
+  }, [design.card_id_prefix, selected]);
 
   useEffect(() => {
     let cancelled = false;
@@ -103,8 +115,13 @@ export default function SuperAdminCardDesign({ onToast }) {
         const data = await fetchFederationSettingsById(selectedId);
         if (cancelled) return;
         const merged = mergeFederationSettings(data);
+        const fed = federations.find((f) => f.id === selectedId);
+        const nextDesign = normalizeCardDesign({
+          ...(merged.card_design || {}),
+          card_id_prefix: merged.card_design?.card_id_prefix || deriveCardIdPrefix(fed),
+        });
         setSettings(merged);
-        setDesign(normalizeCardDesign(merged.card_design || {}));
+        setDesign(nextDesign);
       } catch (err) {
         if (!cancelled) setError(err.message || 'Chargement du design impossible');
       } finally {
@@ -112,7 +129,7 @@ export default function SuperAdminCardDesign({ onToast }) {
       }
     })();
     return () => { cancelled = true; };
-  }, [selectedId]);
+  }, [selectedId, federations]);
 
   const updateDesign = (patch) => {
     setDesign((prev) => normalizeCardDesign({ ...prev, ...patch }));
@@ -133,7 +150,46 @@ export default function SuperAdminCardDesign({ onToast }) {
   };
 
   const handleReset = () => {
-    setDesign(getDefaultCardDesign());
+    const defaults = getDefaultCardDesign();
+    setDesign(normalizeCardDesign({
+      ...defaults,
+      card_id_prefix: deriveCardIdPrefix(selected) || defaults.card_id_prefix,
+      org_name: selected?.nom || defaults.org_name,
+    }));
+  };
+
+  const handleGenerate = () => {
+    const seed = Date.now() + generateSeed + 1;
+    setGenerateSeed((n) => n + 1);
+    const next = generateCardDesignForFederation(selected, design, seed);
+    setDesign(next);
+    onToast?.('Nouveau modèle généré - enregistrez pour l\'appliquer', 'success');
+  };
+
+  const handleImportClick = () => {
+    importInputRef.current?.click();
+  };
+
+  const handleImportFile = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setImportBusy(true);
+    setError('');
+    try {
+      const next = await extractDesignFromJpg(file, {
+        federation: selected,
+        current: design,
+      });
+      setDesign(next);
+      onToast?.('Design JPG importé - couleurs et intitulés mis à jour', 'success');
+    } catch (err) {
+      const msg = err.message || 'Import JPG impossible';
+      setError(msg);
+      onToast?.(msg, 'error');
+    } finally {
+      setImportBusy(false);
+    }
   };
 
   const handleSave = async () => {
@@ -143,7 +199,10 @@ export default function SuperAdminCardDesign({ onToast }) {
     try {
       const payload = {
         ...settings,
-        card_design: normalizeCardDesign(design),
+        card_design: normalizeCardDesign({
+          ...design,
+          card_id_prefix: design.card_id_prefix || deriveCardIdPrefix(selected),
+        }),
       };
       const saved = await updateFederationSettingsById(selectedId, payload);
       const merged = mergeFederationSettings(saved);
@@ -174,7 +233,7 @@ export default function SuperAdminCardDesign({ onToast }) {
           </p>
         </div>
         {selected && (
-          <div className="sa-config-hero-fed sa-config-hero-fed-logo-only" title={selected.nom}>
+          <div className="sa-config-hero-fed sa-config-hero-fed-logo-only" title={selected.nom_profil || selected.nom}>
             <img
               src={selected.logo_url ? resolveMediaUrl(selected.logo_url) : '/fenacoju-logo.png'}
               alt=""
@@ -209,8 +268,7 @@ export default function SuperAdminCardDesign({ onToast }) {
                   alt=""
                 />
                 <span>
-                  <strong>{f.nom_profil || f.slug || f.nom}</strong>
-                  <small>{f.nom}</small>
+                  <strong>{f.nom_profil || 'Sans nom de profil'}</strong>
                 </span>
               </button>
             ))}
@@ -227,23 +285,50 @@ export default function SuperAdminCardDesign({ onToast }) {
               <div className="sa-card-design-preview-panel">
                 <div className="sa-card-design-preview-head">
                   <h3>Aperçu live</h3>
-                  <p className="form-hint">Format 85 × 55 mm - carte Judo actuelle modifiable</p>
+                  <p className="form-hint">
+                    Format 85 × 55 mm - ID {previewJudoka.numero_carte}
+                  </p>
                 </div>
                 <div className="sa-card-design-preview-stage">
                   <JudokaCard
-                    judoka={PREVIEW_JUDOKA}
+                    judoka={previewJudoka}
                     design={design}
                     branding={branding}
                   />
+                </div>
+                <div className="sa-card-design-preview-actions">
+                  <button
+                    type="button"
+                    className="btn btn-outline"
+                    onClick={handleGenerate}
+                    disabled={busy || importBusy}
+                  >
+                    Générer
+                  </button>
                 </div>
               </div>
 
               <div className="sa-card-design-form">
                 <div className="sa-card-design-actions">
-                  <button type="button" className="btn btn-outline" onClick={handleReset} disabled={busy}>
+                  <button type="button" className="btn btn-outline" onClick={handleReset} disabled={busy || importBusy}>
                     Réinitialiser (Judo)
                   </button>
-                  <button type="button" className="btn btn-primary" onClick={handleSave} disabled={busy}>
+                  <input
+                    ref={importInputRef}
+                    type="file"
+                    accept=".jpg,.jpeg,image/jpeg"
+                    hidden
+                    onChange={handleImportFile}
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-outline"
+                    onClick={handleImportClick}
+                    disabled={busy || importBusy}
+                  >
+                    {importBusy ? 'Import…' : 'Import'}
+                  </button>
+                  <button type="button" className="btn btn-primary" onClick={handleSave} disabled={busy || importBusy}>
                     {busy ? 'Enregistrement…' : 'Enregistrer le design'}
                   </button>
                 </div>
@@ -273,14 +358,20 @@ export default function SuperAdminCardDesign({ onToast }) {
                     <p className="form-hint">Utilisez {'{year}'} pour l&apos;année en cours.</p>
                   </div>
                   <div className="form-group">
-                    <label htmlFor="card-qr-org">Code org. QR</label>
+                    <label htmlFor="card-id-prefix">Préfixe ID carte</label>
                     <input
-                      id="card-qr-org"
+                      id="card-id-prefix"
                       type="text"
-                      value={design.qr_org}
-                      onChange={(e) => updateDesign({ qr_org: e.target.value })}
-                      maxLength={40}
+                      value={design.card_id_prefix || ''}
+                      onChange={(e) => updateDesign({
+                        card_id_prefix: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5),
+                      })}
+                      placeholder="FCJ"
+                      maxLength={5}
                     />
+                    <p className="form-hint">
+                      Format : {design.card_id_prefix || 'FCJ'}-{new Date().getFullYear()}-0001 - unique par fédération.
+                    </p>
                   </div>
                 </div>
 
