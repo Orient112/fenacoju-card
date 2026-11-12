@@ -350,6 +350,10 @@ export function mergeFederationSettings(raw) {
   const maps = rolesToMaps(roles);
   const labels = normalizeLabelsFlexible(src.labels || {});
   const menu_labels = normalizeDict(src.menu_labels || {}, DEFAULT_MENU_LABELS, { keepDefaults: true });
+  // Libellé système unifié (évite les anciennes valeurs "Réglages" déjà enregistrées)
+  if (!menu_labels.settings || menu_labels.settings === 'Réglages') {
+    menu_labels.settings = 'Réglages Profil';
+  }
   const colors = normalizeColors(src.colors || {});
   const color_defs = normalizeColorDefs(src.color_defs, colors);
   const feature_defs = normalizeFeatureDefs(src.feature_defs, src.features || {});

@@ -13,6 +13,7 @@ import {
 import { getSupabase, isSupabaseEnabled } from './supabase.js';
 import { dataDir } from './paths.js';
 import { allocateOrgCode, ensureOrgCodes } from './orgHierarchy.js';
+import { DEFAULT_JUDO_FEDERATION_ID } from './federations.js';
 
 const usersPath = path.join(dataDir, 'users.json');
 const sessionsPath = path.join(dataDir, 'sessions.json');
@@ -583,18 +584,25 @@ async function findByLogin(login) {
 
 // ─── Exports publics (async) ───
 
-export async function getRegisteredClubs() {
+export async function getRegisteredClubs(federationId = null) {
   const users = await readUsers();
   return users
-    .filter((u) => u.type === 'club' && u.nom_club && getAccountStatut(u) === 'actif')
+    .filter((u) => {
+      if (u.type !== 'club' || !u.nom_club || getAccountStatut(u) !== 'actif') return false;
+      if (!federationId) return true;
+      if (String(u.federation_id || '') === String(federationId)) return true;
+      // Legacy : clubs sans federation_id visibles uniquement pour la fédération judo par défaut
+      if (!u.federation_id && String(federationId) === String(DEFAULT_JUDO_FEDERATION_ID)) return true;
+      return false;
+    })
     .map((u) => u.nom_club.trim())
     .sort((a, b) => a.localeCompare(b, 'fr'));
 }
 
-export async function isClubRegistered(clubName) {
+export async function isClubRegistered(clubName, federationId = null) {
   if (!clubName?.trim()) return false;
   const term = clubName.trim().toLowerCase();
-  const clubs = await getRegisteredClubs();
+  const clubs = await getRegisteredClubs(federationId);
   return clubs.some((c) => c.toLowerCase() === term);
 }
 
@@ -606,9 +614,18 @@ export async function ensureRegisteredClub(clubName, creator) {
   const nom = String(clubName || '').trim();
   if (!nom) throw new Error('Le nom du club est obligatoire');
   const term = nom.toLowerCase();
+  const fedId = creator?.type === 'superadmin'
+    ? null
+    : (creator?.federation_id || DEFAULT_JUDO_FEDERATION_ID);
   const users = await readUsers();
   const existing = users.find(
-    (u) => u.type === 'club' && String(u.nom_club || '').trim().toLowerCase() === term,
+    (u) => u.type === 'club'
+      && String(u.nom_club || '').trim().toLowerCase() === term
+      && (
+        !fedId
+        || String(u.federation_id || '') === String(fedId)
+        || (!u.federation_id && String(fedId) === String(DEFAULT_JUDO_FEDERATION_ID))
+      ),
   );
   if (existing) {
     if (getAccountStatut(existing) !== 'actif') {
@@ -641,7 +658,11 @@ export async function ensureRegisteredClub(clubName, creator) {
   // Créateur admin pour forcer statut actif et contourner pending
   const adminLike = creator?.type === 'admin'
     ? creator
-    : { type: 'admin', id: creator?.id || 'system-licence' };
+    : {
+      type: 'admin',
+      id: creator?.id || 'system-licence',
+      federation_id: fedId || creator?.federation_id || DEFAULT_JUDO_FEDERATION_ID,
+    };
 
   return createUser({
     type: 'club',
@@ -652,6 +673,7 @@ export async function ensureRegisteredClub(clubName, creator) {
     ville: '',
     responsable: 'Licence compétition',
     comites: [],
+    federation_id: fedId || creator?.federation_id || DEFAULT_JUDO_FEDERATION_ID,
   }, adminLike);
 }
 

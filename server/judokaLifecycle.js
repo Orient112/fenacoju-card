@@ -227,7 +227,42 @@ export async function addGradeHistory(entry) {
   return row;
 }
 
-export async function getGradeHistory({ judokaId = null, blackOnly = false } = {}) {
+async function judokaIdsForFederation(federationId) {
+  if (!federationId) return null;
+  const { DEFAULT_JUDO_FEDERATION_ID } = await import('./federations.js');
+  if (isSupabaseEnabled()) {
+    try {
+      const { data, error } = await getSupabase().from('judokas').select('id,federation_id');
+      if (error) throw error;
+      return new Set(
+        (data || [])
+          .filter((j) =>
+            String(j.federation_id || '') === String(federationId)
+            || (!j.federation_id && String(federationId) === String(DEFAULT_JUDO_FEDERATION_ID))
+          )
+          .map((j) => String(j.id))
+      );
+    } catch (err) {
+      console.warn('judokaIdsForFederation:', err.message);
+    }
+  }
+  try {
+    const { getAllJudokas } = await import('./database.js');
+    const all = await getAllJudokas();
+    return new Set(
+      (all || [])
+        .filter((j) =>
+          String(j.federation_id || '') === String(federationId)
+          || (!j.federation_id && String(federationId) === String(DEFAULT_JUDO_FEDERATION_ID))
+        )
+        .map((j) => String(j.id))
+    );
+  } catch {
+    return new Set();
+  }
+}
+
+export async function getGradeHistory({ judokaId = null, blackOnly = false, federationId = null } = {}) {
   let list = [];
   if (isSupabaseEnabled()) {
     try {
@@ -244,20 +279,24 @@ export async function getGradeHistory({ judokaId = null, blackOnly = false } = {
     list = readJson(gradeHistoryPath);
   }
   if (judokaId) list = list.filter((r) => r.judoka_id === judokaId);
+  if (federationId && !judokaId) {
+    const ids = await judokaIdsForFederation(federationId);
+    if (ids) list = list.filter((r) => ids.has(String(r.judoka_id || '')));
+  }
   if (blackOnly) list = list.filter((r) => isBlackBeltGrade(r.grade_to));
   return list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 }
 
-/** Efface l'historique de passations ceinture noire (Responsable Grade). */
-export async function clearBlackBeltGradeHistory() {
-  const all = await getGradeHistory({ blackOnly: false });
+/** Efface l'historique de passations ceinture noire (Responsable Grade), scopé par fédération. */
+export async function clearBlackBeltGradeHistory({ federationId = null } = {}) {
+  const all = await getGradeHistory({ blackOnly: false, federationId: federationId || undefined });
   const toRemove = all.filter((r) => isBlackBeltGrade(r.grade_to) || r.grade_from === 'Marron');
-  const keep = all.filter((r) => !isBlackBeltGrade(r.grade_to) && r.grade_from !== 'Marron');
+  const removeIds = new Set(toRemove.map((r) => r.id).filter(Boolean));
   const removed = toRemove.length;
 
   if (isSupabaseEnabled()) {
     try {
-      const ids = toRemove.map((r) => r.id).filter(Boolean);
+      const ids = [...removeIds];
       if (ids.length > 0) {
         const { error } = await getSupabase().from('judoka_grade_history').delete().in('id', ids);
         if (error) throw error;
@@ -269,6 +308,8 @@ export async function clearBlackBeltGradeHistory() {
     }
   }
 
+  const full = readJson(gradeHistoryPath);
+  const keep = full.filter((r) => !removeIds.has(r.id));
   writeJson(gradeHistoryPath, keep);
   return { removed, items: toRemove };
 }
@@ -667,7 +708,13 @@ export async function getGradeRequests({ judokaId = null, statut = null, federat
   }
   if (judokaId) list = list.filter((r) => r.judoka_id === judokaId);
   if (statut) list = list.filter((r) => r.statut === statut);
-  if (federationId) list = list.filter((r) => !r.federation_id || r.federation_id === federationId);
+  if (federationId) {
+    const { DEFAULT_JUDO_FEDERATION_ID } = await import('./federations.js');
+    list = list.filter((r) =>
+      String(r.federation_id || '') === String(federationId)
+      || (!r.federation_id && String(federationId) === String(DEFAULT_JUDO_FEDERATION_ID))
+    );
+  }
   return list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 }
 

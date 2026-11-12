@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import { canMessageUser } from './permissions.js';
+import { canMessageUser, getUserFederationId } from './permissions.js';
 import { getAllUsers, getUserById } from './users.js';
 import { getSupabase, isSupabaseEnabled } from './supabase.js';
 import { dataDir } from './paths.js';
@@ -151,6 +151,7 @@ export async function sendMessage(sender, recipientId, subject, body, attachment
     attachment_url: attachment?.url || '',
     attachment_name: attachment?.name || '',
     attachment_type: attachment?.type || '',
+    federation_id: getUserFederationId(sender),
     hidden_for: [],
     read: false,
     created_at: new Date().toISOString(),
@@ -158,7 +159,11 @@ export async function sendMessage(sender, recipientId, subject, body, attachment
 
   if (isSupabaseEnabled()) {
     const payload = { ...message };
-    const { error } = await getSupabase().from('messages').insert(payload);
+    let { error } = await getSupabase().from('messages').insert(payload);
+    if (error && /federation_id|schema cache|column/i.test(error.message || '')) {
+      const { federation_id: _fed, ...withoutFed } = payload;
+      ({ error } = await getSupabase().from('messages').insert(withoutFed));
+    }
     if (error) {
       // Schéma sans colonnes pièce jointe / hidden_for → fallback réduit
       const marker = attachment?.url

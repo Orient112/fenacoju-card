@@ -16,8 +16,10 @@ function pad(n) {
 }
 
 function sameFederation(a, b) {
-  if (!a?.federation_id || !b?.federation_id) return true;
-  return a.federation_id === b.federation_id;
+  const DEFAULT_FED = '00000000-0000-4000-8000-000000000001';
+  const fa = a?.federation_id || DEFAULT_FED;
+  const fb = b?.federation_id || DEFAULT_FED;
+  return String(fa) === String(fb);
 }
 
 function parseSegment(code, letter) {

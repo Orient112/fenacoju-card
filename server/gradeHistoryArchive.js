@@ -84,7 +84,11 @@ export async function listGradePassationArchives({ federationId = null } = {}) {
   }
 
   if (federationId) {
-    list = list.filter((a) => !a.federation_id || a.federation_id === federationId);
+    const { DEFAULT_JUDO_FEDERATION_ID } = await import('./federations.js');
+    list = list.filter((a) =>
+      String(a.federation_id || '') === String(federationId)
+      || (!a.federation_id && String(federationId) === String(DEFAULT_JUDO_FEDERATION_ID))
+    );
   }
   return list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 }

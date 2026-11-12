@@ -144,6 +144,9 @@ export function mergeFederationSettings(raw) {
     ? { ...src.labels }
     : { ...DEFAULT_FEDERATION_LABELS };
   const menu_labels = { ...DEFAULT_MENU_LABELS, ...(src.menu_labels || {}) };
+  if (!menu_labels.settings || menu_labels.settings === 'Réglages') {
+    menu_labels.settings = 'Réglages Profil';
+  }
   const colors = { ...DEFAULT_FEDERATION_COLORS, ...(src.colors || {}) };
 
   let feature_defs = Array.isArray(src.feature_defs) && src.feature_defs.length

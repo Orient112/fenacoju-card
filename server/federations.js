@@ -174,6 +174,7 @@ export async function createFederationWithAdmin({
   const adminId = uuidv4();
   const slug = `${slugify(fedName)}-${federationId.slice(0, 6)}`;
 
+  const { getDefaultFederationSettings } = await import('./federationSettings.js');
   const federation = {
     id: federationId,
     nom: fedName,
@@ -181,7 +182,7 @@ export async function createFederationWithAdmin({
     slug,
     logo_url: '',
     actif: true,
-    settings: {},
+    settings: getDefaultFederationSettings(),
     admin_user_id: adminId,
     created_at: new Date().toISOString(),
   };

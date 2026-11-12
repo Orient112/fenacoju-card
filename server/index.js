@@ -109,6 +109,7 @@ import {
   canManageCompetition,
   isDirecteurCompetition,
   getUserFederationId,
+  DEFAULT_JUDO_FEDERATION_ID,
 } from './permissions.js';
 import {
   listFederations,
@@ -1047,9 +1048,12 @@ app.put('/api/federations/:id/settings', async (req, res) => {
   }
 });
 
-app.get('/api/clubs', async (_req, res) => {
+app.get('/api/clubs', async (req, res) => {
   try {
-    res.json(await getRegisteredClubs());
+    const fedId = req.user?.type === 'superadmin'
+      ? (req.query.federation_id || null)
+      : getUserFederationId(req.user);
+    res.json(await getRegisteredClubs(fedId || undefined));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -2706,7 +2710,10 @@ app.get('/api/grades/history', async (req, res) => {
       return res.status(403).json({ error: 'Accès non autorisé' });
     }
     const blackOnly = String(req.query.black || '') === '1';
-    const history = await getGradeHistory({ blackOnly });
+    const fedId = req.user.type === 'superadmin'
+      ? (req.query.federation_id || null)
+      : getUserFederationId(req.user);
+    const history = await getGradeHistory({ blackOnly, federationId: fedId || undefined });
     res.json(history);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -2723,9 +2730,9 @@ app.get('/api/grades/requests', async (req, res) => {
       return res.status(403).json({ error: 'Accès non autorisé' });
     }
     const statut = req.query.statut || null;
-    const fedId = req.user.type === 'admin' || req.user.type === 'superadmin'
-      ? null
-      : (req.user.federation_id || null);
+    const fedId = req.user.type === 'superadmin'
+      ? (req.query.federation_id || null)
+      : getUserFederationId(req.user);
     let list = await getGradeRequests({
       statut: statut || undefined,
       federationId: fedId || undefined,
@@ -2747,9 +2754,9 @@ app.get('/api/grades/requests/pending-count', async (req, res) => {
     if (!perms.viewGradeHistory && !perms.manageBlackBelts && !perms.manageGrades && req.user.type !== 'admin') {
       return res.json({ count: 0 });
     }
-    const fedId = req.user.type === 'admin' || req.user.type === 'superadmin'
-      ? null
-      : (req.user.federation_id || null);
+    const fedId = req.user.type === 'superadmin'
+      ? (req.query.federation_id || null)
+      : getUserFederationId(req.user);
     const list = await getGradeRequests({
       statut: 'pending',
       federationId: fedId || undefined,
@@ -2791,7 +2798,7 @@ app.post('/api/grades/requests', async (req, res) => {
       judoka_prenom: judoka.prenom || '',
       judoka_club: judoka.club || '',
       judoka_numero_carte: judoka.numero_carte || '',
-      federation_id: judoka.federation_id || req.user.federation_id || null,
+      federation_id: judoka.federation_id || getUserFederationId(req.user),
     });
     res.status(201).json(request);
   } catch (err) {
@@ -2839,9 +2846,9 @@ app.get('/api/grades/exams', async (req, res) => {
     if (!perms.viewGradeHistory && !perms.manageBlackBelts && !perms.manageGrades && req.user.type !== 'admin') {
       return res.status(403).json({ error: 'Accès non autorisé' });
     }
-    const fedId = req.user.type === 'admin' || req.user.type === 'superadmin'
-      ? null
-      : (req.user.federation_id || null);
+    const fedId = req.user.type === 'superadmin'
+      ? (req.query.federation_id || null)
+      : getUserFederationId(req.user);
     const list = await listGradeExams({ federationId: fedId || undefined });
     res.json(list);
   } catch (err) {
@@ -2855,9 +2862,9 @@ app.get('/api/grades/exam-submissions', async (req, res) => {
     if (!perms.viewGradeHistory && !perms.manageBlackBelts && !perms.manageGrades && req.user.type !== 'admin') {
       return res.status(403).json({ error: 'Accès non autorisé' });
     }
-    const fedId = req.user.type === 'admin' || req.user.type === 'superadmin'
-      ? null
-      : (req.user.federation_id || null);
+    const fedId = req.user.type === 'superadmin'
+      ? (req.query.federation_id || null)
+      : getUserFederationId(req.user);
     const list = await listGradeExamSubmissionsWithExam({ federationId: fedId || undefined });
     res.json(list);
   } catch (err) {
@@ -2878,7 +2885,7 @@ app.post('/api/grades/exams', async (req, res) => {
       request_ids: req.body?.request_ids,
       chronometre_enabled: req.body?.chronometre_enabled,
       chronometre_minutes: req.body?.chronometre_minutes,
-      federation_id: req.user.federation_id || null,
+      federation_id: getUserFederationId(req.user),
       created_by: req.user.id,
       created_by_name: actorLabel(req.user),
     });
@@ -2898,9 +2905,9 @@ app.post('/api/grades/history/reset', async (req, res) => {
     if (!perms.manageBlackBelts && !perms.manageGrades) {
       return res.status(403).json({ error: 'Réinitialisation réservée au Responsable Grade' });
     }
-    const fedId = req.user.federation_id || null;
+    const fedId = getUserFederationId(req.user);
     const examsReset = await resetGradePassationHistory({ federationId: fedId || undefined });
-    const historyReset = await clearBlackBeltGradeHistory();
+    const historyReset = await clearBlackBeltGradeHistory({ federationId: fedId || undefined });
     const archive = await archiveGradePassationReset({
       federation_id: fedId,
       reset_by: req.user.id,
@@ -2928,7 +2935,7 @@ app.get('/api/grades/history/archives', async (req, res) => {
     }
     const fedId = req.user.type === 'superadmin'
       ? (req.query.federation_id || null)
-      : (req.user.federation_id || null);
+      : getUserFederationId(req.user);
     const list = await listGradePassationArchives({ federationId: fedId || undefined });
     res.json(list.map((a) => ({
       id: a.id,
@@ -2952,13 +2959,11 @@ app.get('/api/grades/history/archives/:id', async (req, res) => {
     }
     const archive = await getGradePassationArchiveById(req.params.id);
     if (!archive) return res.status(404).json({ error: 'Archive introuvable' });
-    if (
-      req.user.type === 'admin'
-      && archive.federation_id
-      && req.user.federation_id
-      && String(archive.federation_id) !== String(req.user.federation_id)
-    ) {
-      return res.status(403).json({ error: 'Accès non autorisé' });
+    if (req.user.type === 'admin') {
+      const adminFed = getUserFederationId(req.user);
+      if (adminFed && String(archive.federation_id || '') !== String(adminFed)) {
+        return res.status(403).json({ error: 'Accès non autorisé' });
+      }
     }
     res.json(archive);
   } catch (err) {
@@ -3025,11 +3030,14 @@ function filterTransfersForUser(list, user, users, perms) {
       || clubs.has(String(t.club_to || '').toLowerCase())
     );
   } else if (user.type === 'federation' || user.type === 'admin') {
-    const fedId = user.federation_id || null;
-    if (fedId && user.type === 'federation') {
+    const fedId = getUserFederationId(user);
+    if (fedId) {
       const clubs = new Set(
         users
-          .filter((u) => u.type === 'club' && u.federation_id === fedId && u.nom_club)
+          .filter((u) => u.type === 'club' && u.nom_club && (
+            String(u.federation_id || '') === String(fedId)
+            || (!u.federation_id && String(fedId) === String(DEFAULT_JUDO_FEDERATION_ID))
+          ))
           .map((u) => String(u.nom_club).trim().toLowerCase())
       );
       scoped = scoped.filter((t) =>

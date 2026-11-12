@@ -10,6 +10,14 @@ export const NO_LOGIN_TYPES = ['entraineur', 'membre'];
 
 export { getUserFederationId, DEFAULT_JUDO_FEDERATION_ID };
 
+/** Isolation stricte : une ligne sans federation_id n'est visible que pour la fédération judo par défaut. */
+export function matchesFederationScope(rowFederationId, federationId) {
+  if (!federationId) return true;
+  if (rowFederationId && String(rowFederationId) === String(federationId)) return true;
+  if (!rowFederationId && String(federationId) === String(DEFAULT_JUDO_FEDERATION_ID)) return true;
+  return false;
+}
+
 export const FEDERATION_ROLES = {
   Coordon: {
     viewUsers: true,
@@ -424,7 +432,7 @@ export function filterJudokas(judokas, user, allUsers = []) {
   const fedId = getUserFederationId(user);
   let scoped = judokas;
   if (fedId) {
-    scoped = judokas.filter((j) => !j.federation_id || j.federation_id === fedId);
+    scoped = judokas.filter((j) => matchesFederationScope(j.federation_id, fedId));
   }
 
   if (user.type === 'admin' || (user.type === 'federation' && (perms.manageAll || isCoordon(user)))) {
@@ -453,7 +461,7 @@ export function filterArbitres(arbitres, user, allUsers = []) {
   const fedId = getUserFederationId(user);
   let scoped = arbitres;
   if (fedId) {
-    scoped = arbitres.filter((a) => !a.federation_id || a.federation_id === fedId);
+    scoped = arbitres.filter((a) => matchesFederationScope(a.federation_id, fedId));
   }
 
   if (user.type === 'admin' || isCoordon(user) || (user.type === 'federation' && perms.manageAll)) {
@@ -499,7 +507,9 @@ export function filterUsers(users, user) {
   const fedId = getUserFederationId(user);
   let scoped = users;
   if (fedId) {
-    scoped = users.filter((u) => u.type === 'superadmin' || !u.federation_id || u.federation_id === fedId);
+    scoped = users.filter((u) =>
+      u.type === 'superadmin' || matchesFederationScope(u.federation_id, fedId)
+    );
   }
   // Une fédération ne voit jamais les superadmins ni les admins des autres fédérations
   scoped = scoped.filter((u) => u.type !== 'superadmin' && (user.type === 'admin' || u.type !== 'admin' || u.id === user.id || u.federation_id === fedId));
@@ -522,7 +532,7 @@ export function filterUsers(users, user) {
 
   if (user.type === 'federation') {
     const tabs = perms.dashboardTabs || [];
-    return users.filter((u) => {
+    return scoped.filter((u) => {
       if (tabs.includes('entraineurs') && u.type === 'entraineur') return true;
       if (tabs.includes('clubs') && u.type === 'club') return true;
       if (tabs.includes('ententes') && u.type === 'entente') return true;
@@ -534,7 +544,7 @@ export function filterUsers(users, user) {
 
   if (user.type === 'club') {
     const club = user.nom_club;
-    return users.filter((u) => u.type === 'entraineur' && matchClub(u.club, club));
+    return scoped.filter((u) => u.type === 'entraineur' && matchClub(u.club, club));
   }
 
   return [];

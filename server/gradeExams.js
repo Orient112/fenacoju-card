@@ -210,7 +210,13 @@ export async function listGradeExams({ federationId = null } = {}) {
   } else {
     list = readJson(examsPath);
   }
-  if (federationId) list = list.filter((e) => !e.federation_id || e.federation_id === federationId);
+  if (federationId) {
+    const { DEFAULT_JUDO_FEDERATION_ID } = await import('./federations.js');
+    list = list.filter((e) =>
+      String(e.federation_id || '') === String(federationId)
+      || (!e.federation_id && String(federationId) === String(DEFAULT_JUDO_FEDERATION_ID))
+    );
+  }
   return list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 }
 
