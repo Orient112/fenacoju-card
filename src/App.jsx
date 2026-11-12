@@ -1130,7 +1130,7 @@ export default function App() {
                 {view === 'user-form' && (editingUser ? 'Modifier le compte' : 'Créer un compte')}
                 {view === 'arbitre-form' && (editingArbitre ? 'Modifier l\'arbitre' : 'Nouvel arbitre')}
                 {view === 'messages' && 'Messages'}
-                {view === 'settings' && M('settings', 'Réglages')}
+                {view === 'settings' && M('settings', 'Réglages Profil')}
                 {view === 'grade-archives' && 'Historique'}
                 {view === 'federation-settings' && M('parametrage', 'Paramétrage fédération')}
                 {view === 'configurations' && 'Configurations'}
@@ -1997,7 +1997,7 @@ export default function App() {
               className={`nav-btn ${view === 'settings' ? 'active' : ''}`}
               onClick={() => { setView('settings'); setEditing(null); setEditingUser(null); setCreateType(null); }}
             >
-              {M('settings', 'Réglages')}
+              {M('settings', 'Réglages Profil')}
             </button>
             {user.type === 'admin' && (
               <button

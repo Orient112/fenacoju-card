@@ -26,7 +26,7 @@ export const DEFAULT_MENU_LABELS = {
   create: 'Créer',
   messages: 'Messages',
   competition: 'Compétition',
-  settings: 'Réglages',
+  settings: 'Réglages Profil',
   parametrage: 'Paramétrage',
   export: 'Exporter',
   scan_qr: 'Scan QR',
