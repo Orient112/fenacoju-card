@@ -81,6 +81,7 @@ const CompetitionSettings = lazy(() => import('./pages/CompetitionSettings'));
 const FederationSettings = lazy(() => import('./pages/FederationSettings'));
 const AdminGradeHistory = lazy(() => import('./pages/AdminGradeHistory'));
 const SuperAdminConfigurations = lazy(() => import('./pages/SuperAdminConfigurations'));
+const SuperAdminCardDesign = lazy(() => import('./pages/SuperAdminCardDesign'));
 const SuperAdminFederations = lazy(() => import('./components/SuperAdminFederations'));
 const SuperAdminDashboard = lazy(() => import('./components/SuperAdminDashboard'));
 
@@ -957,11 +958,18 @@ export default function App() {
     setExportingPdf(true);
     try {
       const { exportCardsToPdf } = await import('./utils/exportCardsPdf.jsx');
-      await exportCardsToPdf(filteredJudokas, (current, total) => {
-        if (current === total) {
-          showToast(`${total} carte(s) exportée(s) en PDF`);
+      await exportCardsToPdf(
+        filteredJudokas,
+        (current, total) => {
+          if (current === total) {
+            showToast(`${total} carte(s) exportée(s) en PDF`);
+          }
+        },
+        {
+          design: fedSettings?.card_design,
+          branding: user?.federation_branding,
         }
-      });
+      );
     } catch {
       showToast('Impossible de générer le PDF des cartes', 'error');
     } finally {
@@ -1134,6 +1142,7 @@ export default function App() {
                 {view === 'grade-archives' && 'Historique'}
                 {view === 'federation-settings' && M('parametrage', 'Paramétrage fédération')}
                 {view === 'configurations' && 'Configurations'}
+                {view === 'card-design' && 'Design Cartes'}
                 {view === 'competition' && M('competition', 'Compétition')}
               </div>
               <div className="dashboard-topbar-user">
@@ -1742,11 +1751,19 @@ export default function App() {
           </Suspense>
         )}
 
+        {view === 'card-design' && user.type === 'superadmin' && (
+          <Suspense fallback={<PageLoader label="Chargement du design des cartes..." />}>
+            <SuperAdminCardDesign onToast={showToast} />
+          </Suspense>
+        )}
+
         {view === 'competition' && (
           <Suspense fallback={<PageLoader label="Chargement de la compétition..." />}>
             <CompetitionSettings
               onBack={() => setView('list')}
               onToast={showToast}
+              cardDesign={fedSettings?.card_design}
+              federationBranding={user?.federation_branding}
             />
           </Suspense>
         )}
@@ -2017,6 +2034,15 @@ export default function App() {
                 Configurations
               </button>
             )}
+            {user.type === 'superadmin' && (
+              <button
+                className={`nav-btn ${view === 'card-design' ? 'active' : ''}`}
+                type="button"
+                onClick={() => { setView('card-design'); setEditing(null); setEditingUser(null); setCreateType(null); }}
+              >
+                Design Cartes
+              </button>
+            )}
           </nav>
         </header>
         <footer className="app-user-footer">
@@ -2045,7 +2071,12 @@ export default function App() {
 
       {cardJudoka && (
         <Suspense fallback={null}>
-          <CardModal judoka={cardJudoka} onClose={() => setCardJudoka(null)} />
+          <CardModal
+            judoka={cardJudoka}
+            design={fedSettings?.card_design}
+            branding={user?.federation_branding}
+            onClose={() => setCardJudoka(null)}
+          />
         </Suspense>
       )}
 

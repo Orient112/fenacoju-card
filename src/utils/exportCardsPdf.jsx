@@ -1,7 +1,7 @@
 import { jsPDF } from 'jspdf';
 import { captureCardImage } from './captureCardImage';
 
-export async function exportCardsToPdf(judokas, onProgress) {
+export async function exportCardsToPdf(judokas, onProgress, { design = null, branding = null } = {}) {
   if (!judokas.length) {
     throw new Error('Aucune carte à exporter');
   }
@@ -12,7 +12,7 @@ export async function exportCardsToPdf(judokas, onProgress) {
     if (i > 0) {
       pdf.addPage([85, 55], 'landscape');
     }
-    const dataUrl = await captureCardImage(judokas[i]);
+    const dataUrl = await captureCardImage(judokas[i], { design, branding });
     pdf.addImage(dataUrl, 'JPEG', 0, 0, 85, 55);
     onProgress?.(i + 1, judokas.length);
   }

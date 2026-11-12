@@ -43,6 +43,73 @@ export const DEFAULT_FEATURES = {
   create_accounts: true,
 };
 
+/** Design carte athlète (recto 85×55 mm) - défaut = carte Judo FENACOJU actuelle. */
+export const DEFAULT_CARD_DESIGN = {
+  org_name: 'Fédération Nationale Congolaise de Judo',
+  subtitle: 'Carte Athlète {year}',
+  logo_mode: 'default', // default | federation | custom
+  logo_url: '',
+  qr_org: 'FENACOJU',
+  show_validity: true,
+  colors: {
+    header_bg: '#1D4393',
+    accent_start: '#1D4393',
+    accent_mid: '#e30613',
+    accent_end: '#f5c518',
+    name: '#0d2b5e',
+    label: '#1D4393',
+    photo_border: '#1D4393',
+  },
+  fields: {
+    club: true,
+    grade: true,
+    categorie: true,
+    numero_licence: true,
+  },
+};
+
+function isHexColor(value) {
+  return /^#[0-9a-fA-F]{6}$/.test(String(value || '').trim());
+}
+
+export function getDefaultCardDesign() {
+  return JSON.parse(JSON.stringify(DEFAULT_CARD_DESIGN));
+}
+
+export function normalizeCardDesign(raw = {}) {
+  const src = raw && typeof raw === 'object' ? raw : {};
+  const base = getDefaultCardDesign();
+  const colorsIn = src.colors && typeof src.colors === 'object' ? src.colors : {};
+  const fieldsIn = src.fields && typeof src.fields === 'object' ? src.fields : {};
+  const logoMode = ['default', 'federation', 'custom'].includes(src.logo_mode)
+    ? src.logo_mode
+    : base.logo_mode;
+
+  return {
+    org_name: String(src.org_name || base.org_name).trim().slice(0, 120) || base.org_name,
+    subtitle: String(src.subtitle || base.subtitle).trim().slice(0, 80) || base.subtitle,
+    logo_mode: logoMode,
+    logo_url: String(src.logo_url || '').trim().slice(0, 500),
+    qr_org: String(src.qr_org || base.qr_org).trim().slice(0, 40) || base.qr_org,
+    show_validity: src.show_validity !== false,
+    colors: {
+      header_bg: isHexColor(colorsIn.header_bg) ? colorsIn.header_bg : base.colors.header_bg,
+      accent_start: isHexColor(colorsIn.accent_start) ? colorsIn.accent_start : base.colors.accent_start,
+      accent_mid: isHexColor(colorsIn.accent_mid) ? colorsIn.accent_mid : base.colors.accent_mid,
+      accent_end: isHexColor(colorsIn.accent_end) ? colorsIn.accent_end : base.colors.accent_end,
+      name: isHexColor(colorsIn.name) ? colorsIn.name : base.colors.name,
+      label: isHexColor(colorsIn.label) ? colorsIn.label : base.colors.label,
+      photo_border: isHexColor(colorsIn.photo_border) ? colorsIn.photo_border : base.colors.photo_border,
+    },
+    fields: {
+      club: fieldsIn.club !== false,
+      grade: fieldsIn.grade !== false,
+      categorie: fieldsIn.categorie !== false,
+      numero_licence: fieldsIn.numero_licence !== false,
+    },
+  };
+}
+
 export const DEFAULT_FEATURE_DEFS = [
   { key: 'competition', label: 'Compétition', system: true },
   { key: 'messages', label: 'Messages', system: true },
@@ -196,6 +263,7 @@ export function getDefaultFederationSettings() {
     ...rolesToMaps(roles),
     features: { ...DEFAULT_FEATURES },
     card_visibility: JSON.parse(JSON.stringify(DEFAULT_VISIBILITY)),
+    card_design: getDefaultCardDesign(),
   };
 }
 
@@ -369,6 +437,7 @@ export function mergeFederationSettings(raw) {
     roles_enabled: maps.roles_enabled,
     features,
     card_visibility: normalizeVisibility(src.card_visibility || {}, Object.keys(labels)),
+    card_design: normalizeCardDesign(src.card_design || {}),
   };
 }
 
@@ -463,6 +532,7 @@ function buildNextSettings(current, patch = {}, { replace = false } = {}) {
         role_labels: patch.role_labels || current.role_labels,
         roles_enabled: patch.roles_enabled || current.roles_enabled,
         card_visibility: patch.card_visibility || current.card_visibility,
+        card_design: patch.card_design || current.card_design,
       }
     : {
         colors: { ...current.colors, ...(patch.colors || {}) },
@@ -485,6 +555,9 @@ function buildNextSettings(current, patch = {}, { replace = false } = {}) {
               ),
             }
           : current.card_visibility,
+        card_design: patch.card_design
+          ? normalizeCardDesign({ ...(current.card_design || {}), ...patch.card_design })
+          : current.card_design,
       };
 
   return mergeFederationSettings(source);

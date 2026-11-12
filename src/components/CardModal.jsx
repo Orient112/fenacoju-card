@@ -25,7 +25,7 @@ function collectCardStyles() {
   return chunks.join('\n');
 }
 
-export default function CardModal({ judoka, onClose }) {
+export default function CardModal({ judoka, onClose, design = null, branding = null }) {
   const [exporting, setExporting] = useState(false);
 
   const handlePrint = () => {
@@ -104,7 +104,7 @@ export default function CardModal({ judoka, onClose }) {
     setExporting(true);
     try {
       const { captureCardImage } = await import('../utils/captureCardImage.jsx');
-      const dataUrl = await captureCardImage(judoka);
+      const dataUrl = await captureCardImage(judoka, { design, branding });
 
       const link = document.createElement('a');
       link.download = `carte-${judoka.numero_carte}.jpg`;
@@ -120,7 +120,7 @@ export default function CardModal({ judoka, onClose }) {
   return (
     <div className="card-overlay" onClick={onClose}>
       <div className="card-modal" onClick={(e) => e.stopPropagation()}>
-        <JudokaCard judoka={judoka} />
+        <JudokaCard judoka={judoka} design={design} branding={branding} />
         <div className="card-modal-actions">
           <button type="button" className="btn btn-primary" onClick={handlePrint}>
             Imprimer la carte

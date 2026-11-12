@@ -17,13 +17,13 @@ async function waitForImages(container) {
   );
 }
 
-export async function captureCardImage(judoka) {
+export async function captureCardImage(judoka, { design = null, branding = null } = {}) {
   const host = document.createElement('div');
   host.style.cssText = 'position:fixed;left:-9999px;top:0;pointer-events:none;background:#ffffff;';
   document.body.appendChild(host);
 
   const root = createRoot(host);
-  root.render(<JudokaCard judoka={judoka} />);
+  root.render(<JudokaCard judoka={judoka} design={design} branding={branding} />);
 
   await new Promise((resolve) => {
     requestAnimationFrame(() => requestAnimationFrame(resolve));

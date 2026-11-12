@@ -46,6 +46,70 @@ export const DEFAULT_FEATURES = {
   create_accounts: true,
 };
 
+/** Design carte athlète - défaut = carte Judo FENACOJU actuelle. */
+export const DEFAULT_CARD_DESIGN = {
+  org_name: 'Fédération Nationale Congolaise de Judo',
+  subtitle: 'Carte Athlète {year}',
+  logo_mode: 'default',
+  logo_url: '',
+  qr_org: 'FENACOJU',
+  show_validity: true,
+  colors: {
+    header_bg: '#1D4393',
+    accent_start: '#1D4393',
+    accent_mid: '#e30613',
+    accent_end: '#f5c518',
+    name: '#0d2b5e',
+    label: '#1D4393',
+    photo_border: '#1D4393',
+  },
+  fields: {
+    club: true,
+    grade: true,
+    categorie: true,
+    numero_licence: true,
+  },
+};
+
+export function getDefaultCardDesign() {
+  return JSON.parse(JSON.stringify(DEFAULT_CARD_DESIGN));
+}
+
+export function normalizeCardDesign(raw = {}) {
+  const src = raw && typeof raw === 'object' ? raw : {};
+  const base = getDefaultCardDesign();
+  const colorsIn = src.colors && typeof src.colors === 'object' ? src.colors : {};
+  const fieldsIn = src.fields && typeof src.fields === 'object' ? src.fields : {};
+  const logoMode = ['default', 'federation', 'custom'].includes(src.logo_mode)
+    ? src.logo_mode
+    : base.logo_mode;
+  const hex = (v, fallback) => (/^#[0-9a-fA-F]{6}$/.test(String(v || '').trim()) ? v : fallback);
+
+  return {
+    org_name: String(src.org_name || base.org_name).trim().slice(0, 120) || base.org_name,
+    subtitle: String(src.subtitle || base.subtitle).trim().slice(0, 80) || base.subtitle,
+    logo_mode: logoMode,
+    logo_url: String(src.logo_url || '').trim().slice(0, 500),
+    qr_org: String(src.qr_org || base.qr_org).trim().slice(0, 40) || base.qr_org,
+    show_validity: src.show_validity !== false,
+    colors: {
+      header_bg: hex(colorsIn.header_bg, base.colors.header_bg),
+      accent_start: hex(colorsIn.accent_start, base.colors.accent_start),
+      accent_mid: hex(colorsIn.accent_mid, base.colors.accent_mid),
+      accent_end: hex(colorsIn.accent_end, base.colors.accent_end),
+      name: hex(colorsIn.name, base.colors.name),
+      label: hex(colorsIn.label, base.colors.label),
+      photo_border: hex(colorsIn.photo_border, base.colors.photo_border),
+    },
+    fields: {
+      club: fieldsIn.club !== false,
+      grade: fieldsIn.grade !== false,
+      categorie: fieldsIn.categorie !== false,
+      numero_licence: fieldsIn.numero_licence !== false,
+    },
+  };
+}
+
 export const FEATURE_OPTIONS = [
   { key: 'competition', label: 'Compétition', system: true },
   { key: 'messages', label: 'Messages', system: true },
@@ -210,6 +274,7 @@ export function mergeFederationSettings(raw) {
     roles_enabled,
     features,
     card_visibility: src.card_visibility || {},
+    card_design: normalizeCardDesign(src.card_design || {}),
   };
 }
 

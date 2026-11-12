@@ -814,7 +814,7 @@ function ParamsFormFields({
   );
 }
 
-export default function CompetitionSettings({ onBack, onToast }) {
+export default function CompetitionSettings({ onBack, onToast, cardDesign = null, federationBranding = null }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -1797,7 +1797,10 @@ export default function CompetitionSettings({ onBack, onToast }) {
         return;
       }
       const { exportCardsToPdf } = await import('../utils/exportCardsPdf.jsx');
-      await exportCardsToPdf(created);
+      await exportCardsToPdf(created, undefined, {
+        design: cardDesign,
+        branding: federationBranding,
+      });
       const clubMsg = [
         result.clubs_created?.length
           ? `${result.clubs_created.length} club(s) enregistré(s)`
