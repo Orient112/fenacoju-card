@@ -2699,6 +2699,8 @@ app.get('/api/ranking', async (req, res) => {
       categorie_age: req.query.categorie_age || null,
       categorie_poids: req.query.categorie_poids || null,
       season_label: req.query.season || null,
+      ligue_id: req.query.ligue_id || null,
+      entente_id: req.query.entente_id || null,
     });
     res.json(board);
   } catch (err) {

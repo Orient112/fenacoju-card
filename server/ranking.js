@@ -4,7 +4,13 @@ import { v4 as uuidv4 } from 'uuid';
 import { getSupabase, isSupabaseEnabled } from './supabase.js';
 import { dataDir } from './paths.js';
 import { DEFAULT_JUDO_FEDERATION_ID, getUserFederationId } from './federations.js';
-import { filterJudokas, getScopedClubNames, isCoordon } from './permissions.js';
+import {
+  filterJudokas,
+  getAccountStatut,
+  getDescendantUsers,
+  getScopedClubNames,
+  isCoordon,
+} from './permissions.js';
 import { getAllJudokas } from './database.js';
 import { getAllUsers } from './users.js';
 
@@ -699,11 +705,22 @@ export async function importRankingResultsBatch(payload, user) {
   };
 }
 
+function orgLabel(u) {
+  return String(u?.nom_organisation || u?.nom || u?.username || 'Organisation').trim();
+}
+
+function sameFederation(u, fedId) {
+  return String(u?.federation_id || '') === String(fedId)
+    || (!u?.federation_id && String(fedId) === String(DEFAULT_JUDO_FEDERATION_ID));
+}
+
 export async function getRankingBoard(user, {
   sexe = null,
   categorie_age = null,
   categorie_poids = null,
   season_label = null,
+  ligue_id = null,
+  entente_id = null,
 } = {}) {
   if (!canViewRanking(user)) throw new Error('Accès Ranking non autorisé');
   const fedId = getUserFederationId(user) || DEFAULT_JUDO_FEDERATION_ID;
@@ -736,6 +753,69 @@ export async function getRankingBoard(user, {
     });
   }
 
+  const fedUsers = users.filter((u) => sameFederation(u, fedId));
+  let ligues = fedUsers
+    .filter((u) => u.type === 'ligue' && getAccountStatut(u) === 'actif')
+    .map((u) => ({ id: u.id, nom: orgLabel(u) }))
+    .sort((a, b) => a.nom.localeCompare(b.nom, 'fr'));
+
+  // Utilisateur ligue : uniquement sa ligue
+  if (user.type === 'ligue') {
+    ligues = ligues.filter((l) => String(l.id) === String(user.id));
+  } else if (user.type === 'entente' || user.type === 'club') {
+    const parentLigueId = user.type === 'entente'
+      ? user.parent_id
+      : fedUsers.find((u) => String(u.id) === String(user.parent_id))?.parent_id
+        || user.parent_id;
+    ligues = ligues.filter((l) => String(l.id) === String(parentLigueId));
+  }
+
+  const selectedLigueId = ligue_id || null;
+  const selectedEntenteId = entente_id || null;
+
+  let ententes = [];
+  if (selectedLigueId) {
+    ententes = fedUsers
+      .filter((u) =>
+        u.type === 'entente'
+        && getAccountStatut(u) === 'actif'
+        && String(u.parent_id) === String(selectedLigueId)
+      )
+      .map((u) => ({ id: u.id, nom: orgLabel(u), parent_id: u.parent_id }))
+      .sort((a, b) => a.nom.localeCompare(b.nom, 'fr'));
+    if (user.type === 'entente') {
+      ententes = ententes.filter((e) => String(e.id) === String(user.id));
+    }
+  }
+
+  // Filtre optionnel Ligue / Entente (clubs descendants)
+  const filterRootId = selectedEntenteId || selectedLigueId;
+  if (filterRootId) {
+    const root = fedUsers.find((u) => String(u.id) === String(filterRootId));
+    if (root) {
+      const clubNames = new Set(
+        getScopedClubNames(fedUsers, root).map((c) => String(c || '').trim().toLowerCase()).filter(Boolean)
+      );
+      const descendantIds = new Set(
+        getDescendantUsers(fedUsers, root.id).map((u) => String(u.id))
+      );
+      const clubUserIds = new Set(
+        fedUsers
+          .filter((u) => u.type === 'club' && clubNames.has(String(u.nom_club || '').trim().toLowerCase()))
+          .map((u) => String(u.id))
+      );
+      results = results.filter((r) => {
+        if (r.judoka_id) {
+          const j = judokas.find((x) => String(x.id) === String(r.judoka_id));
+          if (j?.club && clubNames.has(String(j.club).trim().toLowerCase())) return true;
+          if (j?.user_id && (descendantIds.has(String(j.user_id)) || clubUserIds.has(String(j.user_id)))) return true;
+        }
+        const club = String(r.judoka_club || '').trim().toLowerCase();
+        return club && clubNames.has(club);
+      });
+    }
+  }
+
   if (sexe) results = results.filter((r) => r.judoka_sexe === sexe);
   if (categorie_age) {
     results = results.filter((r) =>
@@ -766,6 +846,12 @@ export async function getRankingBoard(user, {
     can_manage_rules: canManageRankingRules(user),
     total_athletes: board.length,
     board,
+    filters: {
+      ligues,
+      ententes,
+      ligue_id: selectedLigueId,
+      entente_id: selectedEntenteId,
+    },
   };
 }
 

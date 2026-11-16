@@ -7509,6 +7509,91 @@ tbody tr:last-child td {
   justify-content: flex-end;
 }
 
+.ranking-rules-panel {
+  background:
+    linear-gradient(180deg, #fbfcfe 0%, #ffffff 40%),
+    #fff;
+}
+
+.ranking-rules-pro-v2 {
+  gap: 1.25rem;
+}
+
+.ranking-rules-hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e8edf5;
+}
+
+.ranking-rules-hero h3 {
+  margin: 0.15rem 0 0.35rem;
+  color: #0f172a;
+  font-size: 1.25rem;
+}
+
+.ranking-rules-meta {
+  padding: 0.95rem;
+  border: 1px solid #e8edf5;
+  border-radius: 14px;
+  background: #f8fafc;
+}
+
+.ranking-rules-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 1rem;
+  border: 1px solid #e8edf5;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.ranking-rule-card-v2 {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.85rem;
+  min-height: 150px;
+  padding: 0.95rem;
+  border: 1px solid #dbe3ef;
+  border-radius: 14px;
+  background:
+    linear-gradient(160deg, rgba(15, 23, 42, 0.03), transparent 55%),
+    #fff;
+}
+
+.ranking-rule-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.ranking-rule-key {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.ranking-rule-card-body strong {
+  color: #0f172a;
+  font-size: 0.98rem;
+  line-height: 1.35;
+}
+
+.ranking-rule-card-actions {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  padding-top: 0.7rem;
+  border-top: 1px solid #eef2f7;
+}
+
 .ranking-rule-card label,
 .ranking-form-grid label,
 .ranking-result-pro > label {

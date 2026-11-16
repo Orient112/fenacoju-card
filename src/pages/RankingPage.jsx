@@ -66,6 +66,10 @@ export default function RankingPage({ user, onToast }) {
   const [rules, setRules] = useState(null);
   const [canManage, setCanManage] = useState(false);
   const [season, setSeason] = useState('');
+  const [ligueId, setLigueId] = useState('');
+  const [ententeId, setEntenteId] = useState('');
+  const [ligues, setLigues] = useState([]);
+  const [ententes, setEntentes] = useState([]);
   const [sexe, setSexe] = useState('M');
   const [categorieAge, setCategorieAge] = useState('Seniors');
   const [categoriePoids, setCategoriePoids] = useState('-73 kg');
@@ -104,10 +108,14 @@ export default function RankingPage({ user, onToast }) {
         categorie_age: categorieAge || undefined,
         categorie_poids: categoriePoids || undefined,
         season: season || undefined,
+        ligue_id: ligueId || undefined,
+        entente_id: ligueId && ententeId ? ententeId : undefined,
       });
       setBoard(data.board || []);
       setRules(data.rules || null);
       setCanManage(Boolean(data.can_manage_rules));
+      setLigues(data.filters?.ligues || []);
+      setEntentes(data.filters?.ententes || []);
       if (!season && data.season_label) setSeason(data.season_label);
     } catch (err) {
       setError(err.message || 'Chargement Ranking impossible');
@@ -120,10 +128,15 @@ export default function RankingPage({ user, onToast }) {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sexe, categorieAge, categoriePoids]);
+  }, [sexe, categorieAge, categoriePoids, ligueId, ententeId]);
 
   const levels = useMemo(() => rules?.levels || [], [rules]);
   const coeffs = useMemo(() => rules?.result_coefficients || [], [rules]);
+
+  const handleLigueChange = (next) => {
+    setLigueId(next);
+    setEntenteId('');
+  };
 
   const handleSexeChange = (next) => {
     setSexe(next);
@@ -494,6 +507,26 @@ export default function RankingPage({ user, onToast }) {
           <div className="ranking-toolbar">
             <div className="ranking-filters-pro">
               <label>
+                <span>Ligue</span>
+                <select value={ligueId} onChange={(e) => handleLigueChange(e.target.value)}>
+                  <option value="">Toutes</option>
+                  {ligues.map((l) => (
+                    <option key={l.id} value={l.id}>{l.nom}</option>
+                  ))}
+                </select>
+              </label>
+              {ligueId ? (
+                <label>
+                  <span>Entente</span>
+                  <select value={ententeId} onChange={(e) => setEntenteId(e.target.value)}>
+                    <option value="">Toutes</option>
+                    {ententes.map((e) => (
+                      <option key={e.id} value={e.id}>{e.nom}</option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+              <label>
                 <span>Sexe</span>
                 <select value={sexe} onChange={(e) => handleSexeChange(e.target.value)}>
                   <option value="M">Masculin</option>
@@ -609,9 +642,22 @@ export default function RankingPage({ user, onToast }) {
       )}
 
       {tab === 'rules' && canManage && rules && (
-        <section className="ranking-panel">
-          <form className="ranking-rules-pro" onSubmit={handleSaveRules}>
-            <div className="ranking-rules-top">
+        <section className="ranking-panel ranking-rules-panel">
+          <form className="ranking-rules-pro ranking-rules-pro-v2" onSubmit={handleSaveRules}>
+            <div className="ranking-rules-hero">
+              <div>
+                <p className="ranking-kicker">Configuration</p>
+                <h3>Règles des points</h3>
+                <p className="form-hint">
+                  Définissez la saison, le nombre de meilleures performances et le barème officiel.
+                </p>
+              </div>
+              <button type="submit" className="btn btn-primary" disabled={busy}>
+                {busy ? 'Enregistrement…' : 'Enregistrer les règles'}
+              </button>
+            </div>
+
+            <div className="ranking-rules-top ranking-rules-meta">
               <div className="form-group">
                 <label>Saison</label>
                 <input
@@ -632,69 +678,67 @@ export default function RankingPage({ user, onToast }) {
               </div>
             </div>
 
-            <div className="ranking-section-head">
-              <div>
-                <h4>Niveaux de compétition</h4>
-                <p className="form-hint">Barème de base selon l&apos;importance de la compétition.</p>
+            <div className="ranking-rules-block">
+              <div className="ranking-section-head">
+                <div>
+                  <h4>Niveaux de compétition</h4>
+                  <p className="form-hint">Barème de base selon l&apos;importance de la compétition.</p>
+                </div>
+                <button type="button" className="btn btn-outline btn-sm" onClick={addLevel}>Ajouter</button>
               </div>
-              <button type="button" className="btn btn-outline btn-sm" onClick={addLevel}>Ajouter</button>
-            </div>
-            <div className="ranking-rules-grid">
-              {levels.map((level, idx) => (
-                <div key={`${level.key}-${idx}`} className="ranking-rule-card-pro">
-                  <div className="ranking-rule-card-top">
-                    <strong>Niveau {level.key}</strong>
-                    <div className="actions-cell">
-                      <button type="button" className="btn btn-icon btn-icon-edit" title="Modifier" onClick={() => editLevel(idx)}>
-                        <IconEdit />
+              <div className="ranking-rules-grid">
+                {levels.map((level, idx) => (
+                  <div key={`${level.key}-${idx}`} className="ranking-rule-card-v2">
+                    <div className="ranking-rule-card-body">
+                      <span className="ranking-rule-key">Niveau {level.key}</span>
+                      <strong>{level.label}</strong>
+                      <span className="ranking-rule-points">{level.points} pts</span>
+                    </div>
+                    <div className="ranking-rule-card-actions">
+                      <button type="button" className="btn btn-outline btn-sm" onClick={() => editLevel(idx)}>
+                        Modifier
                       </button>
-                      <button type="button" className="btn btn-icon btn-icon-delete" title="Supprimer" onClick={() => removeLevel(idx)}>
-                        <IconTrash />
+                      <button type="button" className="btn btn-outline btn-sm btn-danger-outline" onClick={() => removeLevel(idx)}>
+                        Supprimer
                       </button>
                     </div>
                   </div>
-                  <p>{level.label}</p>
-                  <span className="ranking-rule-points">{level.points} pts</span>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
 
-            <div className="ranking-section-head">
-              <div>
-                <h4>Coefficients selon le résultat</h4>
-                <p className="form-hint">Pourcentage appliqué au barème du niveau.</p>
+            <div className="ranking-rules-block">
+              <div className="ranking-section-head">
+                <div>
+                  <h4>Coefficients selon le résultat</h4>
+                  <p className="form-hint">Pourcentage appliqué au barème du niveau.</p>
+                </div>
+                <button type="button" className="btn btn-outline btn-sm" onClick={addCoeff}>Ajouter</button>
               </div>
-              <button type="button" className="btn btn-outline btn-sm" onClick={addCoeff}>Ajouter</button>
-            </div>
-            <div className="ranking-rules-grid">
-              {coeffs.map((c, idx) => (
-                <div key={`${c.place}-${idx}`} className="ranking-rule-card-pro">
-                  <div className="ranking-rule-card-top">
-                    <strong>{c.label}</strong>
-                    <div className="actions-cell">
-                      <button type="button" className="btn btn-icon btn-icon-edit" title="Modifier" onClick={() => editCoeff(idx)}>
-                        <IconEdit />
+              <div className="ranking-rules-grid">
+                {coeffs.map((c, idx) => (
+                  <div key={`${c.place}-${idx}`} className="ranking-rule-card-v2">
+                    <div className="ranking-rule-card-body">
+                      <span className="ranking-rule-key">Place {c.place}</span>
+                      <strong>{c.label}</strong>
+                      <span className="ranking-rule-points">{c.percent} %</span>
+                    </div>
+                    <div className="ranking-rule-card-actions">
+                      <button type="button" className="btn btn-outline btn-sm" onClick={() => editCoeff(idx)}>
+                        Modifier
                       </button>
-                      <button type="button" className="btn btn-icon btn-icon-delete" title="Supprimer" onClick={() => removeCoeff(idx)}>
-                        <IconTrash />
+                      <button type="button" className="btn btn-outline btn-sm btn-danger-outline" onClick={() => removeCoeff(idx)}>
+                        Supprimer
                       </button>
                     </div>
                   </div>
-                  <p>Place {c.place}</p>
-                  <span className="ranking-rule-points">{c.percent} %</span>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
 
             <p className="form-hint ranking-rules-note">
               Sans victoire effective, seuls les points de participation s&apos;appliquent.
             </p>
-
-            <div className="ranking-rules-footer">
-              <button type="submit" className="btn btn-primary" disabled={busy}>
-                {busy ? 'Enregistrement…' : 'Enregistrer les règles'}
-              </button>
-            </div>
           </form>
         </section>
       )}
@@ -1001,10 +1045,7 @@ export default function RankingPage({ user, onToast }) {
         <div className="confirm-overlay" role="dialog" aria-modal="true" onClick={closeImportModal}>
           <div className="ranking-import-modal" onClick={(e) => e.stopPropagation()}>
             <header>
-              <div>
-                <h3>Charger resultat</h3>
-                <p className="form-hint">PDF &quot;Resultats des combats&quot; - les anciens résultats sont conservés.</p>
-              </div>
+              <h3>Charger resultat</h3>
               <button
                 type="button"
                 className="btn btn-sm btn-outline"
@@ -1127,7 +1168,7 @@ export default function RankingPage({ user, onToast }) {
                   className="btn btn-primary"
                   disabled={busy || importForm.parsing || !importForm.athletes.length}
                 >
-                  {busy ? 'Enregistrement…' : 'Enregistrer dans Ranking'}
+                  {busy ? 'Enregistrement…' : 'Enregistrer'}
                 </button>
               </div>
             </form>

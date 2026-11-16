@@ -1480,6 +1480,8 @@ export async function fetchRankingBoard(params = {}) {
   if (params.categorie_age) qs.set('categorie_age', params.categorie_age);
   if (params.categorie_poids) qs.set('categorie_poids', params.categorie_poids);
   if (params.season) qs.set('season', params.season);
+  if (params.ligue_id) qs.set('ligue_id', params.ligue_id);
+  if (params.entente_id) qs.set('entente_id', params.entente_id);
   const q = qs.toString();
   const res = await apiFetch(`/api/ranking${q ? `?${q}` : ''}`);
   if (!res.ok) {
