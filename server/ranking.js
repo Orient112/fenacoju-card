@@ -252,6 +252,26 @@ async function writeAllResults(list) {
   writeJson(resultsPath, list);
 }
 
+async function resolveOrgFields(entry, fedId) {
+  const users = (await getAllUsers()).filter((u) => sameFederation(u, fedId));
+  const ligueId = entry.ligue_id || entry.judoka_ligue_id || null;
+  const ententeId = entry.entente_id || entry.judoka_entente_id || null;
+  const ligue = ligueId ? users.find((u) => String(u.id) === String(ligueId) && u.type === 'ligue') : null;
+  const entente = ententeId
+    ? users.find((u) => String(u.id) === String(ententeId) && u.type === 'entente')
+    : null;
+  return {
+    ligue_id: ligue ? ligue.id : (ligueId || null),
+    ligue_nom: ligue
+      ? orgLabel(ligue)
+      : String(entry.ligue_nom || entry.judoka_ligue || '').trim(),
+    entente_id: entente ? entente.id : (ententeId || null),
+    entente_nom: entente
+      ? orgLabel(entente)
+      : String(entry.entente_nom || entry.judoka_entente || '').trim(),
+  };
+}
+
 export async function addRankingResult(entry, user) {
   if (!canManageRankingRules(user)) {
     throw new Error('Seuls Admin et Coordon peuvent enregistrer des résultats Ranking');
@@ -265,6 +285,7 @@ export async function addRankingResult(entry, user) {
     place,
     wins,
   });
+  const org = await resolveOrgFields(entry, fedId);
   const row = {
     id: uuidv4(),
     federation_id: fedId,
@@ -272,6 +293,10 @@ export async function addRankingResult(entry, user) {
     judoka_nom: String(entry.judoka_nom || '').trim(),
     judoka_prenom: String(entry.judoka_prenom || '').trim(),
     judoka_club: String(entry.judoka_club || '').trim(),
+    ligue_id: org.ligue_id,
+    ligue_nom: org.ligue_nom,
+    entente_id: org.entente_id,
+    entente_nom: org.entente_nom,
     judoka_sexe: entry.judoka_sexe === 'F' ? 'F' : 'M',
     categorie_age: String(entry.categorie_age || 'Seniors').trim(),
     categorie_poids: String(entry.categorie_poids || entry.categorie || '').trim(),
@@ -511,6 +536,10 @@ function aggregateAthlete(results, rules) {
     nom: sample.judoka_nom,
     prenom: sample.judoka_prenom,
     club: sample.judoka_club,
+    ligue_id: sample.ligue_id || null,
+    ligue_nom: sample.ligue_nom || '',
+    entente_id: sample.entente_id || null,
+    entente_nom: sample.entente_nom || '',
     sexe: sample.judoka_sexe,
     categorie_age: sample.categorie_age,
     categorie_poids: sample.categorie_poids,
@@ -583,6 +612,7 @@ export async function importRankingResultsBatch(payload, user) {
   if (!competition_name) throw new Error('Nom de la compétition obligatoire');
   if (!athletes.length) throw new Error('Aucun athlète à importer');
 
+  const org = await resolveOrgFields(payload, fedId);
   const list = await readAllResults();
   let created = 0;
   let updated = 0;
@@ -610,6 +640,10 @@ export async function importRankingResultsBatch(payload, user) {
       judoka_prenom: identity?.judoka_prenom || base.judoka_prenom,
       judoka_club: base.judoka_club || identity?.judoka_club || '',
       judoka_sexe: identity?.judoka_sexe || base.judoka_sexe,
+      ligue_id: org.ligue_id,
+      ligue_nom: org.ligue_nom,
+      entente_id: org.entente_id,
+      entente_nom: org.entente_nom,
     };
 
     const points = computeResultPoints(rules, {
@@ -773,22 +807,24 @@ export async function getRankingBoard(user, {
   const selectedLigueId = ligue_id || null;
   const selectedEntenteId = entente_id || null;
 
-  let ententes = [];
-  if (selectedLigueId) {
-    ententes = fedUsers
-      .filter((u) =>
-        u.type === 'entente'
-        && getAccountStatut(u) === 'actif'
-        && String(u.parent_id) === String(selectedLigueId)
-      )
-      .map((u) => ({ id: u.id, nom: orgLabel(u), parent_id: u.parent_id }))
-      .sort((a, b) => a.nom.localeCompare(b.nom, 'fr'));
-    if (user.type === 'entente') {
-      ententes = ententes.filter((e) => String(e.id) === String(user.id));
-    }
+  let allEntentes = fedUsers
+    .filter((u) => u.type === 'entente' && getAccountStatut(u) === 'actif')
+    .map((u) => ({ id: u.id, nom: orgLabel(u), parent_id: u.parent_id }))
+    .sort((a, b) => a.nom.localeCompare(b.nom, 'fr'));
+
+  if (user.type === 'entente') {
+    allEntentes = allEntentes.filter((e) => String(e.id) === String(user.id));
+  } else if (user.type === 'ligue') {
+    allEntentes = allEntentes.filter((e) => String(e.parent_id) === String(user.id));
+  } else if (user.type === 'club') {
+    allEntentes = allEntentes.filter((e) => String(e.id) === String(user.parent_id));
   }
 
-  // Filtre optionnel Ligue / Entente (clubs descendants)
+  const ententes = selectedLigueId
+    ? allEntentes.filter((e) => String(e.parent_id) === String(selectedLigueId))
+    : [];
+
+  // Filtre optionnel Ligue / Entente (champs stockés + clubs descendants)
   const filterRootId = selectedEntenteId || selectedLigueId;
   if (filterRootId) {
     const root = fedUsers.find((u) => String(u.id) === String(filterRootId));
@@ -805,6 +841,8 @@ export async function getRankingBoard(user, {
           .map((u) => String(u.id))
       );
       results = results.filter((r) => {
+        if (selectedEntenteId && String(r.entente_id || '') === String(selectedEntenteId)) return true;
+        if (!selectedEntenteId && selectedLigueId && String(r.ligue_id || '') === String(selectedLigueId)) return true;
         if (r.judoka_id) {
           const j = judokas.find((x) => String(x.id) === String(r.judoka_id));
           if (j?.club && clubNames.has(String(j.club).trim().toLowerCase())) return true;
@@ -849,6 +887,7 @@ export async function getRankingBoard(user, {
     filters: {
       ligues,
       ententes,
+      all_ententes: allEntentes,
       ligue_id: selectedLigueId,
       entente_id: selectedEntenteId,
     },

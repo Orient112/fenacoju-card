@@ -15,6 +15,8 @@ const emptyImportForm = {
   competition_name: '',
   competition_level: 'A',
   competition_date: '',
+  ligue_id: '',
+  entente_id: '',
   fileName: '',
   athletes: [],
   fights_count: 0,
@@ -32,6 +34,8 @@ const WEIGHT_BY_SEX = {
 const emptyResultForm = {
   judoka_prenom: '',
   judoka_nom: '',
+  ligue_id: '',
+  entente_id: '',
   judoka_club: '',
   judoka_sexe: 'M',
   categorie_age: 'Seniors',
@@ -70,6 +74,7 @@ export default function RankingPage({ user, onToast }) {
   const [ententeId, setEntenteId] = useState('');
   const [ligues, setLigues] = useState([]);
   const [ententes, setEntentes] = useState([]);
+  const [allEntentes, setAllEntentes] = useState([]);
   const [sexe, setSexe] = useState('M');
   const [categorieAge, setCategorieAge] = useState('Seniors');
   const [categoriePoids, setCategoriePoids] = useState('-73 kg');
@@ -116,6 +121,7 @@ export default function RankingPage({ user, onToast }) {
       setCanManage(Boolean(data.can_manage_rules));
       setLigues(data.filters?.ligues || []);
       setEntentes(data.filters?.ententes || []);
+      setAllEntentes(data.filters?.all_ententes || data.filters?.ententes || []);
       if (!season && data.season_label) setSeason(data.season_label);
     } catch (err) {
       setError(err.message || 'Chargement Ranking impossible');
@@ -132,6 +138,15 @@ export default function RankingPage({ user, onToast }) {
 
   const levels = useMemo(() => rules?.levels || [], [rules]);
   const coeffs = useMemo(() => rules?.result_coefficients || [], [rules]);
+
+  const resultFormEntentes = useMemo(
+    () => allEntentes.filter((e) => String(e.parent_id) === String(resultForm.ligue_id)),
+    [allEntentes, resultForm.ligue_id]
+  );
+  const importFormEntentes = useMemo(
+    () => allEntentes.filter((e) => String(e.parent_id) === String(importForm.ligue_id)),
+    [allEntentes, importForm.ligue_id]
+  );
 
   const handleLigueChange = (next) => {
     setLigueId(next);
@@ -186,7 +201,11 @@ export default function RankingPage({ user, onToast }) {
     if (!canManage) return;
     setBusy(true);
     try {
-      await createRankingResult(resultForm);
+      await createRankingResult({
+        ...resultForm,
+        ligue_id: resultForm.ligue_id || null,
+        entente_id: resultForm.ligue_id ? (resultForm.entente_id || null) : null,
+      });
       onToast?.('Résultat Ranking enregistré', 'success');
       setResultForm({
         ...emptyResultForm,
@@ -194,6 +213,8 @@ export default function RankingPage({ user, onToast }) {
         categorie_age: resultForm.categorie_age,
         categorie_poids: resultForm.categorie_poids,
         competition_level: resultForm.competition_level,
+        ligue_id: resultForm.ligue_id,
+        entente_id: resultForm.entente_id,
       });
       setTab('board');
       await load();
@@ -369,6 +390,8 @@ export default function RankingPage({ user, onToast }) {
     setImportForm({
       ...emptyImportForm,
       competition_level: (rules?.levels || [])[0]?.key || 'A',
+      ligue_id: ligueId || '',
+      entente_id: ligueId ? (ententeId || '') : '',
     });
     setImportOpen(true);
   };
@@ -432,6 +455,8 @@ export default function RankingPage({ user, onToast }) {
         competition_name: importForm.competition_name.trim(),
         competition_level: importForm.competition_level,
         competition_date: importForm.competition_date || null,
+        ligue_id: importForm.ligue_id || null,
+        entente_id: importForm.ligue_id ? (importForm.entente_id || null) : null,
         athletes: importForm.athletes,
       });
       onToast?.(
@@ -773,6 +798,35 @@ export default function RankingPage({ user, onToast }) {
                 />
               </label>
               <label>
+                Ligue
+                <select
+                  value={resultForm.ligue_id}
+                  onChange={(e) => setResultForm((p) => ({
+                    ...p,
+                    ligue_id: e.target.value,
+                    entente_id: '',
+                  }))}
+                >
+                  <option value="">Sélectionner</option>
+                  {ligues.map((l) => (
+                    <option key={l.id} value={l.id}>{l.nom}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Entente
+                <select
+                  value={resultForm.entente_id}
+                  onChange={(e) => setResultForm((p) => ({ ...p, entente_id: e.target.value }))}
+                  disabled={!resultForm.ligue_id}
+                >
+                  <option value="">Sélectionner</option>
+                  {resultFormEntentes.map((e) => (
+                    <option key={e.id} value={e.id}>{e.nom}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
                 Club
                 <input
                   value={resultForm.judoka_club}
@@ -1084,6 +1138,35 @@ export default function RankingPage({ user, onToast }) {
                     value={importForm.competition_date}
                     onChange={(e) => setImportForm((p) => ({ ...p, competition_date: e.target.value }))}
                   />
+                </label>
+                <label>
+                  Ligue
+                  <select
+                    value={importForm.ligue_id}
+                    onChange={(e) => setImportForm((p) => ({
+                      ...p,
+                      ligue_id: e.target.value,
+                      entente_id: '',
+                    }))}
+                  >
+                    <option value="">Sélectionner</option>
+                    {ligues.map((l) => (
+                      <option key={l.id} value={l.id}>{l.nom}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Entente
+                  <select
+                    value={importForm.entente_id}
+                    onChange={(e) => setImportForm((p) => ({ ...p, entente_id: e.target.value }))}
+                    disabled={!importForm.ligue_id}
+                  >
+                    <option value="">Sélectionner</option>
+                    {importFormEntentes.map((e) => (
+                      <option key={e.id} value={e.id}>{e.nom}</option>
+                    ))}
+                  </select>
                 </label>
               </div>
 
