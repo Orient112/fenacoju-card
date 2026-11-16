@@ -136,11 +136,15 @@ import {
   addRankingResult,
   canManageRankingRules,
   canViewRanking,
+  deleteAthleteRankingResults,
+  deleteRankingResult,
   getAthleteRanking,
   getDefaultRankingRules,
   getRankingBoard,
   getRankingRules,
   saveRankingRules,
+  updateAthleteRankingProfile,
+  updateRankingResult,
 } from './ranking.js';
 import { getSupabase, isSupabaseEnabled } from './supabase.js';
 import {
@@ -2732,6 +2736,62 @@ app.post('/api/ranking/results', async (req, res) => {
   try {
     const row = await addRankingResult(req.body || {}, req.user);
     res.status(201).json(row);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.put('/api/ranking/results/:id', async (req, res) => {
+  try {
+    const row = await updateRankingResult(req.params.id, req.body || {}, req.user);
+    res.json(row);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.delete('/api/ranking/results/:id', async (req, res) => {
+  try {
+    const out = await deleteRankingResult(req.params.id, req.user);
+    res.json(out);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.put('/api/ranking/athletes/profile', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const out = await updateAthleteRankingProfile(
+      {
+        judoka_id: body.judoka_id,
+        nom: body.nom || body.judoka_nom,
+        prenom: body.prenom || body.judoka_prenom,
+        club: body.club || body.judoka_club,
+      },
+      body,
+      req.user
+    );
+    res.json(out);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.delete('/api/ranking/athletes/profile', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const out = await deleteAthleteRankingResults(
+      {
+        judoka_id: body.judoka_id,
+        nom: body.nom || body.judoka_nom,
+        prenom: body.prenom || body.judoka_prenom,
+        club: body.club || body.judoka_club,
+      },
+      req.user,
+      { season_label: body.season_label || null }
+    );
+    res.json(out);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

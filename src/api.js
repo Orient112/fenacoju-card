@@ -1522,6 +1522,51 @@ export async function createRankingResult(data) {
   return res.json();
 }
 
+export async function updateRankingResult(id, data) {
+  const res = await apiFetch(`/api/ranking/results/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Modification du résultat impossible');
+  }
+  return res.json();
+}
+
+export async function deleteRankingResult(id) {
+  const res = await apiFetch(`/api/ranking/results/${id}`, { method: 'DELETE' });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Suppression du résultat impossible');
+  }
+  return res.json();
+}
+
+export async function updateRankingAthleteProfile(data) {
+  const res = await apiFetch('/api/ranking/athletes/profile', {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Modification athlète Ranking impossible');
+  }
+  return res.json();
+}
+
+export async function deleteRankingAthleteProfile(data) {
+  const res = await apiFetch('/api/ranking/athletes/profile', {
+    method: 'DELETE',
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Suppression athlète Ranking impossible');
+  }
+  return res.json();
+}
+
 export async function fetchAthleteRanking(judokaId) {
   const res = await apiFetch(`/api/ranking/athletes/${judokaId}`);
   if (!res.ok) {

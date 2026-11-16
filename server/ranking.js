@@ -304,6 +304,191 @@ export async function addRankingResult(entry, user) {
   return row;
 }
 
+function matchesAthleteKey(row, key) {
+  if (!key) return false;
+  if (key.judoka_id && row.judoka_id && String(row.judoka_id) === String(key.judoka_id)) return true;
+  return String(row.judoka_nom || '').toLowerCase() === String(key.nom || key.judoka_nom || '').toLowerCase()
+    && String(row.judoka_prenom || '').toLowerCase() === String(key.prenom || key.judoka_prenom || '').toLowerCase()
+    && String(row.judoka_club || '').toLowerCase() === String(key.club || key.judoka_club || '').toLowerCase();
+}
+
+export async function updateRankingResult(id, patch, user) {
+  if (!canManageRankingRules(user)) {
+    throw new Error('Seuls Admin et Coordon peuvent modifier un résultat Ranking');
+  }
+  const fedId = getUserFederationId(user) || DEFAULT_JUDO_FEDERATION_ID;
+  const rules = await getRankingRules(fedId);
+  const list = await readAllResults();
+  const idx = list.findIndex((r) => String(r.id) === String(id) && String(r.federation_id) === String(fedId));
+  if (idx === -1) throw new Error('Résultat Ranking introuvable');
+
+  const prev = list[idx];
+  const next = {
+    ...prev,
+    judoka_nom: patch.judoka_nom != null ? String(patch.judoka_nom).trim() : prev.judoka_nom,
+    judoka_prenom: patch.judoka_prenom != null ? String(patch.judoka_prenom).trim() : prev.judoka_prenom,
+    judoka_club: patch.judoka_club != null ? String(patch.judoka_club).trim() : prev.judoka_club,
+    judoka_sexe: patch.judoka_sexe === 'F' || patch.judoka_sexe === 'M' ? patch.judoka_sexe : prev.judoka_sexe,
+    categorie_age: patch.categorie_age != null ? String(patch.categorie_age).trim() : prev.categorie_age,
+    categorie_poids: patch.categorie_poids != null ? String(patch.categorie_poids).trim() : prev.categorie_poids,
+    competition_name: patch.competition_name != null ? String(patch.competition_name).trim() : prev.competition_name,
+    competition_level: patch.competition_level != null
+      ? String(patch.competition_level).trim().toUpperCase()
+      : prev.competition_level,
+    place: patch.place != null ? Number(patch.place) || 0 : prev.place,
+    wins: patch.wins != null ? Number(patch.wins) || 0 : prev.wins,
+    competition_date: patch.competition_date !== undefined ? (patch.competition_date || null) : prev.competition_date,
+    note: patch.note != null ? String(patch.note).trim() : prev.note,
+  };
+  next.gold_medals = Number(next.place) === 1 ? 1 : 0;
+  next.points = computeResultPoints(rules, {
+    competition_level: next.competition_level,
+    place: next.place,
+    wins: next.wins,
+  });
+
+  if (isSupabaseEnabled()) {
+    try {
+      const { data, error } = await getSupabase()
+        .from('ranking_results')
+        .update(next)
+        .eq('id', id)
+        .eq('federation_id', fedId)
+        .select('*')
+        .maybeSingle();
+      if (error) throw error;
+      return data || next;
+    } catch (err) {
+      if (!/relation|does not exist|schema cache/i.test(err.message || '')) throw err;
+    }
+  }
+
+  list[idx] = next;
+  await writeAllResults(list);
+  return next;
+}
+
+export async function deleteRankingResult(id, user) {
+  if (!canManageRankingRules(user)) {
+    throw new Error('Seuls Admin et Coordon peuvent supprimer un résultat Ranking');
+  }
+  const fedId = getUserFederationId(user) || DEFAULT_JUDO_FEDERATION_ID;
+  if (isSupabaseEnabled()) {
+    try {
+      const { error } = await getSupabase()
+        .from('ranking_results')
+        .delete()
+        .eq('id', id)
+        .eq('federation_id', fedId);
+      if (error) throw error;
+      return { ok: true, removed: 1 };
+    } catch (err) {
+      if (!/relation|does not exist|schema cache/i.test(err.message || '')) throw err;
+    }
+  }
+  const list = await readAllResults();
+  const next = list.filter((r) => !(String(r.id) === String(id) && String(r.federation_id) === String(fedId)));
+  const removed = list.length - next.length;
+  await writeAllResults(next);
+  return { ok: true, removed };
+}
+
+/** Met à jour l'identité / catégorie de tous les résultats d'un athlète (saison courante). */
+export async function updateAthleteRankingProfile(key, patch, user) {
+  if (!canManageRankingRules(user)) {
+    throw new Error('Seuls Admin et Coordon peuvent modifier un athlète Ranking');
+  }
+  const fedId = getUserFederationId(user) || DEFAULT_JUDO_FEDERATION_ID;
+  const rules = await getRankingRules(fedId);
+  const season = patch.season_label || rules.season_label;
+  const list = await readAllResults();
+  let updated = 0;
+  const next = list.map((r) => {
+    if (String(r.federation_id) !== String(fedId)) return r;
+    if (String(r.season_label || '') !== String(season)) return r;
+    if (!matchesAthleteKey(r, key)) return r;
+    updated += 1;
+    return {
+      ...r,
+      judoka_nom: patch.judoka_nom != null ? String(patch.judoka_nom).trim() : r.judoka_nom,
+      judoka_prenom: patch.judoka_prenom != null ? String(patch.judoka_prenom).trim() : r.judoka_prenom,
+      judoka_club: patch.judoka_club != null ? String(patch.judoka_club).trim() : r.judoka_club,
+      judoka_sexe: patch.judoka_sexe === 'F' || patch.judoka_sexe === 'M' ? patch.judoka_sexe : r.judoka_sexe,
+      categorie_age: patch.categorie_age != null ? String(patch.categorie_age).trim() : r.categorie_age,
+      categorie_poids: patch.categorie_poids != null ? String(patch.categorie_poids).trim() : r.categorie_poids,
+    };
+  });
+
+  if (updated === 0) throw new Error('Athlète Ranking introuvable');
+
+  if (isSupabaseEnabled()) {
+    try {
+      const targets = list.filter((r) =>
+        String(r.federation_id) === String(fedId)
+        && String(r.season_label || '') === String(season)
+        && matchesAthleteKey(r, key)
+      );
+      for (const t of targets) {
+        const payload = {
+          judoka_nom: patch.judoka_nom != null ? String(patch.judoka_nom).trim() : t.judoka_nom,
+          judoka_prenom: patch.judoka_prenom != null ? String(patch.judoka_prenom).trim() : t.judoka_prenom,
+          judoka_club: patch.judoka_club != null ? String(patch.judoka_club).trim() : t.judoka_club,
+          judoka_sexe: patch.judoka_sexe === 'F' || patch.judoka_sexe === 'M' ? patch.judoka_sexe : t.judoka_sexe,
+          categorie_age: patch.categorie_age != null ? String(patch.categorie_age).trim() : t.categorie_age,
+          categorie_poids: patch.categorie_poids != null ? String(patch.categorie_poids).trim() : t.categorie_poids,
+        };
+        const { error } = await getSupabase()
+          .from('ranking_results')
+          .update(payload)
+          .eq('id', t.id)
+          .eq('federation_id', fedId);
+        if (error) throw error;
+      }
+      return { ok: true, updated };
+    } catch (err) {
+      if (!/relation|does not exist|schema cache/i.test(err.message || '')) throw err;
+    }
+  }
+
+  await writeAllResults(next);
+  return { ok: true, updated };
+}
+
+export async function deleteAthleteRankingResults(key, user, { season_label = null } = {}) {
+  if (!canManageRankingRules(user)) {
+    throw new Error('Seuls Admin et Coordon peuvent supprimer un athlète Ranking');
+  }
+  const fedId = getUserFederationId(user) || DEFAULT_JUDO_FEDERATION_ID;
+  const rules = await getRankingRules(fedId);
+  const season = season_label || rules.season_label;
+  const list = await readAllResults();
+  const toRemove = list.filter((r) =>
+    String(r.federation_id) === String(fedId)
+    && String(r.season_label || '') === String(season)
+    && matchesAthleteKey(r, key)
+  );
+  if (!toRemove.length) throw new Error('Athlète Ranking introuvable');
+
+  if (isSupabaseEnabled()) {
+    try {
+      const ids = toRemove.map((r) => r.id);
+      const { error } = await getSupabase()
+        .from('ranking_results')
+        .delete()
+        .in('id', ids)
+        .eq('federation_id', fedId);
+      if (error) throw error;
+      return { ok: true, removed: ids.length };
+    } catch (err) {
+      if (!/relation|does not exist|schema cache/i.test(err.message || '')) throw err;
+    }
+  }
+
+  const removeIds = new Set(toRemove.map((r) => r.id));
+  await writeAllResults(list.filter((r) => !removeIds.has(r.id)));
+  return { ok: true, removed: toRemove.length };
+}
+
 function aggregateAthlete(results, rules) {
   const bestN = rules.best_results_count || 4;
   const sorted = [...results].sort((a, b) => Number(b.points) - Number(a.points));
