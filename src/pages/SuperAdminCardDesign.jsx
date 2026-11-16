@@ -286,7 +286,7 @@ export default function SuperAdminCardDesign({ onToast }) {
                 <div className="sa-card-design-preview-head">
                   <h3>Aperçu live</h3>
                   <p className="form-hint">
-                    Format 85 × 55 mm - ID {previewJudoka.numero_carte}
+                    Format 85 × 55 mm - layout {design.layout || 'classic'} - ID {previewJudoka.numero_carte}
                   </p>
                 </div>
                 <div className="sa-card-design-preview-stage">

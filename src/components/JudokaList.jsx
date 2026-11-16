@@ -1,5 +1,5 @@
 import { formatDate } from '../api';
-import { IconAthlete, IconCard, IconEdit, IconFiche, IconGrade, IconTransfer, IconTrash } from './ActionIcons';
+import { IconAthlete, IconCard, IconEdit, IconFiche, IconGrade, IconRanking, IconTransfer, IconTrash } from './ActionIcons';
 
 export default function JudokaList({
   judokas,
@@ -10,11 +10,12 @@ export default function JudokaList({
   onRequestTransfer,
   onViewFiche,
   onViewAthleteSheet,
+  onViewRanking,
   onAddNew,
   showActions = true,
 }) {
   const hasActions = showActions && (
-    onViewCard || onEdit || onDelete || onPromoteGrade || onRequestTransfer || onViewFiche || onViewAthleteSheet
+    onViewCard || onEdit || onDelete || onPromoteGrade || onRequestTransfer || onViewFiche || onViewAthleteSheet || onViewRanking
   );
 
   if (judokas.length === 0) {
@@ -128,6 +129,16 @@ export default function JudokaList({
                       title="Fiche Athlète"
                     >
                       <IconAthlete />
+                    </button>
+                  )}
+                  {onViewRanking && (
+                    <button
+                      type="button"
+                      className="btn btn-icon btn-icon-ranking"
+                      onClick={() => onViewRanking(j)}
+                      title="Ranking"
+                    >
+                      <IconRanking />
                     </button>
                   )}
                   {onDelete && (

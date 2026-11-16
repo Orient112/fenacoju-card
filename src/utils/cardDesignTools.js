@@ -1,4 +1,4 @@
-import { getDefaultCardDesign, normalizeCardDesign } from './federationConfig';
+import { CARD_LAYOUTS, getDefaultCardDesign, normalizeCardDesign } from './federationConfig';
 
 /** Préfixe ID carte dérivé du nom de profil / slug de la fédération. */
 export function deriveCardIdPrefix(federation) {
@@ -147,11 +147,16 @@ const SUBTITLE_VARIANTS = [
   'Identité Athlète {year}',
 ];
 
-/** Génère un nouveau modèle de carte pour la fédération choisie. */
+/** Génère un nouveau modèle de carte (composition + couleurs) pour la fédération. */
 export function generateCardDesignForFederation(federation, current = null, seed = Date.now()) {
   const base = normalizeCardDesign(current || getDefaultCardDesign());
   const palette = GENERATED_PALETTES[Math.abs(seed) % GENERATED_PALETTES.length];
   const subtitle = SUBTITLE_VARIANTS[Math.abs(seed >> 3) % SUBTITLE_VARIANTS.length];
+  const layouts = CARD_LAYOUTS.length ? CARD_LAYOUTS : ['classic'];
+  // Toujours proposer une composition différente de l'actuelle
+  const otherLayouts = layouts.filter((l) => l !== base.layout);
+  const layoutPool = otherLayouts.length ? otherLayouts : layouts;
+  const layout = layoutPool[Math.abs(seed) % layoutPool.length];
   const profil = federation?.nom_profil || federation?.nom || base.org_name;
   const prefix = base.card_id_prefix || deriveCardIdPrefix(federation);
 
@@ -163,6 +168,7 @@ export function generateCardDesignForFederation(federation, current = null, seed
         : `Fédération ${profil}`)
       : base.org_name,
     subtitle,
+    layout,
     card_id_prefix: prefix,
     logo_mode: federation?.logo_url ? 'federation' : (base.logo_mode || 'default'),
     colors: { ...palette },

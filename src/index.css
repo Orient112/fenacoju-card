@@ -7064,6 +7064,301 @@ tbody tr:last-child td {
   justify-content: center;
 }
 
+/* Layouts carte athlète */
+.judoka-card.layout-banner .card-banner-row {
+  display: flex;
+  align-items: stretch;
+  gap: 1.2mm;
+  padding: 1.2mm 1.5mm;
+  flex: 1;
+  min-height: 0;
+}
+
+.judoka-card.layout-banner .card-banner-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8mm;
+}
+
+.judoka-card.layout-banner .card-header-inline {
+  padding: 0;
+  background: transparent;
+}
+
+.judoka-card.layout-banner .card-header-inline .card-org {
+  color: var(--card-header-bg, #1D4393);
+  font-size: 1.9mm;
+}
+
+.judoka-card.layout-banner .card-header-inline .card-year {
+  color: #64748b;
+  font-size: 1.6mm;
+}
+
+.judoka-card.layout-stacked .card-header-full {
+  gap: 1mm;
+}
+
+.judoka-card.layout-stacked .card-header-full .card-qr {
+  margin-left: auto;
+}
+
+.judoka-card.layout-stacked .card-header-full .card-qr svg {
+  width: 10mm !important;
+  height: 10mm !important;
+}
+
+.judoka-card.layout-stacked .card-body-stacked {
+  gap: 2mm;
+}
+
+.judoka-card.layout-stripe .card-body-stripe {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  padding: 0;
+  gap: 0;
+}
+
+.judoka-card.layout-stripe .card-stripe-side {
+  width: 24mm;
+  background: var(--card-header-bg, #1D4393);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5mm;
+  padding: 1.5mm;
+}
+
+.judoka-card.layout-stripe .card-stripe-side .card-brand-logo {
+  border: 0.3mm solid rgba(255, 255, 255, 0.35);
+}
+
+.judoka-card.layout-stripe .card-stripe-main {
+  flex: 1;
+  min-width: 0;
+  padding: 1.5mm 2mm;
+  display: flex;
+  flex-direction: column;
+  gap: 1mm;
+}
+
+.judoka-card.layout-stripe .card-org-dark {
+  color: var(--card-name-color, #0d2b5e);
+  text-transform: uppercase;
+  font-size: 2mm;
+  font-weight: 700;
+}
+
+.judoka-card.layout-stripe .card-year-muted {
+  color: #64748b;
+  font-size: 1.7mm;
+}
+
+.judoka-card.layout-stripe .card-stripe-bottom {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1mm;
+}
+
+.judoka-card.layout-split .card-body-split {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  padding: 0;
+  gap: 0;
+}
+
+.judoka-card.layout-split .card-split-left {
+  width: 34mm;
+  background: var(--card-header-bg, #1D4393);
+  color: #fff;
+  padding: 1.4mm;
+  display: flex;
+  flex-direction: column;
+  gap: 1.2mm;
+}
+
+.judoka-card.layout-split .card-header-compact {
+  padding: 0;
+  background: transparent;
+}
+
+.judoka-card.layout-split .card-number-block {
+  color: #fff;
+  font-size: 2mm;
+  font-weight: 700;
+}
+
+.judoka-card.layout-split .card-split-right {
+  flex: 1;
+  min-width: 0;
+  padding: 1.5mm;
+  display: flex;
+  flex-direction: column;
+  gap: 1mm;
+}
+
+.judoka-card.layout-split .card-split-right .card-qr {
+  margin-left: auto;
+}
+
+.card-identity {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8mm;
+  min-width: 0;
+}
+
+.btn-icon-ranking {
+  color: #0f4c81;
+}
+
+.ranking-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.ranking-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.ranking-tabs,
+.ranking-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  align-items: end;
+}
+
+.ranking-filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.82rem;
+  color: #475569;
+}
+
+.ranking-filters select {
+  min-width: 140px;
+}
+
+.ranking-rules-form,
+.ranking-result-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 1rem;
+}
+
+.ranking-rules-grid,
+.ranking-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+
+.ranking-rule-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.7rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  background: #f8fafc;
+}
+
+.ranking-rule-card label,
+.ranking-form-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.82rem;
+}
+
+.athlete-ranking-modal {
+  width: min(720px, 96vw);
+  max-height: 90vh;
+  overflow: auto;
+  background: #fff;
+  border-radius: 16px;
+  padding: 1.1rem 1.2rem;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.25);
+}
+
+.athlete-ranking-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.athlete-ranking-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.65rem;
+  margin-bottom: 1rem;
+}
+
+.athlete-ranking-stats div {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.7rem 0.8rem;
+}
+
+.athlete-ranking-stats span {
+  display: block;
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
+.athlete-ranking-stats strong {
+  font-size: 1.05rem;
+  color: #0f172a;
+}
+
+.athlete-ranking-results {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.athlete-ranking-results li {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.55rem 0.7rem;
+  background: #fff;
+}
+
+.athlete-ranking-results small {
+  display: block;
+  color: #64748b;
+  margin-top: 0.15rem;
+}
+
+.ranking-table tr.is-self,
+.athlete-ranking-modal tr.is-self {
+  background: #eff6ff;
+}
+
 .sa-card-design-form {
   display: flex;
   flex-direction: column;

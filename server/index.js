@@ -132,6 +132,16 @@ import {
   applySettingsToPermissions,
 } from './federationSettings.js';
 import { enrichJudokasWithHierarchy, ensureOrgCodes } from './orgHierarchy.js';
+import {
+  addRankingResult,
+  canManageRankingRules,
+  canViewRanking,
+  getAthleteRanking,
+  getDefaultRankingRules,
+  getRankingBoard,
+  getRankingRules,
+  saveRankingRules,
+} from './ranking.js';
 import { getSupabase, isSupabaseEnabled } from './supabase.js';
 import {
   getAllArbitres,
@@ -1872,10 +1882,12 @@ app.post('/api/competition/licences', async (req, res) => {
       return res.status(400).json({ error: 'Aucune inscription correspondante' });
     }
 
-    const clubsCreated = [];
-    const clubsReused = [];
+    // Licence compétition = carte PDF uniquement.
+    // Ne crée / ne modifie jamais les athlètes ni clubs du système.
     const judokas = [];
     const skipped = [];
+    const fedSettings = await getFederationSettingsForUser(req.user);
+    const cardPrefix = fedSettings?.card_design?.card_id_prefix || 'FCJ';
 
     for (const reg of selected) {
       const clubName = String(reg.club || '').trim();
@@ -1892,83 +1904,45 @@ app.post('/api/competition/licences', async (req, res) => {
         continue;
       }
 
-      const before = await isClubRegistered(clubName);
-      await ensureRegisteredClub(clubName, req.user);
-      if (before) {
-        if (!clubsReused.includes(clubName)) clubsReused.push(clubName);
-      } else if (!clubsCreated.includes(clubName)) {
-        clubsCreated.push(clubName);
-      }
-
-      let judoka = null;
+      // Si déjà lié à un athlète système : lire sans modifier
+      let systemJudoka = null;
       if (reg.judoka_id) {
-        judoka = await getJudokaById(reg.judoka_id);
-      }
-      if (!judoka) {
-        judoka = await findJudokaByIdentity({
-          nom: reg.nom,
-          prenom: reg.prenom,
-          date_naissance: reg.date_naissance,
-          club: clubName,
-        });
+        try { systemJudoka = await getJudokaById(reg.judoka_id); } catch { /* ignore */ }
       }
 
-      if (!judoka) {
-        const categorie = categoryFromBirthDate(reg.date_naissance)
-          || String(reg.categorie || '').trim()
-          || '';
-        const id = uuidv4();
-        const fedId = getUserFederationId(req.user);
-        const fedSettings = await getFederationSettingsForUser(req.user);
-        const cardPrefix = fedSettings?.card_design?.card_id_prefix || 'FCJ';
-        const numero_carte = await generateCardNumber({ prefix: cardPrefix, federationId: fedId });
-        await createJudoka({
-          id,
-          numero_carte,
-          nom: String(reg.nom).trim(),
-          prenom: String(reg.prenom).trim(),
-          date_naissance: String(reg.date_naissance).slice(0, 10),
-          sexe: reg.sexe === 'F' ? 'F' : 'M',
-          club: clubName,
-          grade: String(reg.grade || '').trim() || 'Blanche',
-          categorie,
-          numero_licence: '',
-          telephone: String(reg.telephone || '').trim(),
-          email: String(reg.email || '').trim(),
-          taille: '',
-          poids: String(reg.poids || '').trim(),
-          photo: '',
-          entraineur_id: '',
-          entraineur_nom: '',
-          date_inscription: new Date().toISOString().split('T')[0],
-          statut: 'actif',
-          federation_id: fedId,
-        });
-        judoka = await getJudokaById(id);
-      }
+      const categorie = categoryFromBirthDate(reg.date_naissance)
+        || String(reg.categorie || systemJudoka?.categorie || '').trim()
+        || '';
+      const numeroCarte = String(
+        reg.numero_carte
+        || systemJudoka?.numero_carte
+        || `${cardPrefix}-COMP-${String(reg.id || '').slice(0, 6).toUpperCase()}`
+      ).trim();
 
-      if (judoka) {
-        judokas.push(judoka);
-        if (!reg.judoka_id || reg.numero_carte !== judoka.numero_carte) {
-          try {
-            await updateCompetitionRegistration(reg.id, {
-              judoka_id: judoka.id,
-              numero_carte: judoka.numero_carte,
-              deja_enregistre: true,
-            });
-          } catch {
-            // colonnes optionnelles
-          }
-        }
-      }
+      judokas.push({
+        id: systemJudoka?.id || `comp-${reg.id}`,
+        numero_carte: numeroCarte,
+        nom: String(reg.nom).trim(),
+        prenom: String(reg.prenom).trim(),
+        date_naissance: String(reg.date_naissance).slice(0, 10),
+        sexe: reg.sexe === 'F' ? 'F' : 'M',
+        club: clubName,
+        grade: String(reg.grade || systemJudoka?.grade || '').trim() || 'Blanche',
+        categorie,
+        numero_licence: String(reg.numero_licence || systemJudoka?.numero_licence || '').trim(),
+        photo: systemJudoka?.photo || '',
+        date_inscription: systemJudoka?.date_inscription || new Date().toISOString().split('T')[0],
+        competition_only: !systemJudoka,
+      });
     }
 
     res.json({
       count: judokas.length,
       judokas,
-      clubs_created: clubsCreated,
-      clubs_reused: clubsReused,
+      clubs_created: [],
+      clubs_reused: [],
       skipped,
+      system_unchanged: true,
     });
   } catch (err) {
     res.status(400).json({ error: err.message || 'Génération des licences impossible' });
@@ -2706,6 +2680,70 @@ app.get('/api/judokas/:id/fiche', async (req, res) => {
     res.json({ judoka, events, grades, transfers });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+/** Ranking national */
+app.get('/api/ranking', async (req, res) => {
+  try {
+    if (!canViewRanking(req.user)) {
+      return res.status(403).json({ error: 'Accès Ranking non autorisé' });
+    }
+    const board = await getRankingBoard(req.user, {
+      sexe: req.query.sexe || null,
+      categorie_age: req.query.categorie_age || null,
+      categorie_poids: req.query.categorie_poids || null,
+      season_label: req.query.season || null,
+    });
+    res.json(board);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.get('/api/ranking/rules', async (req, res) => {
+  try {
+    if (!canViewRanking(req.user)) {
+      return res.status(403).json({ error: 'Accès Ranking non autorisé' });
+    }
+    const fedId = getUserFederationId(req.user);
+    const rules = await getRankingRules(fedId);
+    res.json({
+      ...rules,
+      can_manage_rules: canManageRankingRules(req.user),
+      defaults: getDefaultRankingRules(),
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.put('/api/ranking/rules', async (req, res) => {
+  try {
+    const fedId = getUserFederationId(req.user);
+    const rules = await saveRankingRules(fedId, req.body || {}, req.user);
+    res.json(rules);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/ranking/results', async (req, res) => {
+  try {
+    const row = await addRankingResult(req.body || {}, req.user);
+    res.status(201).json(row);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.get('/api/ranking/athletes/:id', async (req, res) => {
+  try {
+    const data = await getAthleteRanking(req.user, req.params.id);
+    res.json(data);
+  } catch (err) {
+    const status = /non autorisé|introuvable/i.test(err.message || '') ? 403 : 400;
+    res.status(status).json({ error: err.message });
   }
 });
 

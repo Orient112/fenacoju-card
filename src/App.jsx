@@ -82,6 +82,8 @@ const FederationSettings = lazy(() => import('./pages/FederationSettings'));
 const AdminGradeHistory = lazy(() => import('./pages/AdminGradeHistory'));
 const SuperAdminConfigurations = lazy(() => import('./pages/SuperAdminConfigurations'));
 const SuperAdminCardDesign = lazy(() => import('./pages/SuperAdminCardDesign'));
+const RankingPage = lazy(() => import('./pages/RankingPage'));
+const AthleteRankingModal = lazy(() => import('./components/AthleteRankingModal'));
 const SuperAdminFederations = lazy(() => import('./components/SuperAdminFederations'));
 const SuperAdminDashboard = lazy(() => import('./components/SuperAdminDashboard'));
 
@@ -279,6 +281,7 @@ export default function App() {
   const [createType, setCreateType] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [cardJudoka, setCardJudoka] = useState(null);
+  const [rankingJudoka, setRankingJudoka] = useState(null);
   const [showQrScan, setShowQrScan] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -1144,6 +1147,7 @@ export default function App() {
                 {view === 'configurations' && 'Configurations'}
                 {view === 'card-design' && 'Design Cartes'}
                 {view === 'competition' && M('competition', 'Compétition')}
+                {view === 'ranking' && 'Ranking'}
               </div>
               <div className="dashboard-topbar-user">
                 <span>{getUserDisplayName(user) || 'utilisateur'}</span>
@@ -1566,7 +1570,7 @@ export default function App() {
                     <Suspense fallback={<PageLoader label="Chargement de la liste..." />}>
                       <JudokaList
                         judokas={filteredJudokas}
-                        showActions={!readOnlyJudokas && (!hideJudokaActions || canPromoteGrade)}
+                        showActions={!readOnlyJudokas && (!hideJudokaActions || canPromoteGrade || perms.viewRanking)}
                         onViewCard={!readOnlyJudokas && !hideJudokaActions && canViewCards ? setCardJudoka : null}
                         onEdit={!hideJudokaActions && perms.createJudokas ? openEditForm : null}
                         onViewFiche={setFicheTarget}
@@ -1574,6 +1578,7 @@ export default function App() {
                         onPromoteGrade={canPromoteGrade ? setGradeTarget : null}
                         onRequestTransfer={canRequestTransfers ? setTransferTarget : null}
                         onViewAthleteSheet={user.type === 'club' ? setAthleteSheetTarget : null}
+                        onViewRanking={perms.viewRanking ? setRankingJudoka : null}
                         onAddNew={perms.createJudokas ? openNewJudoka : null}
                       />
                     </Suspense>
@@ -1757,6 +1762,12 @@ export default function App() {
           </Suspense>
         )}
 
+        {view === 'ranking' && perms.viewRanking && (
+          <Suspense fallback={<PageLoader label="Chargement du Ranking..." />}>
+            <RankingPage user={user} onToast={showToast} />
+          </Suspense>
+        )}
+
         {view === 'competition' && (
           <Suspense fallback={<PageLoader label="Chargement de la compétition..." />}>
             <CompetitionSettings
@@ -1895,6 +1906,20 @@ export default function App() {
                     : 'En attente d\'activation Admin / Coordon')}
               >
                 {M('competition', 'Compétition')}
+              </button>
+            )}
+            {perms.viewRanking && (
+              <button
+                className={`nav-btn ${view === 'ranking' ? 'active' : ''}`}
+                type="button"
+                onClick={() => {
+                  setView('ranking');
+                  setEditing(null);
+                  setEditingUser(null);
+                  setCreateType(null);
+                }}
+              >
+                Ranking
               </button>
             )}
             {canScanQr && (
@@ -2076,6 +2101,16 @@ export default function App() {
             design={fedSettings?.card_design}
             branding={user?.federation_branding}
             onClose={() => setCardJudoka(null)}
+          />
+        </Suspense>
+      )}
+
+      {rankingJudoka && (
+        <Suspense fallback={null}>
+          <AthleteRankingModal
+            judoka={rankingJudoka}
+            onToast={showToast}
+            onClose={() => setRankingJudoka(null)}
           />
         </Suspense>
       )}

@@ -35,6 +35,8 @@ export const FEDERATION_ROLES = {
     validateTransfers: true,
     hideJudokaActions: true,
     liveRefresh: true,
+    viewRanking: true,
+    manageRankingRules: true,
     dashboardTabs: [...SENIOR_FEDERATION_TABS, 'federation'],
     createTypes: ['ligue', 'federation', 'membre'],
     scanQr: true,
@@ -53,6 +55,7 @@ export const FEDERATION_ROLES = {
     manageUsers: false,
     refreshList: false,
     hideJudokaActions: true,
+    viewRanking: true,
     dashboardTabs: [...SENIOR_FEDERATION_TABS, 'federation'],
     createTypes: [],
     viewClubDetails: true,
@@ -71,6 +74,7 @@ export const FEDERATION_ROLES = {
     refreshList: false,
     hideJudokaActions: true,
     validateTransfers: true,
+    viewRanking: true,
     dashboardTabs: [...SENIOR_FEDERATION_TABS, 'federation'],
     scanQr: true,
     createTypes: [],
@@ -101,6 +105,7 @@ export const FEDERATION_ROLES = {
     manageUsers: false,
     validateAccounts: false,
     hideJudokaActions: true,
+    viewRanking: true,
     dashboardTabs: ['judokas', 'entraineurs', 'arbitres'],
     createTypes: [],
     canManageCompetition: true,
@@ -120,6 +125,7 @@ export const FEDERATION_ROLES = {
     manageBlackBelts: true,
     viewGradeHistory: true,
     hideJudokaActions: true,
+    viewRanking: true,
     createTypes: [],
     dashboardTabs: ['judokas', 'clubs', 'entraineurs', 'arbitres'],
   },
@@ -310,6 +316,8 @@ export function getPermissions(user, settings = null) {
       viewGradeHistory: true,
       manageClubGrades: true,
       requestTransfers: true,
+      viewRanking: true,
+      manageRankingRules: true,
     };
   }
 
@@ -336,6 +344,7 @@ export function getPermissions(user, settings = null) {
       liveRefresh: true,
       canToggleEntenteCompetition: true,
       canManageCompetition: true,
+      viewRanking: true,
     };
   }
 
@@ -360,6 +369,7 @@ export function getPermissions(user, settings = null) {
       liveRefresh: true,
       canManageCompetition: true,
       validateTransfersEntente: true,
+      viewRanking: true,
     };
   }
 
@@ -382,6 +392,7 @@ export function getPermissions(user, settings = null) {
       clubScope: user.nom_club,
       canMessage: true,
       showHeaderCreate: false,
+      viewRanking: true,
     };
   }
 

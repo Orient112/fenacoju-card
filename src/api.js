@@ -1473,3 +1473,60 @@ export const CATEGORIES = [
   'Seniors',
   'Vétérans',
 ];
+
+export async function fetchRankingBoard(params = {}) {
+  const qs = new URLSearchParams();
+  if (params.sexe) qs.set('sexe', params.sexe);
+  if (params.categorie_age) qs.set('categorie_age', params.categorie_age);
+  if (params.categorie_poids) qs.set('categorie_poids', params.categorie_poids);
+  if (params.season) qs.set('season', params.season);
+  const q = qs.toString();
+  const res = await apiFetch(`/api/ranking${q ? `?${q}` : ''}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Chargement Ranking impossible');
+  }
+  return res.json();
+}
+
+export async function fetchRankingRules() {
+  const res = await apiFetch('/api/ranking/rules');
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Chargement des règles impossible');
+  }
+  return res.json();
+}
+
+export async function updateRankingRules(data) {
+  const res = await apiFetch('/api/ranking/rules', {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Enregistrement des règles impossible');
+  }
+  return res.json();
+}
+
+export async function createRankingResult(data) {
+  const res = await apiFetch('/api/ranking/results', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Enregistrement du résultat impossible');
+  }
+  return res.json();
+}
+
+export async function fetchAthleteRanking(judokaId) {
+  const res = await apiFetch(`/api/ranking/athletes/${judokaId}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Classement athlète introuvable');
+  }
+  return res.json();
+}

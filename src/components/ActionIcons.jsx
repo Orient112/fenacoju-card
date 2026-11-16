@@ -233,3 +233,14 @@ export function IconExport() {
     </svg>
   );
 }
+
+export function IconRanking() {
+  return (
+    <svg {...svgProps}>
+      <path d="M8 21V10" />
+      <path d="M12 21V3" />
+      <path d="M16 21v-6" />
+      <path d="M4 21h16" />
+    </svg>
+  );
+}

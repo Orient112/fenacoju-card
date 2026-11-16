@@ -29,6 +29,7 @@ export const DEFAULT_MENU_LABELS = {
   create: 'Créer',
   messages: 'Messages',
   competition: 'Compétition',
+  ranking: 'Ranking',
   settings: 'Réglages Profil',
   parametrage: 'Paramétrage',
   export: 'Exporter',
@@ -47,11 +48,14 @@ export const DEFAULT_FEATURES = {
 };
 
 /** Design carte athlète - défaut = carte Judo FENACOJU actuelle. */
+export const CARD_LAYOUTS = ['classic', 'banner', 'stacked', 'stripe', 'split'];
+
 export const DEFAULT_CARD_DESIGN = {
   org_name: 'Fédération Nationale Congolaise de Judo',
   subtitle: 'Carte Athlète {year}',
   logo_mode: 'default',
   logo_url: '',
+  layout: 'classic',
   card_id_prefix: 'FCJ',
   show_validity: true,
   colors: {
@@ -90,11 +94,14 @@ export function normalizeCardDesign(raw = {}) {
     .replace(/[^A-Z0-9]/g, '')
     .slice(0, 5);
 
+  const layout = CARD_LAYOUTS.includes(src.layout) ? src.layout : base.layout;
+
   return {
     org_name: String(src.org_name || base.org_name).trim().slice(0, 120) || base.org_name,
     subtitle: String(src.subtitle || base.subtitle).trim().slice(0, 80) || base.subtitle,
     logo_mode: logoMode,
     logo_url: String(src.logo_url || '').trim().slice(0, 500),
+    layout,
     card_id_prefix: rawPrefix || 'FCJ',
     show_validity: src.show_validity !== false,
     colors: {

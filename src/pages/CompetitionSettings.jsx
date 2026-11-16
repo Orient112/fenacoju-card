@@ -1810,7 +1810,9 @@ export default function CompetitionSettings({ onBack, onToast, cardDesign = null
           : null,
       ].filter(Boolean).join(' · ');
       onToast?.(
-        `${created.length} licence(s) générée(s)${clubMsg ? ` - ${clubMsg}` : ''}`,
+        result.system_unchanged
+          ? `${created.length} carte(s) compétition générée(s) - aucune inscription système créée`
+          : `${created.length} licence(s) générée(s)${clubMsg ? ` - ${clubMsg}` : ''}`,
       );
       setShowLicenceModal(false);
       setLicenceSelected(new Set());
