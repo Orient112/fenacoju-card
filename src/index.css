@@ -7588,8 +7588,9 @@ tbody tr:last-child td {
 
 .ranking-rule-card-actions {
   display: flex;
-  gap: 0.45rem;
+  gap: 0.35rem;
   flex-wrap: wrap;
+  align-items: center;
   padding-top: 0.7rem;
   border-top: 1px solid #eef2f7;
 }

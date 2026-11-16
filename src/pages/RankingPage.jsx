@@ -15,6 +15,7 @@ const emptyImportForm = {
   competition_name: '',
   competition_level: 'A',
   competition_date: '',
+  national: true,
   ligue_id: '',
   entente_id: '',
   fileName: '',
@@ -34,6 +35,7 @@ const WEIGHT_BY_SEX = {
 const emptyResultForm = {
   judoka_prenom: '',
   judoka_nom: '',
+  national: true,
   ligue_id: '',
   entente_id: '',
   judoka_club: '',
@@ -70,6 +72,7 @@ export default function RankingPage({ user, onToast }) {
   const [rules, setRules] = useState(null);
   const [canManage, setCanManage] = useState(false);
   const [season, setSeason] = useState('');
+  const [nationalScope, setNationalScope] = useState(true);
   const [ligueId, setLigueId] = useState('');
   const [ententeId, setEntenteId] = useState('');
   const [ligues, setLigues] = useState([]);
@@ -113,8 +116,8 @@ export default function RankingPage({ user, onToast }) {
         categorie_age: categorieAge || undefined,
         categorie_poids: categoriePoids || undefined,
         season: season || undefined,
-        ligue_id: ligueId || undefined,
-        entente_id: ligueId && ententeId ? ententeId : undefined,
+        ligue_id: !nationalScope && ligueId ? ligueId : undefined,
+        entente_id: !nationalScope && ligueId && ententeId ? ententeId : undefined,
       });
       setBoard(data.board || []);
       setRules(data.rules || null);
@@ -134,7 +137,7 @@ export default function RankingPage({ user, onToast }) {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sexe, categorieAge, categoriePoids, ligueId, ententeId]);
+  }, [sexe, categorieAge, categoriePoids, nationalScope, ligueId, ententeId]);
 
   const levels = useMemo(() => rules?.levels || [], [rules]);
   const coeffs = useMemo(() => rules?.result_coefficients || [], [rules]);
@@ -148,7 +151,22 @@ export default function RankingPage({ user, onToast }) {
     [allEntentes, importForm.ligue_id]
   );
 
+  const handleNationalChange = (next) => {
+    if (next === 'national') {
+      setNationalScope(true);
+      setLigueId('');
+      setEntenteId('');
+    }
+  };
+
   const handleLigueChange = (next) => {
+    if (!next) {
+      setNationalScope(true);
+      setLigueId('');
+      setEntenteId('');
+      return;
+    }
+    setNationalScope(false);
     setLigueId(next);
     setEntenteId('');
   };
@@ -201,10 +219,11 @@ export default function RankingPage({ user, onToast }) {
     if (!canManage) return;
     setBusy(true);
     try {
+      const isNational = resultForm.national || !resultForm.ligue_id;
       await createRankingResult({
         ...resultForm,
-        ligue_id: resultForm.ligue_id || null,
-        entente_id: resultForm.ligue_id ? (resultForm.entente_id || null) : null,
+        ligue_id: isNational ? null : (resultForm.ligue_id || null),
+        entente_id: isNational ? null : (resultForm.ligue_id ? (resultForm.entente_id || null) : null),
       });
       onToast?.('Résultat Ranking enregistré', 'success');
       setResultForm({
@@ -213,6 +232,7 @@ export default function RankingPage({ user, onToast }) {
         categorie_age: resultForm.categorie_age,
         categorie_poids: resultForm.categorie_poids,
         competition_level: resultForm.competition_level,
+        national: resultForm.national,
         ligue_id: resultForm.ligue_id,
         entente_id: resultForm.entente_id,
       });
@@ -387,11 +407,13 @@ export default function RankingPage({ user, onToast }) {
   };
 
   const openImportModal = () => {
+    const isNational = nationalScope || !ligueId;
     setImportForm({
       ...emptyImportForm,
       competition_level: (rules?.levels || [])[0]?.key || 'A',
-      ligue_id: ligueId || '',
-      entente_id: ligueId ? (ententeId || '') : '',
+      national: isNational,
+      ligue_id: isNational ? '' : (ligueId || ''),
+      entente_id: isNational ? '' : (ligueId ? (ententeId || '') : ''),
     });
     setImportOpen(true);
   };
@@ -451,12 +473,13 @@ export default function RankingPage({ user, onToast }) {
     }
     setBusy(true);
     try {
+      const isNational = importForm.national || !importForm.ligue_id;
       const out = await importRankingResults({
         competition_name: importForm.competition_name.trim(),
         competition_level: importForm.competition_level,
         competition_date: importForm.competition_date || null,
-        ligue_id: importForm.ligue_id || null,
-        entente_id: importForm.ligue_id ? (importForm.entente_id || null) : null,
+        ligue_id: isNational ? null : (importForm.ligue_id || null),
+        entente_id: isNational ? null : (importForm.ligue_id ? (importForm.entente_id || null) : null),
         athletes: importForm.athletes,
       });
       onToast?.(
@@ -531,6 +554,15 @@ export default function RankingPage({ user, onToast }) {
         <section className="ranking-panel">
           <div className="ranking-toolbar">
             <div className="ranking-filters-pro">
+              <label>
+                <span>National</span>
+                <select
+                  value={nationalScope || !ligueId ? 'national' : 'national'}
+                  onChange={(e) => handleNationalChange(e.target.value)}
+                >
+                  <option value="national">National</option>
+                </select>
+              </label>
               <label>
                 <span>Ligue</span>
                 <select value={ligueId} onChange={(e) => handleLigueChange(e.target.value)}>
@@ -720,11 +752,11 @@ export default function RankingPage({ user, onToast }) {
                       <span className="ranking-rule-points">{level.points} pts</span>
                     </div>
                     <div className="ranking-rule-card-actions">
-                      <button type="button" className="btn btn-outline btn-sm" onClick={() => editLevel(idx)}>
-                        Modifier
+                      <button type="button" className="btn btn-icon btn-icon-edit" title="Modifier" onClick={() => editLevel(idx)}>
+                        <IconEdit />
                       </button>
-                      <button type="button" className="btn btn-outline btn-sm btn-danger-outline" onClick={() => removeLevel(idx)}>
-                        Supprimer
+                      <button type="button" className="btn btn-icon btn-icon-delete" title="Supprimer" onClick={() => removeLevel(idx)}>
+                        <IconTrash />
                       </button>
                     </div>
                   </div>
@@ -749,11 +781,11 @@ export default function RankingPage({ user, onToast }) {
                       <span className="ranking-rule-points">{c.percent} %</span>
                     </div>
                     <div className="ranking-rule-card-actions">
-                      <button type="button" className="btn btn-outline btn-sm" onClick={() => editCoeff(idx)}>
-                        Modifier
+                      <button type="button" className="btn btn-icon btn-icon-edit" title="Modifier" onClick={() => editCoeff(idx)}>
+                        <IconEdit />
                       </button>
-                      <button type="button" className="btn btn-outline btn-sm btn-danger-outline" onClick={() => removeCoeff(idx)}>
-                        Supprimer
+                      <button type="button" className="btn btn-icon btn-icon-delete" title="Supprimer" onClick={() => removeCoeff(idx)}>
+                        <IconTrash />
                       </button>
                     </div>
                   </div>
@@ -798,34 +830,50 @@ export default function RankingPage({ user, onToast }) {
                 />
               </label>
               <label>
+                National
+                <select
+                  value={resultForm.national || !resultForm.ligue_id ? 'national' : 'national'}
+                  onChange={() => setResultForm((p) => ({
+                    ...p,
+                    national: true,
+                    ligue_id: '',
+                    entente_id: '',
+                  }))}
+                >
+                  <option value="national">National</option>
+                </select>
+              </label>
+              <label>
                 Ligue
                 <select
                   value={resultForm.ligue_id}
                   onChange={(e) => setResultForm((p) => ({
                     ...p,
+                    national: !e.target.value,
                     ligue_id: e.target.value,
                     entente_id: '',
                   }))}
                 >
-                  <option value="">Sélectionner</option>
+                  <option value="">Toutes</option>
                   {ligues.map((l) => (
                     <option key={l.id} value={l.id}>{l.nom}</option>
                   ))}
                 </select>
               </label>
-              <label>
-                Entente
-                <select
-                  value={resultForm.entente_id}
-                  onChange={(e) => setResultForm((p) => ({ ...p, entente_id: e.target.value }))}
-                  disabled={!resultForm.ligue_id}
-                >
-                  <option value="">Sélectionner</option>
-                  {resultFormEntentes.map((e) => (
-                    <option key={e.id} value={e.id}>{e.nom}</option>
-                  ))}
-                </select>
-              </label>
+              {resultForm.ligue_id ? (
+                <label>
+                  Entente
+                  <select
+                    value={resultForm.entente_id}
+                    onChange={(e) => setResultForm((p) => ({ ...p, entente_id: e.target.value }))}
+                  >
+                    <option value="">Toutes</option>
+                    {resultFormEntentes.map((e) => (
+                      <option key={e.id} value={e.id}>{e.nom}</option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
               <label>
                 Club
                 <input
@@ -1140,34 +1188,50 @@ export default function RankingPage({ user, onToast }) {
                   />
                 </label>
                 <label>
+                  National
+                  <select
+                    value={importForm.national || !importForm.ligue_id ? 'national' : 'national'}
+                    onChange={() => setImportForm((p) => ({
+                      ...p,
+                      national: true,
+                      ligue_id: '',
+                      entente_id: '',
+                    }))}
+                  >
+                    <option value="national">National</option>
+                  </select>
+                </label>
+                <label>
                   Ligue
                   <select
                     value={importForm.ligue_id}
                     onChange={(e) => setImportForm((p) => ({
                       ...p,
+                      national: !e.target.value,
                       ligue_id: e.target.value,
                       entente_id: '',
                     }))}
                   >
-                    <option value="">Sélectionner</option>
+                    <option value="">Toutes</option>
                     {ligues.map((l) => (
                       <option key={l.id} value={l.id}>{l.nom}</option>
                     ))}
                   </select>
                 </label>
-                <label>
-                  Entente
-                  <select
-                    value={importForm.entente_id}
-                    onChange={(e) => setImportForm((p) => ({ ...p, entente_id: e.target.value }))}
-                    disabled={!importForm.ligue_id}
-                  >
-                    <option value="">Sélectionner</option>
-                    {importFormEntentes.map((e) => (
-                      <option key={e.id} value={e.id}>{e.nom}</option>
-                    ))}
-                  </select>
-                </label>
+                {importForm.ligue_id ? (
+                  <label>
+                    Entente
+                    <select
+                      value={importForm.entente_id}
+                      onChange={(e) => setImportForm((p) => ({ ...p, entente_id: e.target.value }))}
+                    >
+                      <option value="">Toutes</option>
+                      {importFormEntentes.map((e) => (
+                        <option key={e.id} value={e.id}>{e.nom}</option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
               </div>
 
               <label className="ranking-import-file">
