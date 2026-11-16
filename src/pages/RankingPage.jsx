@@ -6,9 +6,21 @@ import {
   deleteRankingAthleteProfile,
   fetchRankingBoard,
   fetchRankingRules,
+  importRankingResults,
   updateRankingAthleteProfile,
   updateRankingRules,
 } from '../api';
+
+const emptyImportForm = {
+  competition_name: '',
+  competition_level: 'A',
+  competition_date: '',
+  fileName: '',
+  athletes: [],
+  fights_count: 0,
+  progress: 0,
+  parsing: false,
+};
 
 const AGE_OPTIONS = ['Minimes', 'Cadets', 'Juniors', 'Seniors'];
 
@@ -62,6 +74,8 @@ export default function RankingPage({ user, onToast }) {
   const [editAthlete, setEditAthlete] = useState(null);
   const [levelDraft, setLevelDraft] = useState(null);
   const [coeffDraft, setCoeffDraft] = useState(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importForm, setImportForm] = useState(emptyImportForm);
 
   const weightOptions = useMemo(() => weightOptionsFor(sexe), [sexe]);
   const resultWeightOptions = useMemo(
@@ -338,6 +352,90 @@ export default function RankingPage({ user, onToast }) {
     }));
   };
 
+  const openImportModal = () => {
+    setImportForm({
+      ...emptyImportForm,
+      competition_level: (rules?.levels || [])[0]?.key || 'A',
+    });
+    setImportOpen(true);
+  };
+
+  const closeImportModal = () => {
+    if (busy || importForm.parsing) return;
+    setImportOpen(false);
+    setImportForm(emptyImportForm);
+  };
+
+  const handleImportFile = async (file) => {
+    if (!file) return;
+    setImportForm((p) => ({
+      ...p,
+      fileName: file.name,
+      parsing: true,
+      progress: 0,
+      athletes: [],
+      fights_count: 0,
+    }));
+    try {
+      const { extractRankingResultsFromPdfFile } = await import('../utils/importRankingResultsFromPdf.js');
+      const parsed = await extractRankingResultsFromPdfFile(file, (pct) => {
+        setImportForm((p) => ({ ...p, progress: pct }));
+      });
+      setImportForm((p) => ({
+        ...p,
+        parsing: false,
+        progress: 100,
+        athletes: parsed.athletes || [],
+        fights_count: parsed.fights_count || 0,
+        competition_date: parsed.competition_date || p.competition_date || '',
+      }));
+      onToast?.(`${(parsed.athletes || []).length} athlète(s) détecté(s)`, 'success');
+    } catch (err) {
+      setImportForm((p) => ({
+        ...p,
+        parsing: false,
+        progress: 0,
+        athletes: [],
+        fights_count: 0,
+      }));
+      onToast?.(err.message || 'Lecture du PDF impossible', 'error');
+    }
+  };
+
+  const handleSaveImport = async (e) => {
+    e.preventDefault();
+    if (!canManage) return;
+    if (!importForm.competition_name.trim()) {
+      onToast?.('Nom de la compétition obligatoire', 'error');
+      return;
+    }
+    if (!importForm.athletes.length) {
+      onToast?.('Chargez d\'abord un PDF de résultats', 'error');
+      return;
+    }
+    setBusy(true);
+    try {
+      const out = await importRankingResults({
+        competition_name: importForm.competition_name.trim(),
+        competition_level: importForm.competition_level,
+        competition_date: importForm.competition_date || null,
+        athletes: importForm.athletes,
+      });
+      onToast?.(
+        `Import terminé : ${out.created || 0} ajouté(s), ${out.updated || 0} mis à jour`,
+        'success'
+      );
+      setImportOpen(false);
+      setImportForm(emptyImportForm);
+      setTab('board');
+      await load();
+    } catch (err) {
+      onToast?.(err.message || 'Import impossible', 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="ranking-page ranking-page-pro">
       <header className="ranking-hero">
@@ -603,6 +701,15 @@ export default function RankingPage({ user, onToast }) {
 
       {tab === 'result' && canManage && (
         <section className="ranking-panel">
+          <div className="ranking-result-toolbar">
+            <div>
+              <h3 className="ranking-result-title">Saisie manuelle</h3>
+              <p className="form-hint">Ou importez un PDF de résultats de combats.</p>
+            </div>
+            <button type="button" className="btn btn-outline" onClick={openImportModal}>
+              Charger resultat
+            </button>
+          </div>
           <form className="ranking-result-pro" onSubmit={handleAddResult}>
             <div className="ranking-form-grid">
               <label>
@@ -886,6 +993,144 @@ export default function RankingPage({ user, onToast }) {
               <button type="button" className="btn btn-outline" onClick={() => setCoeffDraft(null)}>Annuler</button>
               <button type="button" className="btn btn-primary" onClick={saveCoeffDraft}>Enregistrer</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {importOpen && (
+        <div className="confirm-overlay" role="dialog" aria-modal="true" onClick={closeImportModal}>
+          <div className="ranking-import-modal" onClick={(e) => e.stopPropagation()}>
+            <header>
+              <div>
+                <h3>Charger resultat</h3>
+                <p className="form-hint">PDF &quot;Resultats des combats&quot; - les anciens résultats sont conservés.</p>
+              </div>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline"
+                onClick={closeImportModal}
+                disabled={busy || importForm.parsing}
+              >
+                Fermer
+              </button>
+            </header>
+            <form onSubmit={handleSaveImport}>
+              <div className="ranking-form-grid">
+                <label>
+                  Nom de la compétition
+                  <input
+                    required
+                    value={importForm.competition_name}
+                    onChange={(e) => setImportForm((p) => ({ ...p, competition_name: e.target.value }))}
+                    placeholder="Championnat provincial Kinshasa"
+                  />
+                </label>
+                <label>
+                  Niveau de compétition
+                  <select
+                    value={importForm.competition_level}
+                    onChange={(e) => setImportForm((p) => ({ ...p, competition_level: e.target.value }))}
+                  >
+                    {(rules?.levels || []).map((l) => (
+                      <option key={l.key} value={l.key}>{l.key} - {l.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Date
+                  <input
+                    type="date"
+                    value={importForm.competition_date}
+                    onChange={(e) => setImportForm((p) => ({ ...p, competition_date: e.target.value }))}
+                  />
+                </label>
+              </div>
+
+              <label className="ranking-import-file">
+                <span>Fichier PDF des résultats</span>
+                <input
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  disabled={importForm.parsing || busy}
+                  onChange={(e) => handleImportFile(e.target.files?.[0])}
+                />
+                {importForm.fileName ? (
+                  <small>{importForm.fileName}</small>
+                ) : (
+                  <small>Format attendu : export &quot;Resultats des combats&quot;</small>
+                )}
+              </label>
+
+              {importForm.parsing && (
+                <div className="ranking-import-progress">
+                  <div className="ranking-import-progress-bar" style={{ width: `${importForm.progress}%` }} />
+                  <span>Analyse du PDF… {importForm.progress}%</span>
+                </div>
+              )}
+
+              {importForm.athletes.length > 0 && (
+                <div className="ranking-import-preview">
+                  <div className="ranking-section-head">
+                    <div>
+                      <h4>Aperçu</h4>
+                      <p className="form-hint">
+                        {importForm.fights_count} combat(s) · {importForm.athletes.length} athlète(s)
+                      </p>
+                    </div>
+                  </div>
+                  <div className="ranking-table-wrap">
+                    <table className="ranking-table-pro">
+                      <thead>
+                        <tr>
+                          <th>Athlète</th>
+                          <th>Club</th>
+                          <th>Catégorie</th>
+                          <th>Place</th>
+                          <th>Victoires</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {importForm.athletes.map((a, idx) => (
+                          <tr key={`${a.judoka_prenom}-${a.judoka_nom}-${a.categorie_poids}-${idx}`}>
+                            <td>
+                              <strong>{a.judoka_prenom} {a.judoka_nom}</strong>
+                              <div>
+                                <small>{a.judoka_sexe === 'F' ? 'Féminin' : 'Masculin'}</small>
+                              </div>
+                            </td>
+                            <td>{a.judoka_club || '-'}</td>
+                            <td>
+                              <span className="ranking-chip">{a.categorie_age}</span>
+                              <span className="ranking-chip">{a.categorie_poids}</span>
+                            </td>
+                            <td>{a.place}</td>
+                            <td>{a.wins}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              <div className="ranking-edit-actions">
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  onClick={closeImportModal}
+                  disabled={busy || importForm.parsing}
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={busy || importForm.parsing || !importForm.athletes.length}
+                >
+                  {busy ? 'Enregistrement…' : 'Enregistrer dans Ranking'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

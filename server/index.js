@@ -142,6 +142,7 @@ import {
   getDefaultRankingRules,
   getRankingBoard,
   getRankingRules,
+  importRankingResultsBatch,
   saveRankingRules,
   updateAthleteRankingProfile,
   updateRankingResult,
@@ -2736,6 +2737,15 @@ app.post('/api/ranking/results', async (req, res) => {
   try {
     const row = await addRankingResult(req.body || {}, req.user);
     res.status(201).json(row);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/ranking/results/import', async (req, res) => {
+  try {
+    const out = await importRankingResultsBatch(req.body || {}, req.user);
+    res.status(201).json(out);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

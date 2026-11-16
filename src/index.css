@@ -7563,6 +7563,96 @@ tbody tr:last-child td {
   margin-top: 1rem;
 }
 
+.ranking-result-toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid #eef2f7;
+}
+
+.ranking-result-title {
+  margin: 0 0 0.2rem;
+  color: #0f172a;
+  font-size: 1.05rem;
+}
+
+.ranking-import-modal {
+  width: min(860px, 96vw);
+  max-height: 90vh;
+  overflow: auto;
+  background: #fff;
+  border-radius: 16px;
+  padding: 1.1rem 1.2rem;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.25);
+}
+
+.ranking-import-modal header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.ranking-import-modal h3 {
+  margin: 0 0 0.2rem;
+  color: #0f172a;
+}
+
+.ranking-import-file {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin: 0.85rem 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.ranking-import-file input[type='file'] {
+  border: 1px dashed #cbd5e1;
+  border-radius: 12px;
+  padding: 0.85rem;
+  background: #f8fafc;
+}
+
+.ranking-import-file small {
+  font-weight: 500;
+  color: #64748b;
+}
+
+.ranking-import-progress {
+  position: relative;
+  margin: 0.5rem 0 0.85rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 10px;
+  background: #f1f5f9;
+  overflow: hidden;
+}
+
+.ranking-import-progress-bar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.12);
+}
+
+.ranking-import-progress span {
+  position: relative;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.ranking-import-preview {
+  margin-top: 0.5rem;
+}
+
 .ranking-head {
   display: flex;
   justify-content: space-between;

@@ -526,9 +526,177 @@ function compareAthletes(a, b) {
   return String(a.nom || '').localeCompare(String(b.nom || ''), 'fr');
 }
 
+function athleteNameKey(r) {
+  return `${String(r.judoka_nom || r.nom || '').toLowerCase()}|${String(r.judoka_prenom || r.prenom || '').toLowerCase()}`;
+}
+
 function athleteKey(r) {
   if (r.judoka_id) return `id:${r.judoka_id}`;
-  return `name:${String(r.judoka_nom || '').toLowerCase()}|${String(r.judoka_prenom || '').toLowerCase()}|${String(r.judoka_club || '').toLowerCase()}`;
+  // Regrouper par identité (nom + prénom) pour éviter un même athlète en double
+  return `name:${athleteNameKey(r)}`;
+}
+
+function findExistingAthleteIdentity(list, fedId, season, entry) {
+  const nameKey = athleteNameKey(entry);
+  const matches = list.filter((r) =>
+    String(r.federation_id) === String(fedId)
+    && String(r.season_label || '') === String(season)
+    && athleteNameKey(r) === nameKey
+  );
+  if (!matches.length) return null;
+  // Préférer même sexe + même catégorie si disponible
+  const preferred = matches.find((r) =>
+    (!entry.judoka_sexe || r.judoka_sexe === entry.judoka_sexe)
+    && (!entry.categorie_poids
+      || String(r.categorie_poids || '').toLowerCase() === String(entry.categorie_poids || '').toLowerCase())
+  ) || matches[0];
+  return {
+    judoka_id: preferred.judoka_id || null,
+    judoka_nom: preferred.judoka_nom,
+    judoka_prenom: preferred.judoka_prenom,
+    judoka_club: preferred.judoka_club || entry.judoka_club || '',
+    judoka_sexe: preferred.judoka_sexe || entry.judoka_sexe,
+  };
+}
+
+/**
+ * Import en masse de résultats (PDF combats). Conserve les anciens résultats.
+ * Si un athlète existe déjà (même nom/prénom), rattache le nouveau résultat à son identité.
+ * Si le même athlète a déjà un résultat pour cette compétition + catégorie, met à jour.
+ */
+export async function importRankingResultsBatch(payload, user) {
+  if (!canManageRankingRules(user)) {
+    throw new Error('Seuls Admin et Coordon peuvent importer des résultats Ranking');
+  }
+  const fedId = getUserFederationId(user) || DEFAULT_JUDO_FEDERATION_ID;
+  const rules = await getRankingRules(fedId);
+  const competition_name = String(payload.competition_name || '').trim();
+  const competition_level = String(payload.competition_level || 'A').trim().toUpperCase();
+  const competition_date = payload.competition_date || null;
+  const athletes = Array.isArray(payload.athletes) ? payload.athletes : [];
+  if (!competition_name) throw new Error('Nom de la compétition obligatoire');
+  if (!athletes.length) throw new Error('Aucun athlète à importer');
+
+  const list = await readAllResults();
+  let created = 0;
+  let updated = 0;
+  const savedRows = [];
+
+  for (const raw of athletes) {
+    const base = {
+      judoka_nom: String(raw.judoka_nom || '').trim(),
+      judoka_prenom: String(raw.judoka_prenom || '').trim(),
+      judoka_club: String(raw.judoka_club || '').trim(),
+      judoka_sexe: raw.judoka_sexe === 'F' ? 'F' : 'M',
+      categorie_age: String(raw.categorie_age || 'Seniors').trim(),
+      categorie_poids: String(raw.categorie_poids || '').trim(),
+      place: Number(raw.place) || 0,
+      wins: Number(raw.wins) || 0,
+    };
+    if (!base.judoka_nom || !base.judoka_prenom) continue;
+    if (!base.categorie_poids) continue;
+
+    const identity = findExistingAthleteIdentity(list, fedId, rules.season_label, base);
+    const merged = {
+      ...base,
+      judoka_id: identity?.judoka_id || raw.judoka_id || null,
+      judoka_nom: identity?.judoka_nom || base.judoka_nom,
+      judoka_prenom: identity?.judoka_prenom || base.judoka_prenom,
+      judoka_club: base.judoka_club || identity?.judoka_club || '',
+      judoka_sexe: identity?.judoka_sexe || base.judoka_sexe,
+    };
+
+    const points = computeResultPoints(rules, {
+      competition_level,
+      place: merged.place,
+      wins: merged.wins,
+    });
+
+    const existingIdx = list.findIndex((r) =>
+      String(r.federation_id) === String(fedId)
+      && String(r.season_label || '') === String(rules.season_label)
+      && athleteNameKey(r) === athleteNameKey(merged)
+      && String(r.competition_name || '').toLowerCase() === competition_name.toLowerCase()
+      && String(r.categorie_poids || '').toLowerCase() === String(merged.categorie_poids).toLowerCase()
+      && String(r.categorie_age || '').toLowerCase() === String(merged.categorie_age).toLowerCase()
+      && r.judoka_sexe === merged.judoka_sexe
+    );
+
+    if (existingIdx >= 0) {
+      const prev = list[existingIdx];
+      const next = {
+        ...prev,
+        ...merged,
+        competition_name,
+        competition_level,
+        competition_date: competition_date || prev.competition_date || null,
+        gold_medals: merged.place === 1 ? 1 : 0,
+        points,
+        counted: true,
+        note: String(raw.note || prev.note || 'Import PDF résultats').trim(),
+        updated_at: new Date().toISOString(),
+      };
+      list[existingIdx] = next;
+      savedRows.push(next);
+      updated += 1;
+      continue;
+    }
+
+    const row = {
+      id: uuidv4(),
+      federation_id: fedId,
+      ...merged,
+      competition_name,
+      competition_level,
+      gold_medals: merged.place === 1 ? 1 : 0,
+      points,
+      counted: true,
+      season_label: rules.season_label,
+      competition_date,
+      note: String(raw.note || 'Import PDF résultats').trim(),
+      created_by: user?.id || null,
+      created_by_name: user?.prenom || user?.nom || user?.username || '',
+      created_at: new Date().toISOString(),
+    };
+    list.unshift(row);
+    savedRows.push(row);
+    created += 1;
+  }
+
+  if (created === 0 && updated === 0) {
+    throw new Error('Aucun résultat valide à importer');
+  }
+
+  if (isSupabaseEnabled()) {
+    try {
+      for (const row of savedRows) {
+        const { error } = await getSupabase()
+          .from('ranking_results')
+          .upsert(row, { onConflict: 'id' });
+        if (error) throw error;
+      }
+      return {
+        ok: true,
+        created,
+        updated,
+        imported: created + updated,
+        season_label: rules.season_label,
+        athletes: savedRows.length,
+      };
+    } catch (err) {
+      if (!/relation|does not exist|schema cache/i.test(err.message || '')) throw err;
+    }
+  }
+
+  await writeAllResults(list);
+  return {
+    ok: true,
+    created,
+    updated,
+    imported: created + updated,
+    season_label: rules.season_label,
+    athletes: savedRows.length,
+  };
 }
 
 export async function getRankingBoard(user, {
@@ -673,7 +841,11 @@ export async function getAthleteRanking(user, judokaId) {
     };
   const rankedSelf = board.find((b) =>
     (b.judoka_id && String(b.judoka_id) === String(judoka.id))
-    || (`name:${String(b.nom || '').toLowerCase()}|${String(b.prenom || '').toLowerCase()}|${String(b.club || '').toLowerCase()}` === selfKey)
+    || athleteKey({
+      judoka_id: b.judoka_id,
+      judoka_nom: b.nom,
+      judoka_prenom: b.prenom,
+    }) === selfKey
   );
 
   return {

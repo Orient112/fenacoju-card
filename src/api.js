@@ -1522,6 +1522,18 @@ export async function createRankingResult(data) {
   return res.json();
 }
 
+export async function importRankingResults(data) {
+  const res = await apiFetch('/api/ranking/results/import', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Import des résultats impossible');
+  }
+  return res.json();
+}
+
 export async function updateRankingResult(id, data) {
   const res = await apiFetch(`/api/ranking/results/${id}`, {
     method: 'PUT',
