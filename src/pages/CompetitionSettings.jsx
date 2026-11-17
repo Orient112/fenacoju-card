@@ -37,7 +37,12 @@ import {
   getCompetitionFeeCdf,
   resolveCompetitionFeesCdf,
 } from '../utils/competitionReceipt';
-import { validateCategoryAge, categoryFromBirthDate, calcAgeFromDate } from '../utils/categoryAge';
+import {
+  validateCategoryAge,
+  categoryFromBirthDate,
+  categoryFromAgeThresholds,
+  calcAgeFromDate,
+} from '../utils/categoryAge';
 
 function isTeamRegistration(r) {
   return r?.mode_inscription === 'equipe' || String(r?.taille || '').startsWith('__mode_equipe__');
@@ -1465,6 +1470,14 @@ export default function CompetitionSettings({ onBack, onToast, cardDesign = null
     categorie: '',
   });
 
+  const competitionAgeThresholds = Array.isArray(settings?.categories_age) ? settings.categories_age : [];
+
+  const resolveCompetitionAgeCategory = (dateNaissance) => (
+    competitionAgeThresholds.length
+      ? categoryFromAgeThresholds(dateNaissance, competitionAgeThresholds)
+      : categoryFromBirthDate(dateNaissance)
+  );
+
   const buildAddIndividuelEntry = (form) => {
     const nom = String(form.nom || '').trim();
     const prenom = String(form.prenom || '').trim();
@@ -1473,8 +1486,12 @@ export default function CompetitionSettings({ onBack, onToast, cardDesign = null
     if (!nom || !prenom) return { error: 'Nom et prénom obligatoires' };
     if (!club) return { error: 'Le club est obligatoire' };
     if (!dateNaissance) return { error: 'La date de naissance est obligatoire' };
-    const categorie = categoryFromBirthDate(dateNaissance) || String(form.categorie || '').trim();
-    const ageError = validateCategoryAge(categorie, dateNaissance);
+    const categorie = resolveCompetitionAgeCategory(dateNaissance) || String(form.categorie || '').trim();
+    const ageError = validateCategoryAge(
+      categorie,
+      dateNaissance,
+      competitionAgeThresholds.length ? competitionAgeThresholds : null
+    );
     if (ageError) return { error: ageError };
     const entry = {
       nom,
@@ -1537,7 +1554,11 @@ export default function CompetitionSettings({ onBack, onToast, cardDesign = null
       return;
     }
     for (const item of list) {
-      const ageError = validateCategoryAge(item.categorie, item.date_naissance);
+      const ageError = validateCategoryAge(
+        item.categorie,
+        item.date_naissance,
+        competitionAgeThresholds.length ? competitionAgeThresholds : null
+      );
       if (ageError) {
         onToast?.(`${item.prenom} ${item.nom} : ${ageError}`, 'error');
         return;
@@ -1547,7 +1568,9 @@ export default function CompetitionSettings({ onBack, onToast, cardDesign = null
     setSaving(true);
     setError('');
     try {
-      const { registrations: createdRows = [] } = await createCompetitionRegistrationsBatch(list);
+      const { registrations: createdRows = [] } = await createCompetitionRegistrationsBatch(
+        list.map((item) => ({ ...item, categories_age: competitionAgeThresholds }))
+      );
       setRegistrations((prev) => [...createdRows, ...prev]);
       setShowAddIndividuel(false);
       setAddIndividuelBasket([]);
@@ -1793,7 +1816,7 @@ export default function CompetitionSettings({ onBack, onToast, cardDesign = null
       sexe: reg.sexe === 'F' ? 'F' : 'M',
       poids: reg.poids || '',
       date_naissance,
-      categorie: categoryFromBirthDate(date_naissance) || reg.categorie || '',
+      categorie: resolveCompetitionAgeCategory(date_naissance) || reg.categorie || '',
     });
   };
 
@@ -2187,9 +2210,13 @@ export default function CompetitionSettings({ onBack, onToast, cardDesign = null
       onToast?.('Le club est obligatoire', 'error');
       return;
     }
-    const resolvedCategorie = categoryFromBirthDate(editRegForm.date_naissance)
+    const resolvedCategorie = resolveCompetitionAgeCategory(editRegForm.date_naissance)
       || String(editRegForm.categorie || '').trim();
-    const ageError = validateCategoryAge(resolvedCategorie, editRegForm.date_naissance);
+    const ageError = validateCategoryAge(
+      resolvedCategorie,
+      editRegForm.date_naissance,
+      competitionAgeThresholds.length ? competitionAgeThresholds : null
+    );
     if (ageError) {
       onToast?.(ageError, 'error');
       return;
@@ -2877,7 +2904,7 @@ export default function CompetitionSettings({ onBack, onToast, cardDesign = null
                     value={addIndividuelForm.date_naissance}
                     onChange={(e) => {
                       const date_naissance = e.target.value;
-                      const autoCat = categoryFromBirthDate(date_naissance);
+                      const autoCat = resolveCompetitionAgeCategory(date_naissance);
                       setAddIndividuelForm((prev) => ({
                         ...prev,
                         date_naissance,
@@ -2893,7 +2920,7 @@ export default function CompetitionSettings({ onBack, onToast, cardDesign = null
                     id="add-indiv-categorie"
                     value={addIndividuelForm.categorie}
                     onChange={(e) => setAddIndividuelForm((prev) => ({ ...prev, categorie: e.target.value }))}
-                    disabled={Boolean(categoryFromBirthDate(addIndividuelForm.date_naissance))}
+                    disabled={Boolean(resolveCompetitionAgeCategory(addIndividuelForm.date_naissance))}
                   >
                     <option value="">- Optionnel -</option>
                     {(CATEGORIES || []).map((cat) => (
@@ -3008,7 +3035,7 @@ export default function CompetitionSettings({ onBack, onToast, cardDesign = null
                     value={editRegForm.date_naissance}
                     onChange={(e) => {
                       const date_naissance = e.target.value;
-                      const autoCat = categoryFromBirthDate(date_naissance);
+                      const autoCat = resolveCompetitionAgeCategory(date_naissance);
                       setEditRegForm((prev) => ({
                         ...prev,
                         date_naissance,
@@ -3033,7 +3060,7 @@ export default function CompetitionSettings({ onBack, onToast, cardDesign = null
                     id="edit-categorie"
                     value={editRegForm.categorie}
                     onChange={(e) => setEditRegForm((prev) => ({ ...prev, categorie: e.target.value }))}
-                    disabled={Boolean(categoryFromBirthDate(editRegForm.date_naissance))}
+                    disabled={Boolean(resolveCompetitionAgeCategory(editRegForm.date_naissance))}
                   >
                     <option value="">- Sélectionner -</option>
                     {(CATEGORIES || []).map((cat) => (

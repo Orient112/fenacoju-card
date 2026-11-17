@@ -766,6 +766,7 @@ app.post('/api/public/competition/:token/register', async (req, res) => {
           paiement_statut: paymentMeta.paiement_statut,
           mode_paiement: paymentMeta.mode_paiement,
           montant_paye: paymentMeta.paiement_statut === 'paye' ? unitFee : 0,
+          categories_age: settings.categories_age,
           ...scopeMeta,
         });
         created.push(registration);
@@ -904,6 +905,7 @@ app.post('/api/public/competition/:token/register', async (req, res) => {
         email: body.email || judoka.email,
         deja_enregistre: true,
         mode_inscription: modeInscription,
+        categories_age: settings.categories_age,
         ...payInfo,
         ...scopeMeta,
       });
@@ -931,6 +933,7 @@ app.post('/api/public/competition/:token/register', async (req, res) => {
       taille: '',
       deja_enregistre: false,
       mode_inscription: modeInscription,
+      categories_age: settings.categories_age,
       ...payInfo,
       ...scopeMeta,
     });
@@ -1807,6 +1810,7 @@ app.post('/api/competition/registrations', async (req, res) => {
         paiement_statut: item.paiement_statut || 'en_attente',
         montant_paye: Math.max(0, Number(item.montant_paye) || 0),
         mode_paiement: String(item.mode_paiement || '').trim(),
+        categories_age: current.categories_age,
         federation_id: fedId,
         owner_key: ownerKey,
       };
@@ -1867,6 +1871,7 @@ app.put('/api/competition/registrations/:id', async (req, res) => {
       sexe: req.body?.sexe,
       role_equipe: req.body?.role_equipe,
       date_naissance: req.body?.date_naissance,
+      categories_age: current.categories_age,
     });
     res.json(updated);
   } catch (err) {

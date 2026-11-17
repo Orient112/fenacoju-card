@@ -6,6 +6,7 @@ import { dataDir } from './paths.js';
 import {
   validateCategoryAge,
   categoryFromBirthDate,
+  categoryFromAgeThresholds,
   parseCategoriesAge,
 } from './categoryAge.js';
 
@@ -805,6 +806,19 @@ export async function findDuplicateCompetitionRegistration(payload) {
   )) || null;
 }
 
+async function resolveCompetitionAgeThresholds(payload = {}) {
+  const fromPayload = parseCategoriesAge(payload.categories_age);
+  if (fromPayload.length) return fromPayload;
+  try {
+    const fedId = payload.federation_id || null;
+    const ownerKey = payload.owner_key || 'federation';
+    const settings = await getCompetitionSettings(fedId, ownerKey);
+    return parseCategoriesAge(settings?.categories_age);
+  } catch {
+    return [];
+  }
+}
+
 export async function createCompetitionRegistration(payload) {
   const duplicate = await findDuplicateCompetitionRegistration(payload);
   if (duplicate) {
@@ -816,6 +830,7 @@ export async function createCompetitionRegistration(payload) {
   const poids = modeInscription === 'equipe'
     ? String(payload.poids ?? '').trim()
     : String(payload.poids ?? '').trim();
+  const ageThresholds = await resolveCompetitionAgeThresholds(payload);
   const row = {
     id: uuidv4(),
     judoka_id: dejaEnregistre ? (payload.judoka_id || null) : null,
@@ -850,9 +865,15 @@ export async function createCompetitionRegistration(payload) {
     throw new Error('La date de naissance est obligatoire');
   }
   if (modeInscription !== 'equipe') {
-    const autoCat = categoryFromBirthDate(row.date_naissance);
+    const autoCat = ageThresholds.length
+      ? categoryFromAgeThresholds(row.date_naissance, ageThresholds)
+      : categoryFromBirthDate(row.date_naissance);
     if (autoCat) row.categorie = autoCat;
-    const ageError = validateCategoryAge(row.categorie, row.date_naissance);
+    const ageError = validateCategoryAge(
+      row.categorie,
+      row.date_naissance,
+      ageThresholds.length ? ageThresholds : null
+    );
     if (ageError) throw new Error(ageError);
   }
   if (modeInscription === 'equipe' && !row.poids) {
@@ -1179,9 +1200,22 @@ export async function updateCompetitionRegistration(id, patch = {}) {
     throw new Error('La date de naissance est obligatoire');
   }
   if (getRegistrationMode(existing) !== 'equipe') {
-    const autoCat = categoryFromBirthDate(next.date_naissance);
+    const ageThresholds = await resolveCompetitionAgeThresholds({
+      ...patch,
+      ...next,
+      federation_id: next.federation_id || existing.federation_id || patch.federation_id,
+      owner_key: next.owner_key || existing.owner_key || patch.owner_key,
+      categories_age: patch.categories_age || existing.categories_age,
+    });
+    const autoCat = ageThresholds.length
+      ? categoryFromAgeThresholds(next.date_naissance, ageThresholds)
+      : categoryFromBirthDate(next.date_naissance);
     if (autoCat) next.categorie = autoCat;
-    const ageError = validateCategoryAge(next.categorie, next.date_naissance);
+    const ageError = validateCategoryAge(
+      next.categorie,
+      next.date_naissance,
+      ageThresholds.length ? ageThresholds : null
+    );
     if (ageError) throw new Error(ageError);
   }
 
