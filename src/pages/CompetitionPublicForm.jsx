@@ -112,6 +112,7 @@ export default function CompetitionPublicForm({ token }) {
   const [clubJudokas, setClubJudokas] = useState([]);
   const [clubJudokasLoading, setClubJudokasLoading] = useState(false);
   const [judokaMeta, setJudokaMeta] = useState(null);
+  const [showManualAthleteForm, setShowManualAthleteForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [successName, setSuccessName] = useState('');
   const [successCount, setSuccessCount] = useState(0);
@@ -265,6 +266,7 @@ export default function CompetitionPublicForm({ token }) {
     setInscriptionMode('');
     setCardId('');
     setJudokaMeta(null);
+    setShowManualAthleteForm(false);
     setForm(emptyForm());
     setBasket([]);
     setTeamClub('');
@@ -288,6 +290,7 @@ export default function CompetitionPublicForm({ token }) {
     setError('');
     setCardId('');
     setJudokaMeta(null);
+    setShowManualAthleteForm(false);
     setForm(emptyForm());
   };
 
@@ -300,6 +303,7 @@ export default function CompetitionPublicForm({ token }) {
     setError('');
     setCardId('');
     setJudokaMeta(null);
+    setShowManualAthleteForm(true);
     setForm(emptyForm());
   };
 
@@ -408,6 +412,7 @@ export default function CompetitionPublicForm({ token }) {
 
       setBasket(unique);
       setJudokaMeta(null);
+      setShowManualAthleteForm(false);
       setForm(emptyForm());
       setCardId('');
       setStep('form');
@@ -430,9 +435,21 @@ export default function CompetitionPublicForm({ token }) {
     poids: '',
   });
 
+  const openManualAthleteForm = () => {
+    setError('');
+    setJudokaMeta(null);
+    setCardId('');
+    setForm(emptyForm());
+    setShowManualAthleteForm(true);
+  };
+
   const addToBasket = (e) => {
     e.preventDefault();
     setError('');
+    if (!showManualAthleteForm && !judokaMeta && basket.length > 0) {
+      openManualAthleteForm();
+      return;
+    }
     if (!form.club?.trim() || !form.nom?.trim() || !form.prenom?.trim() || !form.date_naissance) {
       setError('Complétez les champs obligatoires avant d\'ajouter');
       return;
@@ -454,7 +471,8 @@ export default function CompetitionPublicForm({ token }) {
     setBasket((prev) => [...prev, { ...payload, _key: key }]);
     setJudokaMeta(null);
     setCardId('');
-    setForm((prev) => ({ ...emptyForm(), club: prev.club }));
+    setForm(emptyForm());
+    setShowManualAthleteForm(false);
     setStep('form');
   };
 
@@ -1074,13 +1092,21 @@ export default function CompetitionPublicForm({ token }) {
               </form>
             )}
 
-            {step === 'form' && (
+            {step === 'form' && (() => {
+              const showAthleteFields = showManualAthleteForm || Boolean(judokaMeta) || basket.length === 0;
+              return (
               <form className="competition-reg-form form-card" onSubmit={openIndividuelPayment}>
                 <h2>{judokaMeta ? 'Confirmer l\'inscription' : 'Nouvel enregistrement'}</h2>
                 {judokaMeta && (
                   <p className="form-hint">
                     Données importées depuis la carte <strong>{judokaMeta.numero_carte}</strong>.
                     Vérifiez la catégorie si besoin. Le poids sera saisi à la pesée.
+                  </p>
+                )}
+                {!showAthleteFields && basket.length > 0 && (
+                  <p className="form-hint">
+                    Athlètes importés depuis le système (club déjà associé).
+                    Utilisez &quot;Ajouter un athlète&quot; pour en saisir un manuellement.
                   </p>
                 )}
                 {(fraisIndividuelCdf > 0 || fraisIndividuelUsd > 0) && (
@@ -1119,82 +1145,92 @@ export default function CompetitionPublicForm({ token }) {
                   </div>
                 )}
 
-                <div className="form-grid">
-                  <div className="form-group form-group-full">
-                    <label htmlFor="club">Club *</label>
-                    <CompetitionClubSelect
-                      id="club"
-                      name="club"
-                      value={form.club}
-                      clubs={clubsForSelect(form.club)}
-                      onChange={handleChange}
-                      required
-                    />
-                    {clubsForSelect(form.club).length === 0 && (
-                      <p className="form-hint">Aucun club Individuel n&apos;est encore enregistré pour cette compétition.</p>
-                    )}
+                {showAthleteFields ? (
+                  <div className="form-grid">
+                    <div className="form-group form-group-full">
+                      <label htmlFor="club">Club *</label>
+                      <CompetitionClubSelect
+                        id="club"
+                        name="club"
+                        value={form.club}
+                        clubs={clubsForSelect(form.club)}
+                        onChange={handleChange}
+                        required
+                      />
+                      {clubsForSelect(form.club).length === 0 && (
+                        <p className="form-hint">Aucun club Individuel n&apos;est encore enregistré pour cette compétition.</p>
+                      )}
+                    </div>
+                    <div className="form-group">
+                      <label htmlFor="nom">Nom *</label>
+                      <input id="nom" name="nom" value={form.nom} onChange={handleChange} required={!basket.length} readOnly={Boolean(judokaMeta)} />
+                    </div>
+                    <div className="form-group">
+                      <label htmlFor="prenom">Prénom *</label>
+                      <input id="prenom" name="prenom" value={form.prenom} onChange={handleChange} required={!basket.length} readOnly={Boolean(judokaMeta)} />
+                    </div>
+                    <div className="form-group">
+                      <label htmlFor="sexe">Sexe *</label>
+                      <select id="sexe" name="sexe" value={form.sexe} onChange={handleChange} disabled={Boolean(judokaMeta)}>
+                        <option value="M">Masculin</option>
+                        <option value="F">Féminin</option>
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label htmlFor="date_naissance">Date de naissance *</label>
+                      <input
+                        id="date_naissance"
+                        type="date"
+                        name="date_naissance"
+                        value={form.date_naissance}
+                        onChange={handleChange}
+                        required={!basket.length}
+                        readOnly={Boolean(judokaMeta)}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label htmlFor="categorie">Catégorie</label>
+                      <select
+                        id="categorie"
+                        name="categorie"
+                        value={form.categorie}
+                        onChange={handleChange}
+                        disabled={Boolean(resolveAgeCategory(form.date_naissance))}
+                      >
+                        <option value="">- Sélectionner -</option>
+                        {categoryOptions.map((c) => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
-                  <div className="form-group">
-                    <label htmlFor="nom">Nom *</label>
-                    <input id="nom" name="nom" value={form.nom} onChange={handleChange} required={!basket.length} readOnly={Boolean(judokaMeta)} />
-                  </div>
-                  <div className="form-group">
-                    <label htmlFor="prenom">Prénom *</label>
-                    <input id="prenom" name="prenom" value={form.prenom} onChange={handleChange} required={!basket.length} readOnly={Boolean(judokaMeta)} />
-                  </div>
-                  <div className="form-group">
-                    <label htmlFor="sexe">Sexe *</label>
-                    <select id="sexe" name="sexe" value={form.sexe} onChange={handleChange} disabled={Boolean(judokaMeta)}>
-                      <option value="M">Masculin</option>
-                      <option value="F">Féminin</option>
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label htmlFor="date_naissance">Date de naissance *</label>
-                    <input
-                      id="date_naissance"
-                      type="date"
-                      name="date_naissance"
-                      value={form.date_naissance}
-                      onChange={handleChange}
-                      required={!basket.length}
-                      readOnly={Boolean(judokaMeta)}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label htmlFor="categorie">Catégorie</label>
-                    <select
-                      id="categorie"
-                      name="categorie"
-                      value={form.categorie}
-                      onChange={handleChange}
-                      disabled={Boolean(resolveAgeCategory(form.date_naissance))}
-                    >
-                      <option value="">- Sélectionner -</option>
-                      {categoryOptions.map((c) => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
+                ) : null}
 
                 <div className="form-actions competition-form-actions-multi">
                   <button
                     type="button"
                     className="btn btn-outline"
-                    onClick={() => setStep(judokaMeta ? 'lookup' : (basket.length ? 'form' : 'choice'))}
+                    onClick={() => {
+                      if (showManualAthleteForm && basket.length > 0 && !judokaMeta) {
+                        setShowManualAthleteForm(false);
+                        setForm(emptyForm());
+                        return;
+                      }
+                      setStep(judokaMeta ? 'lookup' : (basket.length ? 'lookup' : 'choice'));
+                    }}
                   >
                     Retour
                   </button>
                   <button type="button" className="btn btn-outline" onClick={addToBasket}>
                     Ajouter un athlète
                   </button>
-                  <button type="submit" className="btn btn-primary" disabled={submitting}>
+                  <button type="submit" className="btn btn-primary" disabled={submitting || (!basket.length && !showAthleteFields)}>
                     Valider l&apos;inscription
                   </button>
                 </div>
               </form>
-            )}
+              );
+            })()}
 
             {step === 'team' && (
               <form className="competition-reg-form form-card competition-team-form" onSubmit={openTeamPayment}>
