@@ -156,6 +156,7 @@ export default function CompetitionPublicForm({ token }) {
             categories_poids: data.categories_poids,
             categories_age: data.categories_age,
             allow_hors_systeme: data.allow_hors_systeme,
+            paiement_enabled: data.paiement_enabled,
             competition_clubs: data.competition_clubs,
             frais_individuel: data.frais_individuel,
             frais_equipe: data.frais_equipe,
@@ -234,21 +235,30 @@ export default function CompetitionPublicForm({ token }) {
     });
   };
 
+  const paiementEnabled = Boolean(competition?.paiement_enabled);
   const fraisMonnaie = String(competition?.frais_monnaie || '').toUpperCase() === 'USD' ? 'USD' : 'CDF';
-  const fraisIndividuel = Math.max(0, Number(
+  const fraisIndividuel = paiementEnabled ? Math.max(0, Number(
     fraisMonnaie === 'USD'
       ? (competition?.frais_individuel_usd ?? competition?.frais_individuel)
       : (competition?.frais_individuel_cdf ?? competition?.frais_individuel)
-  ) || 0);
-  const fraisEquipe = Math.max(0, Number(
+  ) || 0) : 0;
+  const fraisEquipe = paiementEnabled ? Math.max(0, Number(
     fraisMonnaie === 'USD'
       ? (competition?.frais_equipe_usd ?? competition?.frais_equipe)
       : (competition?.frais_equipe_cdf ?? competition?.frais_equipe)
-  ) || 0);
-  const fraisIndividuelCdf = Math.max(0, Number(competition?.frais_individuel_cdf ?? competition?.frais_individuel) || 0);
-  const fraisIndividuelUsd = Math.max(0, Number(competition?.frais_individuel_usd) || 0);
-  const fraisEquipeCdf = Math.max(0, Number(competition?.frais_equipe_cdf ?? competition?.frais_equipe) || 0);
-  const fraisEquipeUsd = Math.max(0, Number(competition?.frais_equipe_usd) || 0);
+  ) || 0) : 0;
+  const fraisIndividuelCdf = paiementEnabled
+    ? Math.max(0, Number(competition?.frais_individuel_cdf ?? competition?.frais_individuel) || 0)
+    : 0;
+  const fraisIndividuelUsd = paiementEnabled
+    ? Math.max(0, Number(competition?.frais_individuel_usd) || 0)
+    : 0;
+  const fraisEquipeCdf = paiementEnabled
+    ? Math.max(0, Number(competition?.frais_equipe_cdf ?? competition?.frais_equipe) || 0)
+    : 0;
+  const fraisEquipeUsd = paiementEnabled
+    ? Math.max(0, Number(competition?.frais_equipe_usd) || 0)
+    : 0;
 
   const resetFlow = () => {
     setStep('mode');
@@ -407,6 +417,18 @@ export default function CompetitionPublicForm({ token }) {
     setBasket(list);
     setPaymentItems(list);
     setPaymentKind('individuel');
+    const unitFee = Math.max(0, Number(
+      fraisMonnaie === 'USD' ? fraisIndividuelUsd : fraisIndividuelCdf
+    ) || fraisIndividuel || 0);
+    if (!paiementEnabled || unitFee <= 0) {
+      confirmIndividuelPayment({
+        mode: 'gratuit',
+        telephone: '',
+        montant: 0,
+        monnaie: fraisMonnaie,
+      }, list);
+      return;
+    }
     setShowPayment(true);
   };
 
@@ -432,11 +454,14 @@ export default function CompetitionPublicForm({ token }) {
     }
   };
 
-  const confirmIndividuelPayment = async (paiement) => {
+  const confirmIndividuelPayment = async (paiement, itemsOverride = null) => {
     setSubmitting(true);
     setError('');
     setReceiptError('');
-    const batch = (paymentItems.length ? paymentItems : basket).map(({ _key, ...rest }) => rest);
+    const source = Array.isArray(itemsOverride) && itemsOverride.length
+      ? itemsOverride
+      : (paymentItems.length ? paymentItems : basket);
+    const batch = source.map(({ _key, ...rest }) => rest);
     const needsPay = Number(paiement?.montant) > 0 && paiement?.mode === 'mobile_money';
 
     // Le modal a déjà confirmé le paiement (orderNumber présent si payant)
@@ -620,6 +645,15 @@ export default function CompetitionPublicForm({ token }) {
       return;
     }
     setPaymentKind('equipe');
+    if (!paiementEnabled || fraisEquipe <= 0) {
+      confirmTeamPayment({
+        mode: 'gratuit',
+        telephone: '',
+        montant: 0,
+        monnaie: fraisMonnaie,
+      });
+      return;
+    }
     setShowPayment(true);
   };
 
@@ -830,7 +864,7 @@ export default function CompetitionPublicForm({ token }) {
           <p className="competition-public-desc">{competition.description}</p>
         )}
 
-        {(fraisIndividuelCdf > 0 || fraisIndividuelUsd > 0 || fraisEquipeCdf > 0 || fraisEquipeUsd > 0) && step === 'mode' && (
+        {paiementEnabled && (fraisIndividuelCdf > 0 || fraisIndividuelUsd > 0 || fraisEquipeCdf > 0 || fraisEquipeUsd > 0) && step === 'mode' && (
           <div className="competition-fees-public">
             {(fraisIndividuelCdf > 0 || fraisIndividuelUsd > 0) && (
               <span>

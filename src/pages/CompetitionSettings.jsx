@@ -429,6 +429,7 @@ function ParamsFormFields({
   const logoSrc = form.logo_url ? resolveMediaUrl(form.logo_url) : '/fenacoju-logo.png';
   const hasCustomLogo = Boolean(form.logo_url);
   const horsSystemeOn = Boolean(form.allow_hors_systeme);
+  const paiementOn = Boolean(form.paiement_enabled);
 
   const updateAgeCat = (index, field, value) => {
     const next = ageCats.map((c, i) => (i === index ? { ...c, [field]: value } : c));
@@ -661,82 +662,111 @@ function ParamsFormFields({
           <span className="competition-cat-block-kicker">Tarifs</span>
           <h4>Frais de participation</h4>
         </div>
-        <p className="form-hint">
-          Définissez les prix en Franc Congolais et en Dollars pour chaque catégorie.
-          La monnaie choisie est celle utilisée pour le paiement à l&apos;inscription.
-        </p>
-        <div className="form-group competition-fees-currency">
-          <label htmlFor="frais-monnaie">Monnaie de paiement</label>
-          <select
-            id="frais-monnaie"
-            name="frais_monnaie"
-            value={form.frais_monnaie || 'CDF'}
-            onChange={onChange}
+        <div className="transfer-row" style={{ padding: '0.5rem 0' }}>
+          <div>
+            <strong>Paiement {paiementOn ? 'activé' : 'désactivé'}</strong>
+            <p className="form-hint" style={{ margin: '0.2rem 0 0' }}>
+              {paiementOn
+                ? 'L\'inscription à la compétition est payante.'
+                : 'L\'inscription à la compétition est gratuite (sans paiement).'}
+            </p>
+          </div>
+          <button
+            type="button"
+            className={`competition-access-toggle ${paiementOn ? 'is-on' : ''}`}
+            aria-pressed={paiementOn}
+            aria-label={paiementOn ? 'Désactiver le paiement' : 'Activer le paiement'}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onChange?.({
+                target: { name: 'paiement_enabled', type: 'checkbox', checked: !paiementOn },
+              });
+            }}
           >
-            <option value="CDF">Franc Congolais (FC)</option>
-            <option value="USD">Dollars (USD)</option>
-          </select>
+            <span className="toggle-slider" aria-hidden="true" />
+          </button>
         </div>
-        <div className="competition-fees-grid competition-fees-grid-dual">
-          <div className="competition-fees-category">
-            <h5>Individuel (par athlète)</h5>
-            <div className="form-group">
-              <label htmlFor="frais-individuel-cdf">Prix en Franc Congolais</label>
-              <input
-                id="frais-individuel-cdf"
-                name="frais_individuel_cdf"
-                type="number"
-                min="0"
-                step="1"
-                value={form.frais_individuel_cdf ?? 0}
+        {paiementOn ? (
+          <>
+            <p className="form-hint">
+              Définissez les prix en Franc Congolais et en Dollars pour chaque catégorie.
+              La monnaie choisie est celle utilisée pour le paiement à l&apos;inscription.
+            </p>
+            <div className="form-group competition-fees-currency">
+              <label htmlFor="frais-monnaie">Monnaie de paiement</label>
+              <select
+                id="frais-monnaie"
+                name="frais_monnaie"
+                value={form.frais_monnaie || 'CDF'}
                 onChange={onChange}
-                placeholder="0"
-              />
+              >
+                <option value="CDF">Franc Congolais (FC)</option>
+                <option value="USD">Dollars (USD)</option>
+              </select>
             </div>
-            <div className="form-group">
-              <label htmlFor="frais-individuel-usd">Prix en Dollars</label>
-              <input
-                id="frais-individuel-usd"
-                name="frais_individuel_usd"
-                type="number"
-                min="0"
-                step="0.01"
-                value={form.frais_individuel_usd ?? 0}
-                onChange={onChange}
-                placeholder="0"
-              />
+            <div className="competition-fees-grid competition-fees-grid-dual">
+              <div className="competition-fees-category">
+                <h5>Individuel (par athlète)</h5>
+                <div className="form-group">
+                  <label htmlFor="frais-individuel-cdf">Prix en Franc Congolais</label>
+                  <input
+                    id="frais-individuel-cdf"
+                    name="frais_individuel_cdf"
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={form.frais_individuel_cdf ?? 0}
+                    onChange={onChange}
+                    placeholder="0"
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="frais-individuel-usd">Prix en Dollars</label>
+                  <input
+                    id="frais-individuel-usd"
+                    name="frais_individuel_usd"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.frais_individuel_usd ?? 0}
+                    onChange={onChange}
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+              <div className="competition-fees-category">
+                <h5>Par équipe (par club)</h5>
+                <div className="form-group">
+                  <label htmlFor="frais-equipe-cdf">Prix en Franc Congolais</label>
+                  <input
+                    id="frais-equipe-cdf"
+                    name="frais_equipe_cdf"
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={form.frais_equipe_cdf ?? 0}
+                    onChange={onChange}
+                    placeholder="0"
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="frais-equipe-usd">Prix en Dollars</label>
+                  <input
+                    id="frais-equipe-usd"
+                    name="frais_equipe_usd"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.frais_equipe_usd ?? 0}
+                    onChange={onChange}
+                    placeholder="0"
+                  />
+                </div>
+              </div>
             </div>
-          </div>
-          <div className="competition-fees-category">
-            <h5>Par équipe (par club)</h5>
-            <div className="form-group">
-              <label htmlFor="frais-equipe-cdf">Prix en Franc Congolais</label>
-              <input
-                id="frais-equipe-cdf"
-                name="frais_equipe_cdf"
-                type="number"
-                min="0"
-                step="1"
-                value={form.frais_equipe_cdf ?? 0}
-                onChange={onChange}
-                placeholder="0"
-              />
-            </div>
-            <div className="form-group">
-              <label htmlFor="frais-equipe-usd">Prix en Dollars</label>
-              <input
-                id="frais-equipe-usd"
-                name="frais_equipe_usd"
-                type="number"
-                min="0"
-                step="0.01"
-                value={form.frais_equipe_usd ?? 0}
-                onChange={onChange}
-                placeholder="0"
-              />
-            </div>
-          </div>
-        </div>
+          </>
+        ) : null}
       </div>
       <div className="competition-fees-block">
         <div className="competition-cat-block-head">
@@ -888,6 +918,7 @@ export default function CompetitionSettings({ onBack, onToast, cardDesign = null
     categories_poids_individuel: [],
     categories_age: [],
     allow_hors_systeme: false,
+    paiement_enabled: false,
     frais_monnaie: 'CDF',
     frais_individuel_cdf: 0,
     frais_individuel_usd: 0,
@@ -921,6 +952,7 @@ export default function CompetitionSettings({ onBack, onToast, cardDesign = null
       categories_poids_individuel: Array.isArray(data.categories_poids_individuel) ? data.categories_poids_individuel : [],
       categories_age: Array.isArray(data.categories_age) ? data.categories_age : [],
       allow_hors_systeme: Boolean(data.allow_hors_systeme),
+      paiement_enabled: Boolean(data.paiement_enabled),
       frais_monnaie: String(data.frais_monnaie || '').toUpperCase() === 'USD' ? 'USD' : 'CDF',
       frais_individuel_cdf: Math.max(0, Number(data.frais_individuel_cdf ?? data.frais_individuel) || 0),
       frais_individuel_usd: Math.max(0, Number(data.frais_individuel_usd) || 0),
@@ -1116,6 +1148,7 @@ export default function CompetitionSettings({ onBack, onToast, cardDesign = null
       const payload = {
         ...formFields,
         allow_hors_systeme: Boolean(form.allow_hors_systeme),
+        paiement_enabled: Boolean(form.paiement_enabled),
         categories_age: Array.isArray(form.categories_age) ? form.categories_age : [],
         frais_monnaie: String(form.frais_monnaie || '').toUpperCase() === 'USD' ? 'USD' : 'CDF',
         frais_individuel_cdf: Math.max(0, Number(form.frais_individuel_cdf) || 0),

@@ -28,6 +28,7 @@ const DEFAULT_SETTINGS = {
   categories_age: [],
   allow_hors_systeme: false,
   competition_clubs: [],
+  paiement_enabled: false,
   frais_monnaie: 'CDF',
   frais_individuel: 0,
   frais_equipe: 0,
@@ -275,6 +276,14 @@ function ensureDefaults(raw = {}) {
     settings.allow_hors_systeme = Boolean(settings.allow_hors_systeme);
   }
 
+  if (Object.prototype.hasOwnProperty.call(raw, 'paiement_enabled')) {
+    settings.paiement_enabled = Boolean(raw.paiement_enabled);
+  } else if (meta && meta.paiement_enabled !== undefined) {
+    settings.paiement_enabled = Boolean(meta.paiement_enabled);
+  } else {
+    settings.paiement_enabled = Boolean(settings.paiement_enabled);
+  }
+
   settings.frais_monnaie = String(settings.frais_monnaie || meta?.frais_monnaie || '').toUpperCase() === 'USD'
     ? 'USD'
     : 'CDF';
@@ -361,6 +370,7 @@ function toDbSettings(settings) {
       categories_poids_individuel: indivCats,
       categories_age: parseCategoriesAge(settings.categories_age),
       allow_hors_systeme: Boolean(settings.allow_hors_systeme),
+      paiement_enabled: Boolean(settings.paiement_enabled),
       competition_clubs: parseCompetitionClubs(settings.competition_clubs),
       frais_monnaie: String(settings.frais_monnaie || '').toUpperCase() === 'USD' ? 'USD' : 'CDF',
       frais_individuel_cdf: Math.max(0, Number(settings.frais_individuel_cdf ?? settings.frais_individuel) || 0),
@@ -678,14 +688,27 @@ export function toPublicCompetition(settings, extras = {}, options = {}) {
     categories_poids_individuel: parseCategoriesPoids(settings.categories_poids_individuel),
     categories_age: parseCategoriesAge(settings.categories_age),
     allow_hors_systeme: Boolean(settings.allow_hors_systeme),
+    paiement_enabled: Boolean(settings.paiement_enabled),
     competition_clubs: parseCompetitionClubs(settings.competition_clubs),
     frais_monnaie: String(settings.frais_monnaie || '').toUpperCase() === 'USD' ? 'USD' : 'CDF',
-    frais_individuel_cdf: Math.max(0, Number(settings.frais_individuel_cdf ?? settings.frais_individuel) || 0),
-    frais_individuel_usd: Math.max(0, Number(settings.frais_individuel_usd) || 0),
-    frais_equipe_cdf: Math.max(0, Number(settings.frais_equipe_cdf ?? settings.frais_equipe) || 0),
-    frais_equipe_usd: Math.max(0, Number(settings.frais_equipe_usd) || 0),
-    frais_individuel: Math.max(0, Number(settings.frais_individuel) || 0),
-    frais_equipe: Math.max(0, Number(settings.frais_equipe) || 0),
+    frais_individuel_cdf: settings.paiement_enabled
+      ? Math.max(0, Number(settings.frais_individuel_cdf ?? settings.frais_individuel) || 0)
+      : 0,
+    frais_individuel_usd: settings.paiement_enabled
+      ? Math.max(0, Number(settings.frais_individuel_usd) || 0)
+      : 0,
+    frais_equipe_cdf: settings.paiement_enabled
+      ? Math.max(0, Number(settings.frais_equipe_cdf ?? settings.frais_equipe) || 0)
+      : 0,
+    frais_equipe_usd: settings.paiement_enabled
+      ? Math.max(0, Number(settings.frais_equipe_usd) || 0)
+      : 0,
+    frais_individuel: settings.paiement_enabled
+      ? Math.max(0, Number(settings.frais_individuel) || 0)
+      : 0,
+    frais_equipe: settings.paiement_enabled
+      ? Math.max(0, Number(settings.frais_equipe) || 0)
+      : 0,
     logo_url: String(settings.logo_url || '').trim(),
     ...extras,
   };

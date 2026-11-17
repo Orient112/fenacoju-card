@@ -695,15 +695,17 @@ app.post('/api/public/competition/:token/register', async (req, res) => {
       const payCurrency = String(body.paiement?.monnaie || settings.frais_monnaie || 'CDF').toUpperCase() === 'USD'
         ? 'USD'
         : 'CDF';
-      const unitFee = Math.max(0, Number(
-        payCurrency === 'USD' ? settings.frais_individuel_usd : settings.frais_individuel_cdf
-      ) || Number(settings.frais_individuel) || 0);
+      const unitFee = settings.paiement_enabled
+        ? Math.max(0, Number(
+          payCurrency === 'USD' ? settings.frais_individuel_usd : settings.frais_individuel_cdf
+        ) || Number(settings.frais_individuel) || 0)
+        : 0;
       const totalDue = unitFee * body.batch.length;
 
       let paymentMeta = {
-        paiement_statut: 'en_attente',
+        paiement_statut: 'paye',
         montant_paye: 0,
-        mode_paiement: '',
+        mode_paiement: 'gratuit',
       };
 
       if (totalDue > 0) {
@@ -752,7 +754,7 @@ app.post('/api/public/competition/:token/register', async (req, res) => {
         paymentMeta = {
           paiement_statut: 'paye',
           montant_paye: 0,
-          mode_paiement: String(body.paiement.mode || 'gratuit').trim(),
+          mode_paiement: String(body.paiement.mode || 'gratuit').trim() || 'gratuit',
         };
       }
 
@@ -775,11 +777,19 @@ app.post('/api/public/competition/:token/register', async (req, res) => {
       const payCurrency = String(body.paiement?.monnaie || settings.frais_monnaie || 'CDF').toUpperCase() === 'USD'
         ? 'USD'
         : 'CDF';
-      const defaultTeamFee = Math.max(0, Number(
-        payCurrency === 'USD' ? settings.frais_equipe_usd : settings.frais_equipe_cdf
-      ) || Number(settings.frais_equipe) || 0);
+      const defaultTeamFee = settings.paiement_enabled
+        ? Math.max(0, Number(
+          payCurrency === 'USD' ? settings.frais_equipe_usd : settings.frais_equipe_cdf
+        ) || Number(settings.frais_equipe) || 0)
+        : 0;
 
-      let teamPaiement = null;
+      let teamPaiement = {
+        statut: 'paye',
+        montant: 0,
+        mode: 'gratuit',
+        telephone: '',
+        monnaie: payCurrency,
+      };
       if (defaultTeamFee > 0) {
         if (!body.paiement || typeof body.paiement !== 'object') {
           return res.status(402).json({ error: 'Le paiement est obligatoire pour finaliser l\'inscription équipe' });
@@ -828,7 +838,7 @@ app.post('/api/public/competition/:token/register', async (req, res) => {
         teamPaiement = {
           statut: 'paye',
           montant: 0,
-          mode: String(body.paiement.mode || 'gratuit').trim(),
+          mode: String(body.paiement.mode || 'gratuit').trim() || 'gratuit',
           telephone: normalizeCongoPhone(body.paiement.telephone || '') || '',
           monnaie: payCurrency,
         };
@@ -1566,6 +1576,9 @@ app.put('/api/competition', async (req, res) => {
     }
     if (body.allow_hors_systeme !== undefined) {
       patch.allow_hors_systeme = Boolean(body.allow_hors_systeme);
+    }
+    if (body.paiement_enabled !== undefined) {
+      patch.paiement_enabled = Boolean(body.paiement_enabled);
     }
     if (body.competition_clubs !== undefined) {
       let clubs = parseCompetitionClubs(body.competition_clubs);
