@@ -314,26 +314,106 @@ export default function CompetitionPublicForm({ token }) {
     setStep('choice');
   };
 
+  const parseCardIds = (raw) => {
+    const text = String(raw || '').trim();
+    if (!text) return [];
+    // Séparateur attendu : ", " (virgule + espace). Tolère aussi virgule seule / espaces multiples.
+    return text
+      .split(/,\s+/)
+      .flatMap((part) => part.split(','))
+      .map((id) => id.trim())
+      .filter(Boolean);
+  };
+
+  const judokaToBasketItem = (judoka, fallbackCard = '') => {
+    const dateNaissance = judoka.date_naissance || '';
+    const payload = {
+      club: judoka.club || '',
+      nom: judoka.nom || '',
+      prenom: judoka.prenom || '',
+      date_naissance: dateNaissance,
+      sexe: judoka.sexe || 'M',
+      categorie: resolveAgeCategory(dateNaissance) || judoka.categorie || '',
+      deja_enregistre: true,
+      judoka_id: judoka.id || null,
+      numero_carte: judoka.numero_carte || fallbackCard || '',
+      mode_inscription: 'individuel',
+      poids: '',
+    };
+    const key = [
+      payload.nom, payload.prenom, payload.date_naissance, payload.club,
+      payload.judoka_id || payload.numero_carte || '',
+    ].join('|').toLowerCase();
+    return { ...payload, _key: key };
+  };
+
   const handleLookup = async (e) => {
     e.preventDefault();
     setLookupLoading(true);
     setError('');
     try {
-      const judoka = await lookupPublicCompetitionJudoka(token, cardId.trim());
-      setJudokaMeta({
-        id: judoka.id,
-        numero_carte: judoka.numero_carte,
+      const cardIds = parseCardIds(cardId);
+      if (!cardIds.length) {
+        setError('Saisissez au moins un n° de carte');
+        return;
+      }
+
+      if (cardIds.length === 1) {
+        const judoka = await lookupPublicCompetitionJudoka(token, cardIds[0]);
+        setJudokaMeta({
+          id: judoka.id,
+          numero_carte: judoka.numero_carte,
+        });
+        const dateNaissance = judoka.date_naissance || '';
+        setForm({
+          club: judoka.club || '',
+          nom: judoka.nom || '',
+          prenom: judoka.prenom || '',
+          date_naissance: dateNaissance,
+          sexe: judoka.sexe || 'M',
+          categorie: resolveAgeCategory(dateNaissance) || judoka.categorie || '',
+        });
+        setCardId(judoka.numero_carte || cardIds[0]);
+        setStep('form');
+        return;
+      }
+
+      const results = await Promise.allSettled(
+        cardIds.map((id) => lookupPublicCompetitionJudoka(token, id))
+      );
+      const found = [];
+      const missing = [];
+      results.forEach((result, idx) => {
+        if (result.status === 'fulfilled' && result.value) {
+          found.push(judokaToBasketItem(result.value, cardIds[idx]));
+        } else {
+          missing.push(cardIds[idx]);
+        }
       });
-      const dateNaissance = judoka.date_naissance || '';
-      setForm({
-        club: judoka.club || '',
-        nom: judoka.nom || '',
-        prenom: judoka.prenom || '',
-        date_naissance: dateNaissance,
-        sexe: judoka.sexe || 'M',
-        categorie: resolveAgeCategory(dateNaissance) || judoka.categorie || '',
-      });
+
+      if (!found.length) {
+        setError(missing.length
+          ? `Aucun athlète trouvé pour : ${missing.join(', ')}`
+          : 'Aucun athlète trouvé');
+        return;
+      }
+
+      const unique = [];
+      const seen = new Set();
+      for (const item of found) {
+        if (seen.has(item._key)) continue;
+        seen.add(item._key);
+        unique.push(item);
+      }
+
+      setBasket(unique);
+      setJudokaMeta(null);
+      setForm(emptyForm());
+      setCardId('');
       setStep('form');
+      if (missing.length) {
+        setError(`Importés : ${unique.length}. Introuvables : ${missing.join(', ')}`);
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -967,14 +1047,18 @@ export default function CompetitionPublicForm({ token }) {
             {step === 'lookup' && (
               <form className="competition-lookup form-card" onSubmit={handleLookup}>
                 <h2>Athlète déjà enregistré</h2>
-                <p>Saisissez votre n° de carte FENACOJU pour importer vos données.</p>
+                <p>
+                  Saisissez un ou plusieurs n° de carte FENACOJU.
+                  Pour plusieurs athlètes, séparez les numéros par une virgule suivie d&apos;un espace
+                  (ex. FCJ-2026-0001, FCJ-2026-0002).
+                </p>
                 <div className="form-group">
                   <label htmlFor="card-id">ID / N° de carte</label>
                   <input
                     id="card-id"
                     value={cardId}
                     onChange={(e) => setCardId(e.target.value)}
-                    placeholder="Ex. FCJ-2026-0001"
+                    placeholder="Ex. FCJ-2026-0001, FCJ-2026-0002"
                     required
                     autoFocus
                   />

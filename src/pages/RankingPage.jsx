@@ -71,10 +71,21 @@ export default function RankingPage({ user, onToast }) {
   const [board, setBoard] = useState([]);
   const [rules, setRules] = useState(null);
   const [canManage, setCanManage] = useState(false);
+  const isLigueAccount = user?.type === 'ligue';
+  const isEntenteAccount = user?.type === 'entente';
+  const showNationalFilter = !isLigueAccount && !isEntenteAccount;
+  const showLigueFilter = !isEntenteAccount;
+
   const [season, setSeason] = useState('');
-  const [nationalScope, setNationalScope] = useState(true);
-  const [ligueId, setLigueId] = useState('');
-  const [ententeId, setEntenteId] = useState('');
+  const [nationalScope, setNationalScope] = useState(() => !isLigueAccount && !isEntenteAccount);
+  const [ligueId, setLigueId] = useState(() => (
+    isLigueAccount
+      ? String(user?.id || '')
+      : (isEntenteAccount ? String(user?.parent_id || '') : '')
+  ));
+  const [ententeId, setEntenteId] = useState(() => (
+    isEntenteAccount ? String(user?.id || '') : ''
+  ));
   const [ligues, setLigues] = useState([]);
   const [ententes, setEntentes] = useState([]);
   const [allEntentes, setAllEntentes] = useState([]);
@@ -107,17 +118,30 @@ export default function RankingPage({ user, onToast }) {
         ? 'Périmètre : votre club'
         : 'Classement national de la fédération';
 
+  const effectiveLigueId = isLigueAccount
+    ? String(user?.id || ligueId || '')
+    : (isEntenteAccount ? String(user?.parent_id || ligueId || '') : ligueId);
+  const effectiveEntenteId = isEntenteAccount
+    ? String(user?.id || ententeId || '')
+    : ententeId;
+
   const load = async () => {
     setLoading(true);
     setError('');
     try {
+      const scopedLigue = isLigueAccount || isEntenteAccount || (!nationalScope && effectiveLigueId)
+        ? (effectiveLigueId || undefined)
+        : undefined;
+      const scopedEntente = isEntenteAccount || (scopedLigue && effectiveEntenteId)
+        ? (effectiveEntenteId || undefined)
+        : undefined;
       const data = await fetchRankingBoard({
         sexe: sexe || undefined,
         categorie_age: categorieAge || undefined,
         categorie_poids: categoriePoids || undefined,
         season: season || undefined,
-        ligue_id: !nationalScope && ligueId ? ligueId : undefined,
-        entente_id: !nationalScope && ligueId && ententeId ? ententeId : undefined,
+        ligue_id: scopedLigue,
+        entente_id: scopedEntente,
       });
       setBoard(data.board || []);
       setRules(data.rules || null);
@@ -126,6 +150,16 @@ export default function RankingPage({ user, onToast }) {
       setEntentes(data.filters?.ententes || []);
       setAllEntentes(data.filters?.all_ententes || data.filters?.ententes || []);
       if (!season && data.season_label) setSeason(data.season_label);
+      // Verrouiller le scope org pour les comptes Ligue / Entente
+      if (isLigueAccount && user?.id) {
+        setNationalScope(false);
+        setLigueId(String(user.id));
+      }
+      if (isEntenteAccount && user?.id) {
+        setNationalScope(false);
+        setLigueId(String(user.parent_id || ''));
+        setEntenteId(String(user.id));
+      }
     } catch (err) {
       setError(err.message || 'Chargement Ranking impossible');
       onToast?.(err.message || 'Chargement Ranking impossible', 'error');
@@ -137,7 +171,7 @@ export default function RankingPage({ user, onToast }) {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sexe, categorieAge, categoriePoids, nationalScope, ligueId, ententeId]);
+  }, [sexe, categorieAge, categoriePoids, nationalScope, ligueId, ententeId, user?.id, user?.type]);
 
   const levels = useMemo(() => rules?.levels || [], [rules]);
   const coeffs = useMemo(() => rules?.result_coefficients || [], [rules]);
@@ -160,6 +194,7 @@ export default function RankingPage({ user, onToast }) {
   };
 
   const handleLigueChange = (next) => {
+    if (isLigueAccount || isEntenteAccount) return;
     if (!next) {
       setNationalScope(true);
       setLigueId('');
@@ -170,6 +205,31 @@ export default function RankingPage({ user, onToast }) {
     setLigueId(next);
     setEntenteId('');
   };
+
+  const ligueFilterOptions = useMemo(() => {
+    if (isLigueAccount) {
+      const self = ligues.find((l) => String(l.id) === String(user?.id));
+      if (self) return [self];
+      const nom = user?.nom_organisation || user?.nom || 'Votre ligue';
+      return [{ id: user?.id, nom }];
+    }
+    return ligues;
+  }, [isLigueAccount, ligues, user]);
+
+  const ententeFilterOptions = useMemo(() => {
+    if (isEntenteAccount) {
+      const self = allEntentes.find((e) => String(e.id) === String(user?.id))
+        || ententes.find((e) => String(e.id) === String(user?.id));
+      if (self) return [self];
+      const nom = user?.nom_organisation || user?.nom || 'Votre entente';
+      return [{ id: user?.id, nom, parent_id: user?.parent_id }];
+    }
+    if (isLigueAccount) {
+      return (allEntentes.length ? allEntentes : ententes)
+        .filter((e) => String(e.parent_id) === String(user?.id));
+    }
+    return ententes;
+  }, [isEntenteAccount, isLigueAccount, allEntentes, ententes, user]);
 
   const handleSexeChange = (next) => {
     setSexe(next);
@@ -554,30 +614,45 @@ export default function RankingPage({ user, onToast }) {
         <section className="ranking-panel">
           <div className="ranking-toolbar">
             <div className="ranking-filters-pro">
-              <label>
-                <span>National</span>
-                <select
-                  value={nationalScope || !ligueId ? 'national' : 'national'}
-                  onChange={(e) => handleNationalChange(e.target.value)}
-                >
-                  <option value="national">National</option>
-                </select>
-              </label>
-              <label>
-                <span>Ligue</span>
-                <select value={ligueId} onChange={(e) => handleLigueChange(e.target.value)}>
-                  <option value="">Toutes</option>
-                  {ligues.map((l) => (
-                    <option key={l.id} value={l.id}>{l.nom}</option>
-                  ))}
-                </select>
-              </label>
-              {ligueId ? (
+              {showNationalFilter ? (
+                <label>
+                  <span>National</span>
+                  <select
+                    value={nationalScope || !ligueId ? 'national' : 'national'}
+                    onChange={(e) => handleNationalChange(e.target.value)}
+                  >
+                    <option value="national">National</option>
+                  </select>
+                </label>
+              ) : null}
+              {showLigueFilter ? (
+                <label>
+                  <span>Ligue</span>
+                  <select
+                    value={effectiveLigueId}
+                    onChange={(e) => handleLigueChange(e.target.value)}
+                    disabled={isLigueAccount}
+                  >
+                    {!isLigueAccount ? <option value="">Toutes</option> : null}
+                    {ligueFilterOptions.map((l) => (
+                      <option key={l.id} value={l.id}>{l.nom}</option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+              {(isEntenteAccount || isLigueAccount || effectiveLigueId) ? (
                 <label>
                   <span>Entente</span>
-                  <select value={ententeId} onChange={(e) => setEntenteId(e.target.value)}>
-                    <option value="">Toutes</option>
-                    {ententes.map((e) => (
+                  <select
+                    value={effectiveEntenteId}
+                    onChange={(e) => {
+                      if (isEntenteAccount) return;
+                      setEntenteId(e.target.value);
+                    }}
+                    disabled={isEntenteAccount}
+                  >
+                    {!isEntenteAccount ? <option value="">Toutes</option> : null}
+                    {ententeFilterOptions.map((e) => (
                       <option key={e.id} value={e.id}>{e.nom}</option>
                     ))}
                   </select>
