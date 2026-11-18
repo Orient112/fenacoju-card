@@ -66,7 +66,6 @@ export default function Login({ onLogin }) {
 
   const photoUrl = idResult?.photo ? resolveMediaUrl(idResult.photo) : '';
   const ranking = idResult?.ranking || null;
-  const athleteId = idResult?.id || ranking?.judoka?.id;
 
   return (
     <div className="login-page">
@@ -282,43 +281,6 @@ export default function Login({ onLogin }) {
                           </li>
                         ))}
                       </ul>
-                    )}
-                  </div>
-
-                  <div className="login-id-ranking-block">
-                    <h4>Top catégorie de poids</h4>
-                    {(ranking.category_board || []).length === 0 ? (
-                      <p className="form-hint">Pas encore de classement dans cette catégorie.</p>
-                    ) : (
-                      <div className="login-id-ranking-table-wrap">
-                        <table className="data-table">
-                          <thead>
-                            <tr>
-                              <th>#</th>
-                              <th>Athlète</th>
-                              <th>Club</th>
-                              <th>Points</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {ranking.category_board.map((row) => (
-                              <tr
-                                key={`${row.rank}-${row.nom}-${row.prenom}`}
-                                className={
-                                  athleteId && row.judoka_id && String(row.judoka_id) === String(athleteId)
-                                    ? 'is-self'
-                                    : ''
-                                }
-                              >
-                                <td>{row.rank}</td>
-                                <td>{row.prenom} {row.nom}</td>
-                                <td>{row.club || '-'}</td>
-                                <td><strong>{row.points}</strong></td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
                     )}
                   </div>
                 </>

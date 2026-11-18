@@ -971,14 +971,6 @@ app.post('/api/public/judoka-id/verify', async (req, res) => {
         gold_medals: payload.gold_medals,
         wins: payload.wins,
         best_results: payload.best_results || [],
-        category_board: (payload.category_board || []).map((row) => ({
-          rank: row.rank,
-          nom: row.nom,
-          prenom: row.prenom,
-          club: row.club,
-          points: row.points,
-          judoka_id: row.judoka_id,
-        })),
         judoka: payload.judoka,
       };
     } catch {

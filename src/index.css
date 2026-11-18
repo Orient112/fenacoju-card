@@ -3231,14 +3231,6 @@ tbody tr:last-child td {
   color: #0f172a;
 }
 
-.login-id-ranking-table-wrap {
-  overflow-x: auto;
-}
-
-.login-id-ranking-table-wrap tr.is-self {
-  background: #eff6ff;
-}
-
 @media (min-width: 640px) {
   .login-id-identity {
     flex-direction: row;
