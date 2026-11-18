@@ -235,12 +235,28 @@ export default function Login({ onLogin }) {
               ) : (
                 <>
                   <div className="athlete-ranking-stats login-id-ranking-stats">
-                    <div>
+                    <div className="login-id-classement-cell">
                       <span>Classement</span>
-                      <strong>
-                        {ranking.rank ? `#${ranking.rank}` : '-'}
-                        {ranking.category_size ? ` / ${ranking.category_size}` : ''}
-                      </strong>
+                      {(ranking.competition_standings || []).length > 0 ? (
+                        <ul className="login-id-classement-list">
+                          {ranking.competition_standings.map((r) => (
+                            <li key={r.id || `${r.competition_name}-${r.place}`}>
+                              <em>{r.competition_name || 'Compétition'}</em>
+                              <strong>
+                                {Number(r.place) > 0 ? r.place : '-'}
+                                {' / '}
+                                {Number(r.field_size) > 0 ? r.field_size : '-'}
+                              </strong>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <strong>
+                          {ranking.rank ? ranking.rank : '-'}
+                          {' / '}
+                          {ranking.category_size ? ranking.category_size : '-'}
+                        </strong>
+                      )}
                     </div>
                     <div>
                       <span>Points</span>
@@ -274,7 +290,9 @@ export default function Login({ onLogin }) {
                             <small>
                               Niveau {r.competition_level}
                               {' · '}
-                              Place {r.place || 'participation'}
+                              Place{' '}
+                              {Number(r.place) > 0 ? r.place : 'participation'}
+                              {Number(r.field_size) > 0 ? ` / ${r.field_size}` : ''}
                               {' · '}
                               {r.points} pts
                             </small>

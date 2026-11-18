@@ -971,6 +971,7 @@ app.post('/api/public/judoka-id/verify', async (req, res) => {
         gold_medals: payload.gold_medals,
         wins: payload.wins,
         best_results: payload.best_results || [],
+        competition_standings: payload.competition_standings || [],
         judoka: payload.judoka,
       };
     } catch {

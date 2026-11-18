@@ -894,6 +894,46 @@ export async function getRankingBoard(user, {
   };
 }
 
+function sameCompetitionField(a, b) {
+  return String(a.competition_name || '').trim().toLowerCase()
+      === String(b.competition_name || '').trim().toLowerCase()
+    && String(a.categorie_poids || '').trim().toLowerCase()
+      === String(b.categorie_poids || '').trim().toLowerCase()
+    && String(a.judoka_sexe || 'M').toUpperCase().startsWith('F')
+      === String(b.judoka_sexe || 'M').toUpperCase().startsWith('F')
+    && String(a.categorie_age || 'Seniors').trim().toLowerCase()
+      === String(b.categorie_age || 'Seniors').trim().toLowerCase();
+}
+
+/** Nombre d'athlètes distincts dans le même tableau (compétition + catégorie). */
+function competitionFieldSize(allResults, result) {
+  const keys = new Set();
+  for (const row of allResults) {
+    if (!sameCompetitionField(row, result)) continue;
+    keys.add(athleteKey(row));
+  }
+  return keys.size;
+}
+
+function enrichResultsWithFieldSize(results, allResults) {
+  return (results || []).map((r) => ({
+    ...r,
+    field_size: competitionFieldSize(allResults, r),
+  }));
+}
+
+function boardRowMatchesJudoka(row, judoka) {
+  if (!row || !judoka) return false;
+  if (row.judoka_id && String(row.judoka_id) === String(judoka.id)) return true;
+  return athleteNameKey({
+    judoka_nom: row.nom,
+    judoka_prenom: row.prenom,
+  }) === athleteNameKey({
+    judoka_nom: judoka.nom,
+    judoka_prenom: judoka.prenom,
+  });
+}
+
 /** Calcul Ranking pour un judoka (sans contrôle d'accès). */
 export async function buildAthleteRankingPayload(judoka, federationId = null) {
   if (!judoka?.id) throw new Error('Athlète introuvable');
@@ -930,17 +970,25 @@ export async function buildAthleteRankingPayload(judoka, federationId = null) {
     if (!byAthlete.has(key)) byAthlete.set(key, []);
     byAthlete.get(key).push(r);
   }
-  const board = [...byAthlete.values()]
+  // Fusionner les entrées du même athlète (id vs nom) pour un classement cohérent
+  const mergedByName = new Map();
+  for (const rows of byAthlete.values()) {
+    const agg = aggregateAthlete(rows, rules);
+    const nameKey = athleteNameKey({
+      judoka_nom: agg.nom,
+      judoka_prenom: agg.prenom,
+    });
+    if (!mergedByName.has(nameKey)) {
+      mergedByName.set(nameKey, rows);
+      continue;
+    }
+    mergedByName.set(nameKey, [...mergedByName.get(nameKey), ...rows]);
+  }
+  const board = [...mergedByName.values()]
     .map((rows) => aggregateAthlete(rows, rules))
     .sort(compareAthletes)
     .map((row, index) => ({ ...row, rank: index + 1 }));
 
-  const selfKey = athleteKey({
-    judoka_id: judoka.id,
-    judoka_nom: judoka.nom,
-    judoka_prenom: judoka.prenom,
-    judoka_club: judoka.club,
-  });
   const selfAgg = athleteResults.length
     ? aggregateAthlete(athleteResults, rules)
     : {
@@ -959,14 +1007,27 @@ export async function buildAthleteRankingPayload(judoka, federationId = null) {
       best_results: [],
       all_results: [],
     };
-  const rankedSelf = board.find((b) =>
-    (b.judoka_id && String(b.judoka_id) === String(judoka.id))
-    || athleteKey({
-      judoka_id: b.judoka_id,
-      judoka_nom: b.nom,
-      judoka_prenom: b.prenom,
-    }) === selfKey
-  );
+  let rankedBoard = board;
+  let rankedSelf = rankedBoard.find((b) => boardRowMatchesJudoka(b, judoka));
+  // Si l'athlète a des points mais n'est pas dans le board (clé id/nom divergente), l'insérer
+  if (!rankedSelf && athleteResults.length) {
+    rankedBoard = [...board, { ...selfAgg, rank: 0 }]
+      .sort(compareAthletes)
+      .map((row, index) => ({ ...row, rank: index + 1 }));
+    rankedSelf = rankedBoard.find((b) => boardRowMatchesJudoka(b, judoka)) || null;
+  }
+
+  const bestResults = enrichResultsWithFieldSize(selfAgg.best_results, all);
+  const allResults = enrichResultsWithFieldSize(selfAgg.all_results, all);
+  const competitionStandings = allResults.map((r) => ({
+    id: r.id,
+    competition_name: r.competition_name,
+    competition_level: r.competition_level,
+    place: Number(r.place) || 0,
+    field_size: r.field_size || 0,
+    points: Number(r.points) || 0,
+    categorie_poids: r.categorie_poids || weight,
+  }));
 
   return {
     judoka: {
@@ -983,13 +1044,14 @@ export async function buildAthleteRankingPayload(judoka, federationId = null) {
     categorie_age: age,
     categorie_poids: weight,
     rank: rankedSelf?.rank || null,
-    category_size: board.length,
+    category_size: rankedBoard.length,
     points: selfAgg.points,
     gold_medals: selfAgg.gold_medals,
     wins: selfAgg.wins,
-    best_results: selfAgg.best_results,
-    all_results: selfAgg.all_results,
-    category_board: board.slice(0, 20),
+    best_results: bestResults,
+    all_results: allResults,
+    competition_standings: competitionStandings,
+    category_board: rankedBoard.slice(0, 20),
     rules,
   };
 }
