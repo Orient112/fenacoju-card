@@ -894,16 +894,11 @@ export async function getRankingBoard(user, {
   };
 }
 
-export async function getAthleteRanking(user, judokaId) {
-  if (!canViewRanking(user)) throw new Error('Accès Ranking non autorisé');
-  const judoka = (await getAllJudokas()).find((j) => String(j.id) === String(judokaId));
-  if (!judoka) throw new Error('Athlète introuvable');
+/** Calcul Ranking pour un judoka (sans contrôle d'accès). */
+export async function buildAthleteRankingPayload(judoka, federationId = null) {
+  if (!judoka?.id) throw new Error('Athlète introuvable');
 
-  const users = await getAllUsers();
-  const scoped = filterJudokas([judoka], user, users);
-  if (!scoped.length) throw new Error('Accès non autorisé à cet athlète');
-
-  const fedId = getUserFederationId(user) || judoka.federation_id || DEFAULT_JUDO_FEDERATION_ID;
+  const fedId = federationId || judoka.federation_id || DEFAULT_JUDO_FEDERATION_ID;
   const rules = await getRankingRules(fedId);
   const season = rules.season_label;
   const all = (await readAllResults()).filter((r) =>
@@ -912,7 +907,7 @@ export async function getAthleteRanking(user, judokaId) {
   );
 
   const athleteResults = all.filter((r) =>
-    String(r.judoka_id || '') === String(judokaId)
+    String(r.judoka_id || '') === String(judoka.id)
     || (
       String(r.judoka_nom || '').toLowerCase() === String(judoka.nom || '').toLowerCase()
       && String(r.judoka_prenom || '').toLowerCase() === String(judoka.prenom || '').toLowerCase()
@@ -997,4 +992,19 @@ export async function getAthleteRanking(user, judokaId) {
     category_board: board.slice(0, 20),
     rules,
   };
+}
+
+export async function getAthleteRanking(user, judokaId) {
+  if (!canViewRanking(user)) throw new Error('Accès Ranking non autorisé');
+  const judoka = (await getAllJudokas()).find((j) => String(j.id) === String(judokaId));
+  if (!judoka) throw new Error('Athlète introuvable');
+
+  const users = await getAllUsers();
+  const scoped = filterJudokas([judoka], user, users);
+  if (!scoped.length) throw new Error('Accès non autorisé à cet athlète');
+
+  return buildAthleteRankingPayload(
+    judoka,
+    getUserFederationId(user) || judoka.federation_id || DEFAULT_JUDO_FEDERATION_ID
+  );
 }

@@ -3178,6 +3178,78 @@ tbody tr:last-child td {
   gap: 1rem;
 }
 
+.login-id-modal-wide {
+  width: min(720px, 96vw);
+  max-height: 92vh;
+  overflow: auto;
+  align-items: stretch;
+}
+
+.login-id-identity {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.login-id-ranking {
+  width: 100%;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 1rem;
+}
+
+.login-id-ranking-head {
+  margin-bottom: 0.85rem;
+}
+
+.login-id-ranking-kicker {
+  margin: 0 0 0.2rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.login-id-ranking-head h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #0f172a;
+}
+
+.login-id-ranking-stats {
+  margin-bottom: 0.85rem;
+}
+
+.login-id-ranking-block {
+  margin-bottom: 0.85rem;
+}
+
+.login-id-ranking-block h4 {
+  margin: 0 0 0.45rem;
+  font-size: 0.92rem;
+  color: #0f172a;
+}
+
+.login-id-ranking-table-wrap {
+  overflow-x: auto;
+}
+
+.login-id-ranking-table-wrap tr.is-self {
+  background: #eff6ff;
+}
+
+@media (min-width: 640px) {
+  .login-id-identity {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+
+  .login-id-identity .login-id-fields {
+    flex: 1;
+  }
+}
+
 .login-id-photo-wrap {
   width: 120px;
   height: 120px;

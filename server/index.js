@@ -138,6 +138,7 @@ import {
   canViewRanking,
   deleteAthleteRankingResults,
   deleteRankingResult,
+  buildAthleteRankingPayload,
   getAthleteRanking,
   getDefaultRankingRules,
   getRankingBoard,
@@ -956,15 +957,47 @@ app.post('/api/public/judoka-id/verify', async (req, res) => {
     if (!judoka) {
       return res.json({ found: false });
     }
+
+    let ranking = null;
+    try {
+      const payload = await buildAthleteRankingPayload(judoka);
+      ranking = {
+        season_label: payload.season_label,
+        categorie_age: payload.categorie_age,
+        categorie_poids: payload.categorie_poids,
+        rank: payload.rank,
+        category_size: payload.category_size,
+        points: payload.points,
+        gold_medals: payload.gold_medals,
+        wins: payload.wins,
+        best_results: payload.best_results || [],
+        category_board: (payload.category_board || []).map((row) => ({
+          rank: row.rank,
+          nom: row.nom,
+          prenom: row.prenom,
+          club: row.club,
+          points: row.points,
+          judoka_id: row.judoka_id,
+        })),
+        judoka: payload.judoka,
+      };
+    } catch {
+      ranking = null;
+    }
+
     res.json({
       found: true,
+      id: judoka.id || null,
       numero_carte: judoka.numero_carte || carte,
       nom: judoka.nom || '',
       prenom: judoka.prenom || '',
       club: judoka.club || '',
       grade: judoka.grade || '',
+      categorie: judoka.categorie || '',
+      sexe: judoka.sexe || '',
       statut: judoka.statut || '',
       photo: judoka.photo || '',
+      ranking,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

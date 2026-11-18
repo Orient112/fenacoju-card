@@ -65,6 +65,8 @@ export default function Login({ onLogin }) {
   };
 
   const photoUrl = idResult?.photo ? resolveMediaUrl(idResult.photo) : '';
+  const ranking = idResult?.ranking || null;
+  const athleteId = idResult?.id || ranking?.judoka?.id;
 
   return (
     <div className="login-page">
@@ -187,36 +189,142 @@ export default function Login({ onLogin }) {
 
       {idResult?.found && (
         <div className="confirm-overlay login-id-overlay" onClick={backToLogin}>
-          <div className="login-id-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="login-id-photo-wrap">
-              {photoUrl ? (
-                <img src={photoUrl} alt={`${idResult.prenom || ''} ${idResult.nom || ''}`.trim()} />
-              ) : (
-                <div className="login-id-photo-fallback">
-                  {(idResult.prenom || idResult.nom || '?').charAt(0).toUpperCase()}
-                </div>
-              )}
-            </div>
-            <div className="login-id-fields">
-              <div>
-                <span>Nom</span>
-                <strong>{idResult.prenom} {idResult.nom}</strong>
+          <div className="login-id-modal login-id-modal-wide" onClick={(e) => e.stopPropagation()}>
+            <div className="login-id-identity">
+              <div className="login-id-photo-wrap">
+                {photoUrl ? (
+                  <img src={photoUrl} alt={`${idResult.prenom || ''} ${idResult.nom || ''}`.trim()} />
+                ) : (
+                  <div className="login-id-photo-fallback">
+                    {(idResult.prenom || idResult.nom || '?').charAt(0).toUpperCase()}
+                  </div>
+                )}
               </div>
-              <div>
-                <span>Club</span>
-                <strong>{idResult.club || '-'}</strong>
-              </div>
-              <div>
-                <span>Ceinture</span>
-                <strong>{idResult.grade || '-'}</strong>
-              </div>
-              {idResult.numero_carte ? (
+              <div className="login-id-fields">
                 <div>
-                  <span>ID</span>
-                  <strong>{idResult.numero_carte}</strong>
+                  <span>Nom</span>
+                  <strong>{idResult.prenom} {idResult.nom}</strong>
                 </div>
-              ) : null}
+                <div>
+                  <span>Club</span>
+                  <strong>{idResult.club || '-'}</strong>
+                </div>
+                <div>
+                  <span>Ceinture</span>
+                  <strong>{idResult.grade || '-'}</strong>
+                </div>
+                {idResult.numero_carte ? (
+                  <div>
+                    <span>ID</span>
+                    <strong>{idResult.numero_carte}</strong>
+                  </div>
+                ) : null}
+              </div>
             </div>
+
+            <section className="login-id-ranking" aria-label="Ranking athlète">
+              <header className="login-id-ranking-head">
+                <p className="login-id-ranking-kicker">Ranking</p>
+                <h3>Classement de l&apos;athlète</h3>
+                {ranking?.season_label ? (
+                  <p className="form-hint">{ranking.season_label}</p>
+                ) : null}
+              </header>
+
+              {!ranking ? (
+                <p className="form-hint">Aucun Ranking disponible pour le moment.</p>
+              ) : (
+                <>
+                  <div className="athlete-ranking-stats login-id-ranking-stats">
+                    <div>
+                      <span>Classement</span>
+                      <strong>
+                        {ranking.rank ? `#${ranking.rank}` : '-'}
+                        {ranking.category_size ? ` / ${ranking.category_size}` : ''}
+                      </strong>
+                    </div>
+                    <div>
+                      <span>Points</span>
+                      <strong>{ranking.points || 0}</strong>
+                    </div>
+                    <div>
+                      <span>Catégorie</span>
+                      <strong>
+                        {ranking.categorie_age || 'Seniors'}
+                        {' · '}
+                        {(idResult.sexe || ranking.judoka?.sexe || '').toString().toUpperCase().startsWith('F') ? 'F' : 'M'}
+                        {' · '}
+                        {ranking.categorie_poids || idResult.categorie || '-'}
+                      </strong>
+                    </div>
+                    <div>
+                      <span>Médailles d&apos;or</span>
+                      <strong>{ranking.gold_medals || 0}</strong>
+                    </div>
+                  </div>
+
+                  <div className="login-id-ranking-block">
+                    <h4>Meilleures performances</h4>
+                    {(ranking.best_results || []).length === 0 ? (
+                      <p className="form-hint">Aucun résultat Ranking pour cet athlète.</p>
+                    ) : (
+                      <ul className="athlete-ranking-results">
+                        {ranking.best_results.map((r) => (
+                          <li key={r.id || `${r.competition_name}-${r.place}-${r.points}`}>
+                            <strong>{r.competition_name}</strong>
+                            <small>
+                              Niveau {r.competition_level}
+                              {' · '}
+                              Place {r.place || 'participation'}
+                              {' · '}
+                              {r.points} pts
+                            </small>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+
+                  <div className="login-id-ranking-block">
+                    <h4>Top catégorie de poids</h4>
+                    {(ranking.category_board || []).length === 0 ? (
+                      <p className="form-hint">Pas encore de classement dans cette catégorie.</p>
+                    ) : (
+                      <div className="login-id-ranking-table-wrap">
+                        <table className="data-table">
+                          <thead>
+                            <tr>
+                              <th>#</th>
+                              <th>Athlète</th>
+                              <th>Club</th>
+                              <th>Points</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {ranking.category_board.map((row) => (
+                              <tr
+                                key={`${row.rank}-${row.nom}-${row.prenom}`}
+                                className={
+                                  athleteId && row.judoka_id && String(row.judoka_id) === String(athleteId)
+                                    ? 'is-self'
+                                    : ''
+                                }
+                              >
+                                <td>{row.rank}</td>
+                                <td>{row.prenom} {row.nom}</td>
+                                <td>{row.club || '-'}</td>
+                                <td><strong>{row.points}</strong></td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </section>
+
             <button type="button" className="btn login-mon-id-btn" onClick={backToLogin}>
               Retour connexion
             </button>
