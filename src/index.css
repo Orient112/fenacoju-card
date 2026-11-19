@@ -1699,6 +1699,16 @@ tbody tr:last-child td {
     padding-bottom: 0.5rem;
   }
 
+  .dashboard-main-scroll .search-bar {
+    order: -1;
+    position: sticky;
+    top: 0;
+    z-index: 6;
+    background: rgba(255, 255, 255, 0.98);
+    backdrop-filter: blur(6px);
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+  }
+
   .dashboard-main-scroll .table-card {
     flex: none;
     overflow: visible;
@@ -1708,7 +1718,7 @@ tbody tr:last-child td {
   .mobile-nav-backdrop {
     position: fixed;
     inset: 0;
-    z-index: 190;
+    z-index: 180;
     border: none;
     padding: 0;
     margin: 0;
@@ -1741,6 +1751,10 @@ tbody tr:last-child td {
     border-image: none;
     overflow: visible;
     z-index: 120;
+  }
+
+  .header.is-mobile-nav-open {
+    z-index: 200;
   }
 
   .header-brand {

@@ -28,6 +28,9 @@ export default function AthleteRankingModal({ judoka, onClose, onToast }) {
     return () => { cancelled = true; };
   }, [judoka?.id, onToast]);
 
+  const standings = data?.competition_standings || [];
+  const bestResults = data?.best_results || [];
+
   return (
     <div className="confirm-overlay" role="dialog" aria-modal="true" onClick={onClose}>
       <div className="athlete-ranking-modal" onClick={(e) => e.stopPropagation()}>
@@ -42,6 +45,9 @@ export default function AthleteRankingModal({ judoka, onClose, onToast }) {
               {judoka?.categorie ? ` · ${judoka.categorie}` : ''}
               {judoka?.numero_carte ? ` · ${judoka.numero_carte}` : ''}
             </p>
+            {data?.season_label ? (
+              <p className="form-hint">{data.season_label}</p>
+            ) : null}
           </div>
           <button type="button" className="btn btn-sm btn-outline" onClick={onClose}>Fermer</button>
         </header>
@@ -53,12 +59,28 @@ export default function AthleteRankingModal({ judoka, onClose, onToast }) {
         ) : data ? (
           <div className="athlete-ranking-body">
             <div className="athlete-ranking-stats">
-              <div>
+              <div className="login-id-classement-cell">
                 <span>Classement</span>
-                <strong>
-                  {data.rank ? `#${data.rank}` : '-'}
-                  {data.category_size ? ` / ${data.category_size}` : ''}
-                </strong>
+                {standings.length > 0 ? (
+                  <ul className="login-id-classement-list">
+                    {standings.map((r) => (
+                      <li key={r.id || `${r.competition_name}-${r.place}`}>
+                        <em>{r.competition_name || 'Compétition'}</em>
+                        <strong>
+                          {Number(r.place) > 0 ? r.place : '-'}
+                          {' / '}
+                          {Number(r.field_size) > 0 ? r.field_size : '-'}
+                        </strong>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <strong>
+                    {data.rank ? data.rank : '-'}
+                    {' / '}
+                    {data.category_size ? data.category_size : '-'}
+                  </strong>
+                )}
               </div>
               <div>
                 <span>Points</span>
@@ -69,64 +91,38 @@ export default function AthleteRankingModal({ judoka, onClose, onToast }) {
                 <strong>
                   {data.categorie_age || 'Seniors'}
                   {' · '}
-                  {data.judoka?.sexe === 'F' ? 'F' : 'M'}
+                  {(data.judoka?.sexe || judoka?.sexe || '').toString().toUpperCase().startsWith('F') ? 'F' : 'M'}
                   {' · '}
-                  {data.categorie_poids || data.judoka?.categorie || '-'}
+                  {data.categorie_poids || data.judoka?.categorie || judoka?.categorie || '-'}
                 </strong>
               </div>
               <div>
-                <span>Saison</span>
-                <strong>{data.season_label || '-'}</strong>
+                <span>Médailles d&apos;or</span>
+                <strong>{data.gold_medals || 0}</strong>
               </div>
             </div>
 
             <section>
               <h4>Meilleures performances</h4>
-              {(data.best_results || []).length === 0 ? (
+              {bestResults.length === 0 ? (
                 <p className="form-hint">Aucun résultat Ranking pour cet athlète.</p>
               ) : (
                 <ul className="athlete-ranking-results">
-                  {data.best_results.map((r) => (
-                    <li key={r.id}>
+                  {bestResults.map((r) => (
+                    <li key={r.id || `${r.competition_name}-${r.place}-${r.points}`}>
                       <strong>{r.competition_name}</strong>
                       <small>
                         Niveau {r.competition_level}
                         {' · '}
-                        Place {r.place || 'participation'}
+                        Place{' '}
+                        {Number(r.place) > 0 ? r.place : 'participation'}
+                        {Number(r.field_size) > 0 ? ` / ${r.field_size}` : ''}
                         {' · '}
                         {r.points} pts
                       </small>
                     </li>
                   ))}
                 </ul>
-              )}
-            </section>
-
-            <section>
-              <h4>Top catégorie de poids</h4>
-              {(data.category_board || []).length === 0 ? (
-                <p className="form-hint">Pas encore de classement dans cette catégorie.</p>
-              ) : (
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>Athlète</th>
-                      <th>Club</th>
-                      <th>Points</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.category_board.map((row) => (
-                      <tr key={`${row.rank}-${row.nom}-${row.prenom}`} className={row.judoka_id === judoka.id ? 'is-self' : ''}>
-                        <td>{row.rank}</td>
-                        <td>{row.prenom} {row.nom}</td>
-                        <td>{row.club || '-'}</td>
-                        <td><strong>{row.points}</strong></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
               )}
             </section>
           </div>
