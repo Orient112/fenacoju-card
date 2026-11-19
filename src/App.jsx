@@ -267,6 +267,7 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [view, setView] = useState('list');
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [dashboardTab, setDashboardTab] = useState('judokas');
   const [stats, setStats] = useState({ total: 0, actifs: 0, clubs: 0, entraineurs: 0, pendingAccounts: 0, arbitres: 0 });
   const [judokas, setJudokas] = useState([]);
@@ -424,6 +425,14 @@ export default function App() {
       clearTimeout(timeout);
       window.removeEventListener('auth:logout', handleLogout);
     };
+  }, []);
+
+  useEffect(() => {
+    const closeMobileNavOnDesktop = () => {
+      if (window.innerWidth > 768) setMobileNavOpen(false);
+    };
+    window.addEventListener('resize', closeMobileNavOnDesktop);
+    return () => window.removeEventListener('resize', closeMobileNavOnDesktop);
   }, []);
 
   const loadData = useCallback(async (options = {}) => {
@@ -1822,12 +1831,15 @@ export default function App() {
       </main>
         </div>
 
-        <header className="header app-rail">
+        <header className={`header app-rail${mobileNavOpen ? ' is-mobile-nav-open' : ''}`}>
           <div className="header-brand">
             <img src={brandLogo} alt="" className="header-logo-img" width="52" height="52" decoding="async" />
-            <div>
+            <div className="header-brand-copy">
               <h1>{brandTitle}</h1>
-              <p>
+              <p className="header-brand-profile">
+                {getUserDisplayName(user) || getRoleLabel(user) || 'Profil'}
+              </p>
+              <p className="header-brand-desc">
                 {user.type === 'superadmin'
                   ? 'Console SuperAdmin - gestion des fédérations'
                   : user.type === 'ligue'
@@ -1839,8 +1851,26 @@ export default function App() {
                         : 'Système intégral de gestion des arts martiaux'}
               </p>
             </div>
+            <button
+              type="button"
+              className={`mobile-nav-toggle${mobileNavOpen ? ' is-open' : ''}`}
+              aria-expanded={mobileNavOpen}
+              aria-controls="app-header-nav"
+              aria-label={mobileNavOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
+              onClick={() => setMobileNavOpen((open) => !open)}
+            >
+              <span />
+              <span />
+              <span />
+            </button>
           </div>
-          <nav className="header-nav">
+          <nav
+            id="app-header-nav"
+            className="header-nav"
+            onClick={(e) => {
+              if (e.target.closest('button.nav-btn')) setMobileNavOpen(false);
+            }}
+          >
             <button
               className={`nav-btn ${view === 'list' && (user.type !== 'superadmin' || dashboardTab !== 'federations') ? 'active' : ''}`}
               onClick={() => {
