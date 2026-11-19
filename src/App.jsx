@@ -1452,6 +1452,78 @@ export default function App() {
               </div>
             )}
 
+            {dashboardTab === 'judokas' && showJudokasTab && (
+              <div className="search-bar dashboard-search-fixed">
+                <input
+                  className="search-input"
+                  type="text"
+                  placeholder="Rechercher par nom, club, n° de carte..."
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                />
+                {perms.refreshList !== false && user.type !== 'entraineur' && (
+                  <button className="btn btn-outline" onClick={loadData} disabled={loading}>
+                    {loading ? 'Chargement...' : 'Actualiser'}
+                  </button>
+                )}
+                {perms.createJudokas && (
+                  <button className="btn btn-accent" onClick={openNewJudoka}>
+                    Nouvel athlète
+                  </button>
+                )}
+              </div>
+            )}
+
+            {showUserTabs && (
+              <div className="search-bar dashboard-search-fixed">
+                <input
+                  className="search-input"
+                  type="text"
+                  placeholder="Rechercher..."
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                />
+                <button className="btn btn-outline" onClick={() => loadData()} disabled={loading}>
+                  {loading ? 'Chargement...' : 'Actualiser'}
+                </button>
+                {dashboardTab === 'entraineurs' && user.type === 'club' && perms.createTypes?.includes('entraineur') && (
+                  <button className="btn btn-primary" onClick={openNewEntraineur}>
+                    Nouvel Entraineur
+                  </button>
+                )}
+                {dashboardTab === 'ententes' && user.type === 'ligue' && perms.createTypes?.includes('entente') && (
+                  <button className="btn btn-primary" onClick={openNewEntente}>
+                    Nouvelle Entente
+                  </button>
+                )}
+                {dashboardTab === 'clubs' && user.type === 'entente' && perms.createTypes?.includes('club') && (
+                  <button className="btn btn-primary" onClick={openNewClub}>
+                    Nouvel Club
+                  </button>
+                )}
+              </div>
+            )}
+
+            {showArbitresTab && (
+              <div className="search-bar dashboard-search-fixed">
+                <input
+                  className="search-input"
+                  type="text"
+                  placeholder="Rechercher un arbitre..."
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                />
+                <button className="btn btn-outline" onClick={() => loadData()} disabled={loading}>
+                  {loading ? 'Chargement...' : 'Actualiser'}
+                </button>
+                {canCreateArbitres && (
+                  <button className="btn btn-accent" onClick={openNewArbitre}>
+                    Nouvel arbitre
+                  </button>
+                )}
+              </div>
+            )}
+
             <div className="dashboard-main-scroll">
             {user.type === 'entente' && perms.viewStats && Array.isArray(stats.gradesBreakdown) && stats.gradesBreakdown.length > 0 && (
               <div className="entente-grades-panel">
@@ -1526,26 +1598,6 @@ export default function App() {
                   />
                 )}
 
-                <div className="search-bar">
-                  <input
-                    className="search-input"
-                    type="text"
-                    placeholder="Rechercher par nom, club, n° de carte..."
-                    value={searchInput}
-                    onChange={(e) => setSearchInput(e.target.value)}
-                  />
-                  {perms.refreshList !== false && user.type !== 'entraineur' && (
-                    <button className="btn btn-outline" onClick={loadData} disabled={loading}>
-                      {loading ? 'Chargement...' : 'Actualiser'}
-                    </button>
-                  )}
-                  {perms.createJudokas && (
-                    <button className="btn btn-accent" onClick={openNewJudoka}>
-                      Nouvel athlète
-                    </button>
-                  )}
-                </div>
-
                 <div className="table-section-header">
                   <h2>{getSectionTitle('judokas', user, fedSettings)}</h2>
                   <div className="table-header-actions">
@@ -1599,34 +1651,6 @@ export default function App() {
 
             {showUserTabs && (
               <>
-                <div className="search-bar">
-                  <input
-                    className="search-input"
-                    type="text"
-                    placeholder="Rechercher..."
-                    value={searchInput}
-                    onChange={(e) => setSearchInput(e.target.value)}
-                  />
-                  <button className="btn btn-outline" onClick={() => loadData()} disabled={loading}>
-                    {loading ? 'Chargement...' : 'Actualiser'}
-                  </button>
-                  {dashboardTab === 'entraineurs' && user.type === 'club' && perms.createTypes?.includes('entraineur') && (
-                    <button className="btn btn-primary" onClick={openNewEntraineur}>
-                      Nouvel Entraineur
-                    </button>
-                  )}
-                  {dashboardTab === 'ententes' && user.type === 'ligue' && perms.createTypes?.includes('entente') && (
-                    <button className="btn btn-primary" onClick={openNewEntente}>
-                      Nouvelle Entente
-                    </button>
-                  )}
-                  {dashboardTab === 'clubs' && user.type === 'entente' && perms.createTypes?.includes('club') && (
-                    <button className="btn btn-primary" onClick={openNewClub}>
-                      Nouvel Club
-                    </button>
-                  )}
-                </div>
-
                 <div className="table-section-header">
                   <h2>{getSectionTitle(dashboardTab, user, fedSettings)}</h2>
                 </div>
@@ -1673,23 +1697,6 @@ export default function App() {
 
             {showArbitresTab && (
               <>
-                <div className="search-bar">
-                  <input
-                    className="search-input"
-                    type="text"
-                    placeholder="Rechercher un arbitre..."
-                    value={searchInput}
-                    onChange={(e) => setSearchInput(e.target.value)}
-                  />
-                  <button className="btn btn-outline" onClick={() => loadData()} disabled={loading}>
-                    {loading ? 'Chargement...' : 'Actualiser'}
-                  </button>
-                  {canCreateArbitres && (
-                    <button className="btn btn-accent" onClick={openNewArbitre}>
-                      Nouvel arbitre
-                    </button>
-                  )}
-                </div>
                 <div className="table-section-header">
                   <h2>{getSectionTitle('arbitres', user, fedSettings)}</h2>
                 </div>

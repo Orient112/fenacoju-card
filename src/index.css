@@ -420,7 +420,8 @@ canvas {
   overflow: hidden;
 }
 
-.dashboard-workspace > .stats-grid {
+.dashboard-workspace > .stats-grid,
+.dashboard-workspace > .dashboard-search-fixed {
   flex-shrink: 0;
 }
 
@@ -434,7 +435,6 @@ canvas {
 }
 
 .dashboard-main-scroll > .dashboard-tabs,
-.dashboard-main-scroll > .search-bar,
 .dashboard-main-scroll > .club-info-panel,
 .dashboard-main-scroll > .table-section-header,
 .dashboard-main-scroll > .entente-grades-panel {
@@ -1690,6 +1690,14 @@ tbody tr:last-child td {
     padding-bottom: 0.15rem;
   }
 
+  .dashboard-workspace > .dashboard-search-fixed {
+    flex-shrink: 0;
+    position: relative;
+    z-index: 5;
+    margin-bottom: 0.65rem;
+    background: rgba(255, 255, 255, 0.98);
+  }
+
   .dashboard-main-scroll {
     flex: 1;
     min-height: 0;
@@ -1699,20 +1707,12 @@ tbody tr:last-child td {
     padding-bottom: 0.5rem;
   }
 
-  .dashboard-main-scroll .search-bar {
-    order: -1;
-    position: sticky;
-    top: 0;
-    z-index: 6;
-    background: rgba(255, 255, 255, 0.98);
-    backdrop-filter: blur(6px);
-    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
-  }
-
   .dashboard-main-scroll .table-card {
     flex: none;
-    overflow: visible;
+    overflow-x: auto;
+    overflow-y: visible;
     min-height: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .mobile-nav-backdrop {
