@@ -1452,6 +1452,7 @@ export default function App() {
               </div>
             )}
 
+            <div className="dashboard-main-scroll">
             {user.type === 'entente' && perms.viewStats && Array.isArray(stats.gradesBreakdown) && stats.gradesBreakdown.length > 0 && (
               <div className="entente-grades-panel">
                 <h4>Athlètes par ceinture / grade</h4>
@@ -1717,6 +1718,7 @@ export default function App() {
                 <p>Votre fonction ({getRoleLabel(user)}) ne donne pas accès à la liste des {L('judokas').toLowerCase()}.</p>
               </div>
             )}
+            </div>
           </div>
         )}
 
@@ -1831,6 +1833,14 @@ export default function App() {
       </main>
         </div>
 
+        {mobileNavOpen && (
+          <button
+            type="button"
+            className="mobile-nav-backdrop"
+            aria-label="Fermer le menu"
+            onClick={() => setMobileNavOpen(false)}
+          />
+        )}
         <header className={`header app-rail${mobileNavOpen ? ' is-mobile-nav-open' : ''}`}>
           <div className="header-brand">
             <img src={brandLogo} alt="" className="header-logo-img" width="52" height="52" decoding="async" />
